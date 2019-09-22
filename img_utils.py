@@ -96,27 +96,27 @@ def get_praf1(arr_2d=None, truth=None):
     }
 
 
-def rescale2d_unsigned(arr):
+def rescale2d(arr):
     m = np.max(arr)
     n = np.min(arr)
     return (arr - n) / (m - n)
 
 
-def rescale3d_unsigned(arrays):
-    return list(rescale2d_unsigned(arr) for arr in arrays)
+def rescale3d(arrays):
+    return list(rescale2d(arr) for arr in arrays)
 
 
 def get_signed_diff_int8(image_arr1=None, image_arr2=None):
     signed_diff = np.array(image_arr1 - image_arr2, dtype=np.int8)
     fx = np.array(signed_diff - np.min(signed_diff), np.uint8)
-    fx = rescale2d_unsigned(fx)
+    fx = rescale2d(fx)
     return np.array(fx * 255, np.uint8)
 
 
 def whiten_image2d(img_arr2d=None):
     img_arr2d = img_arr2d.copy()
     img_arr2d = (img_arr2d - img_arr2d.mean()) / img_arr2d.std()
-    return np.array(rescale2d_unsigned(img_arr2d) * 255, dtype=np.uint8)
+    return np.array(rescale2d(img_arr2d) * 255, dtype=np.uint8)
 
 
 def get_image_as_array(image_file, channels=3):
