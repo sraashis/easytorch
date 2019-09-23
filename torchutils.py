@@ -52,7 +52,7 @@ class NNTrainer:
 
         # Logging
         self.log_headers = self.get_log_headers()
-        self.log_dir = self.conf.get('logs', 'net_logs')
+        self.log_dir = self.conf.get('logs_dir', 'net_logs')
         os.makedirs(self.log_dir, exist_ok=True)
         log_key = self.conf.get('checkpoint_file', 'checkpoint').split('.')[0]
         self.checkpoint_file = os.path.join(self.log_dir, log_key + '.tar')
