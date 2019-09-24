@@ -6,8 +6,8 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
 import nnviz as viz
-import sys
 from measurements import ScoreAccumulator
+import sys
 
 
 def safe_collate(batch):
@@ -15,6 +15,7 @@ def safe_collate(batch):
 
 
 class NNDataLoader(DataLoader):
+
     def __init__(self, **kw):
         super(NNDataLoader, self).__init__(**kw)
 
@@ -28,9 +29,9 @@ class NNDataLoader(DataLoader):
             'num_workers': None,
             'pin_memory': False,
             'drop_last': False,
-            'timeout': 0,
-            'worker_init_fn': None,
-            'multiprocessing_context': None
+            'timeout': 0
+            # 'worker_init_fn': None,
+            # 'multiprocessing_context': None
         }
         for k in _kw.keys():
             _kw[k] = kw.get(k, _kw.get(k))
@@ -52,7 +53,7 @@ class NNTrainer:
 
         # Logging
         self.log_headers = self.get_log_headers()
-        self.log_dir = self.conf.get('logs_dir', 'net_logs')
+        self.log_dir = self.conf.get('log_dir', 'net_logs')
         os.makedirs(self.log_dir, exist_ok=True)
         log_key = self.conf.get('checkpoint_file', 'checkpoint').split('.')[0]
         self.checkpoint_file = os.path.join(self.log_dir, log_key + '.tar')
