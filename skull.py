@@ -26,23 +26,22 @@ from torchutils import NNTrainer, NNDataLoader
 from PIL import Image as Image
 
 transforms = tmf.Compose([
-    tmf.Resize((512, 512), interpolation=2),
+    tmf.Resize((252, 252), interpolation=2),
     tmf.RandomHorizontalFlip(),
     tmf.RandomVerticalFlip(),
     tmf.ToTensor()
 ])
 
 test_transforms = tmf.Compose([
-    tmf.Resize((512, 512), interpolation=2),
+    tmf.Resize((252, 252), interpolation=2),
     tmf.ToTensor()
 ])
 
 from torch.utils.data._utils.collate import default_collate
 
-tmf.ToPILImage
+
 def clean_collate(batch):
     return default_collate([b for b in batch if b])
-
 
 
 class SkullDataset(Dataset):
@@ -178,9 +177,8 @@ class SkullNet(nn.Module):
         self.C2 = _DoubleConvolution(int(64 / self.reduce_by), int(128 / self.reduce_by), int(128 / self.reduce_by))
         self.C3 = _DoubleConvolution(int(128 / self.reduce_by), int(256 / self.reduce_by), int(256 / self.reduce_by))
         self.C4 = _DoubleConvolution(int(256 / self.reduce_by), int(512 / self.reduce_by), int(256 / self.reduce_by))
-        self.C5 = _DoubleConvolution(int(256 / self.reduce_by), int(128 / self.reduce_by), int(128 / self.reduce_by))
-        self.C6 = _DoubleConvolution(int(128 / self.reduce_by), int(32 / self.reduce_by), 4)
-        self.fc1 = nn.Linear(4 * 8 * 8, 64)
+        self.C5 = _DoubleConvolution(int(256 / self.reduce_by), int(128 / self.reduce_by), int(64 / self.reduce_by))
+        self.fc1 = nn.Linear(32 * 8 * 8, 64)
         self.fc2 = nn.Linear(64, 12)
 
     def forward(self, x):
@@ -197,11 +195,8 @@ class SkullNet(nn.Module):
         c4_mxp = F.max_pool2d(c4, kernel_size=2, stride=2)
 
         c5 = self.C5(c4_mxp)
-        c5_mxp = F.max_pool2d(c5, kernel_size=2, stride=2)
 
-        c6 = self.C6(c5_mxp)
-
-        fc1 = self.fc1(c6.view(-1, 4 * 8 * 8))
+        fc1 = self.fc1(c5.view(-1, 32 * 8 * 8))
         fc2 = self.fc2(fc1)
         out = fc2.view(fc2.shape[0], 2, -1)
         return out
@@ -349,13 +344,13 @@ test_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
 SKDB = {
     'input_channels': 1,
     'num_classes': 2,
-    'batch_size': 16,
-    'epochs': 10,
+    'batch_size': 32,
+    'epochs': 50,
     'learning_rate': 0.001,
     'use_gpu': True,
     'distribute': True,
     'shuffle': True,
-    'log_frequency': 10,
+    'log_frequency': 5,
     'validation_frequency': 1,
     'parallel_trained': False,
     'num_workers': 3,
@@ -367,7 +362,7 @@ SKDB = {
     'cls_weights': lambda x: np.random.choice(np.arange(1, 101, 1), 2),
     'mode': 'train',
     'load_lim': 10e10,
-    'log_dir': 'logs'
+    'log_dir': 'temp'
 }
 
 run(SKDB)
