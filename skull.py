@@ -95,9 +95,20 @@ class SkullDataset(Dataset):
         image_file, label = self.indices[index]
         try:
             dcm = pydicom.dcmread(self.image_dir + os.sep + image_file)
-            img_arr = np.array(iu.rescale2d(np.array(dcm.pixel_array)) * 255, dtype=np.uint8)
-            img_arr = iu.apply_clahe(img_arr)
+            image = dcm.pixel_array.copy()
+            image = image.astype(np.int16)
 
+            # Set outside-of-scan pixels to 1
+            # The intercept is usually -1024, so air is approximately 0
+            image[image == -2000] = 0
+
+            intercept = dcm.RescaleIntercept
+            slope = dcm.RescaleSlope
+            if slope != 1:
+                image = slope * image.astype(np.float64)
+                image = image.astype(np.int16)
+            image += np.int16(intercept)
+            img_arr = np.array(iu.rescale2d(image) * 255, np.uint8)
             if self.transforms is not None:
                 img_arr = self.transforms(Image.fromarray(img_arr))
             return {'inputs': img_arr, 'labels': label, 'index': index}
@@ -156,10 +167,10 @@ class _DoubleConvolution(nn.Module):
         layers = [
             nn.Conv2d(in_channels, middle_channel, kernel_size=3, padding=p),
             nn.BatchNorm2d(middle_channel),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Conv2d(middle_channel, out_channels, kernel_size=3, padding=p),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.LeakyReLU(inplace=True)
         ]
         self.encode = nn.Sequential(*layers)
 
@@ -197,6 +208,7 @@ class SkullNet(nn.Module):
         c5 = self.C5(c4_mxp)
 
         fc1 = self.fc1(c5.view(-1, 32 * 8 * 8))
+        fc1 = F.leaky_relu(F.dropout(fc1, 0.2))
         fc2 = self.fc2(fc1)
         out = fc2.view(fc2.shape[0], 2, -1)
         return out
@@ -361,8 +373,8 @@ SKDB = {
     'checkpoint_file': 'checkpoint.tar',
     'cls_weights': lambda x: np.random.choice(np.arange(1, 101, 1), 2),
     'mode': 'train',
-    'load_lim': 10e10,
-    'log_dir': 'temp'
+    'load_lim': 10000,
+    'log_dir': 'del'
 }
 
 run(SKDB)
