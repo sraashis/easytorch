@@ -156,9 +156,9 @@ class NNTrainer:
             'test': 'ID,PRECISION,RECALL,F1,ACCURACY,LOSS'
         }
 
-    def resume_from_checkpoint(self, parallel_trained=False):
-        self.checkpoint = torch.load(self.checkpoint_file)
-        print(self.checkpoint_file, 'Loaded...')
+    def resume_from_checkpoint(self, checkpoint_path=None, parallel_trained=False):
+        self.checkpoint = torch.load(checkpoint_path if checkpoint_path else self.checkpoint_file)
+        print(checkpoint_path if checkpoint_path else self.checkpoint_file, 'Loaded...')
         try:
             if parallel_trained:
                 from collections import OrderedDict
