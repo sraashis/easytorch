@@ -11,32 +11,15 @@ from itertools import islice
 sep = os.sep
 import numpy as np
 import pydicom
-from torch.utils.data.dataloader import DataLoader
-from torch.utils.data.dataset import Dataset, random_split
+from torch.utils.data.dataset import Dataset
 import torchvision.transforms as tmf
-import pandas as pd
 import random
-from argparse import Namespace
-import copy
 import torch.nn.functional as F
-import json
 from PIL import Image
-import matplotlib.pyplot as plt
-from shutil import copyfile
-
-# get_ipython().run_line_magic('matplotlib', 'inline')
-
-
-# In[ ]:
-
 
 import img_utils as iu
-import nnviz as viz
 from measurements import ScoreAccumulator
 from torchutils import NNTrainer, NNDataLoader
-
-# In[ ]:
-
 
 transforms = tmf.Compose([
     tmf.Resize((252, 252), interpolation=2),
@@ -49,12 +32,6 @@ test_transforms = tmf.Compose([
     tmf.Resize((252, 252), interpolation=2),
     tmf.ToTensor()
 ])
-
-
-# In[ ]:
-
-
-# In[ ]:
 
 
 class SkullDataset(Dataset):
@@ -90,19 +67,32 @@ class SkullDataset(Dataset):
                     traceback.print_exc()
 
     def equalize_index(self, shuffle=True):
-        self.indices0 = []
-        self.indices1 = []
-        for file, lbl in self.indices:
-            if np.sum(lbl) == 0:
-                self.indices0.append([file, lbl])
+        ANYs, NONEs = [], []
+        for img_file, label in self.indices:
+            if label[-1] == 1:
+                ANYs.append([img_file, label])
             else:
-                self.indices1.append([file, lbl])
+                NONEs.append([img_file, label])
+        random.shuffle(ANYs)
+        random.shuffle(NONEs)
 
-        if shuffle:
-            random.shuffle(self.indices0)
-            random.shuffle(self.indices1)
-        self.indices = self.indices1 + self.indices0[0:len(self.indices1)]
-        random.shuffle(self.indices)
+        len_any, len_none = len(ANYs), len(NONEs)
+        assert (len_any + len_none == len(self)), 'Original indices do not match with class wise indices.'
+
+        indices = []
+        while len(indices) < len_any + len_none:
+            try:
+                for i in range(int(len_none / len_any)):
+                    indices.append(NONEs.pop())
+            except Exception:
+                pass
+            try:
+                indices.append(ANYs.pop())
+            except Exception:
+                pass
+
+        assert (len(indices) == len(self)), 'Original indices do not match with class wise indices.'
+        self.indices = indices
         print('Items After Equalize Reindex: ', len(self))
 
     def __getitem__(self, index):
@@ -151,7 +141,6 @@ class SkullDataset(Dataset):
         full_dataset.mapping_file = conf['train_mapping_file']
         full_dataset.load_data_indices()
         full_dataset.equalize_index()
-        full_dataset.indices = full_dataset.indices1
         sz = math.ceil(split_ratio[0] * len(full_dataset))
 
         trainset = cls(train_transforms, 'train')
@@ -163,25 +152,6 @@ class SkullDataset(Dataset):
         valset.image_dir = conf['train_image_dir']
 
         return trainset, valset
-
-
-# In[ ]:
-
-
-# img_plot = images_arr.copy()
-# plt.tight_layout()
-# fig, axes = plt.subplots(4, 3, figsize=(10, 18), gridspec_kw = {'wspace':0.01, 'hspace':0.01})
-# for i in range(axes.shape[0]):
-#     for j in range(axes.shape[1]):
-#         axes[i, j].imshow(img_plot.pop(), 'gray')
-#         axes[i, j].set_xticklabels([])
-#         axes[i, j].set_yticklabels([])
-# plt.show()
-
-
-# # Model
-
-# In[ ]:
 
 
 from torch import nn
@@ -271,6 +241,14 @@ class SkullTrainer(NNTrainer):
     def __init__(self, **kw):
         super(SkullTrainer, self).__init__(**kw)
 
+    # Headers for log files
+    def get_log_headers(self):
+        return {
+            'train': 'ID,EPOCH,BATCH,PRECISION,RECALL,F1,ACCURACY,LOSS',
+            'validation': 'ID,EPOCH,BATCH,PRECISION,RECALL,F1,ACCURACY,LOSS',
+            'test': 'ID,Label'
+        }
+
     def test(self, testset=None):
         print('------Running test------')
         testloader = NNDataLoader.get_loader(testset, **self.conf)
@@ -291,14 +269,14 @@ class SkullTrainer(NNTrainer):
                     p_INTRAVENTRICULAR = pred[2].item()
                     p_SUBARACHNOID = pred[3].item()
                     p_SUBDURAL = pred[4].item()
+                    p_ANY = pred[5].item()
 
                     log = file + '_' + EPIDURAL + ',' + str(p_EPIDURAL)
                     log += '\n' + file + '_' + INTRAPARENCHYMAL + ',' + str(p_INTRAPARENCHYMAL)
                     log += '\n' + file + '_' + INTRAVENTRICULAR + ',' + str(p_INTRAVENTRICULAR)
                     log += '\n' + file + '_' + SUBARACHNOID + ',' + str(p_SUBARACHNOID)
                     log += '\n' + file + '_' + SUBDURAL + ',' + str(p_SUBDURAL)
-                    log += '\n' + file + '_' + ANY + ',' + str(max(p_EPIDURAL, p_INTRAPARENCHYMAL, p_INTRAVENTRICULAR,
-                                                               p_SUBARACHNOID, p_SUBDURAL))
+                    log += '\n' + file + '_' + ANY + ',' + str(p_ANY)
                     NNTrainer.flush(self.test_logger, log)
                     print('{}/{} test batch processed.'.format(i, len(testloader)), end='\r')
 
@@ -349,14 +327,6 @@ class SkullTrainer(NNTrainer):
                        ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
 
 
-# In[ ]:
-
-
-# # Training setup
-
-# In[ ]:
-
-
 """
 ### author: Aashis Khanal
 ### sraashis@gmail.com
@@ -393,29 +363,10 @@ def run(R):
         traceback.print_exc()
 
 
-# 
-
-# In[ ]:
-
-
 train_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_train.csv'
 train_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_train_images/'
 test_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_sample_submission.csv'
 test_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
-
-# import os
-# os.listdir('/kaggle/working/')
-
-
-# In[ ]:
-
-
-# from IPython.display import FileLink
-# FileLink('i.png')
-
-
-# In[ ]:
-
 
 SKDB = {
     'input_channels': 1,
@@ -434,12 +385,11 @@ SKDB = {
     'test_image_dir': test_images_dir,
     'train_mapping_file': train_mapping_file,
     'test_mapping_file': test_mapping_file,
-    'checkpoint_file': 'checkpoint5way.tar',
-    'cls_weights': lambda x: [1, 1],
-    'mode': 'test',
+    'checkpoint_file': 'checkpoint6way.tar',
+    'cls_weights': lambda x: np.random.choice(np.arange(1, 101, 1), 2),
+    'mode': 'train',
     'load_lim': 10e10,
-    'log_dir': 'logs_5way'
+    'log_dir': 'logs_6way'
 }
 
-#
 run(SKDB)
