@@ -11,7 +11,6 @@ from itertools import islice
 sep = os.sep
 import numpy as np
 import pydicom
-from torch.utils.data.dataset import Dataset
 import torchvision.transforms as tmf
 import random
 import torch.nn.functional as F
@@ -19,7 +18,8 @@ from PIL import Image
 
 import img_utils as iu
 from measurements import ScoreAccumulator
-from torchutils import NNTrainer, NNDataLoader
+from torchutils import NNTrainer, NNDataLoader, NNDataset
+import datautils
 
 transforms = tmf.Compose([
     tmf.Resize((252, 252), interpolation=2),
@@ -34,20 +34,16 @@ test_transforms = tmf.Compose([
 ])
 
 
-class SkullDataset(Dataset):
-    def __init__(self, transforms=None, mode=None, load_lim=np.inf):
-        self.transforms = transforms
-        self.mode = mode
-        self.image_dir = None
-        self.mapping_file = None
-        self.indices = []
-        self.LIM = load_lim
+class SkullDataset(NNDataset):
+    def __init__(self, **kwargs):
+        super(SkullDataset, self).__init__(**kwargs)
+        self.mapping_file = kwargs.get('mapping_file')
 
-    def load_data_indices(self, reindex=True):
+    def load_indices(self):
         print(self.mapping_file, '...')
         with open(self.mapping_file) as infile:
             linecount, six_rows, _ = 1, True, next(infile)
-            while six_rows and len(self) < self.LIM:
+            while six_rows and len(self) < self.limit:
                 try:
 
                     print('Reading Line: {}'.format(linecount), end='\r')
@@ -66,39 +62,20 @@ class SkullDataset(Dataset):
                 except Exception as e:
                     traceback.print_exc()
 
-    def equalize_index(self, shuffle=True):
+    def equalize_reindex(self, shuffle=True):
         ANYs, NONEs = [], []
         for img_file, label in self.indices:
             if label[-1] == 1:
                 ANYs.append([img_file, label])
             else:
                 NONEs.append([img_file, label])
-        random.shuffle(ANYs)
-        random.shuffle(NONEs)
-
-        len_any, len_none = len(ANYs), len(NONEs)
-        assert (len_any + len_none == len(self)), 'Original indices do not match with class wise indices.'
-
-        indices = []
-        while len(indices) < len_any + len_none:
-            try:
-                for i in range(int(len_none / len_any)):
-                    indices.append(NONEs.pop())
-            except Exception:
-                pass
-            try:
-                indices.append(ANYs.pop())
-            except Exception:
-                pass
-
-        assert (len(indices) == len(self)), 'Original indices do not match with class wise indices.'
-        self.indices = indices
+        self.indices = datautils.uniform_mix_two_lists(ANYs, NONEs, shuffle)
         print('Items After Equalize Reindex: ', len(self))
 
     def __getitem__(self, index):
         image_file, label = self.indices[index]
         try:
-            dcm = pydicom.dcmread(self.image_dir + os.sep + image_file)
+            dcm = pydicom.dcmread(self.images_dir + os.sep + image_file)
             image = dcm.pixel_array.copy()
             image = image.astype(np.int16)
 
@@ -127,27 +104,27 @@ class SkullDataset(Dataset):
         return len(self.indices)
 
     @classmethod
-    def get_test_set(cls, conf, transforms):
-        testset = cls(transforms, 'test', conf['load_lim'])
+    def get_test_set(cls, conf, test_transforms):
+        testset = cls(transforms=test_transforms, mode='test', limit=conf['load_lim'])
         testset.image_dir = conf['test_image_dir']
         testset.mapping_file = conf['test_mapping_file']
-        testset.load_data_indices()
+        testset.load_indices()
         return testset
 
     @classmethod
-    def get_train_val_set(cls, conf, train_transforms, val_transforms, split_ratio=[0.8, 0.2]):
-        full_dataset = cls(transforms, 'full', conf['load_lim'])
-        full_dataset.image_dir = conf['train_image_dir']
+    def split_train_validation_set(cls, conf, train_transforms, val_transforms, split_ratio=[0.8, 0.2]):
+        full_dataset = cls(transforms=transforms, mode='full', conf=conf['load_lim'])
+        full_dataset.images_dir = conf['train_image_dir']
         full_dataset.mapping_file = conf['train_mapping_file']
-        full_dataset.load_data_indices()
-        full_dataset.equalize_index()
+        full_dataset.load_indices()
+        full_dataset.equalize_reindex()
         sz = math.ceil(split_ratio[0] * len(full_dataset))
 
-        trainset = cls(train_transforms, 'train')
+        trainset = cls(transforms=train_transforms, mode='train')
         trainset.indices = full_dataset.indices[0:sz]
-        trainset.image_dir = conf['train_image_dir']
+        trainset.images_dir = conf['train_image_dir']
 
-        valset = cls(val_transforms, 'validation')
+        valset = cls(transforms=val_transforms, mode='validation')
         valset.indices = full_dataset.indices[sz:len(full_dataset)]
         valset.image_dir = conf['train_image_dir']
 
@@ -289,7 +266,9 @@ class SkullTrainer(NNTrainer):
         running_loss = 0.0
         score_acc = ScoreAccumulator() if self.model.training else kw.get('score_accumulator')
         assert isinstance(score_acc, ScoreAccumulator)
-        for i, data in enumerate(kw['data_loader'], 1):
+        data_loader = kw['data_loader']
+        data_loader.dataset.equalize_reindex()
+        for i, data in enumerate(data_loader, 1):
             inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
 
             if self.model.training:
@@ -351,11 +330,16 @@ def run(R):
     try:
         trainer = SkullTrainer(model=model, conf=R, optimizer=optimizer)
         if R.get('mode') == 'train':
-            trainset, valset = SkullDataset.get_train_val_set(R, transforms, transforms)
-            print('### Train Val Batch size:', len(trainset), len(valset))
-            trainer.train(trainset, valset)
+            trainset, valset = SkullDataset.split_train_validation_set(conf=R,
+                                                                       train_transforms=transforms,
+                                                                       val_transforms=transforms)
 
-        testset = SkullDataset.get_test_set(R, transforms)
+            trainloader = NNDataLoader.get_loader(trainset, **R)
+            valloader = NNDataLoader.get_loader(valset, **R)
+
+            print('### Train Val Batch size:', len(trainloader), len(valloader))
+            trainer.train(train_loader=trainloader, validation_loader=valloader)
+        testset = SkullDataset.get_test_set(conf=R, test_transforms=transforms)
         trainer.resume_from_checkpoint(parallel_trained=R.get('parallel_trained'))
 
         trainer.test(testset)
@@ -371,12 +355,12 @@ test_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
 SKDB = {
     'input_channels': 1,
     'num_classes': 2,
-    'batch_size': 64,
-    'epochs': 20,
+    'batch_size': 128,
+    'epochs': 51,
     'learning_rate': 0.001,
     'use_gpu': True,
     'distribute': True,
-    'shuffle': True,
+    'shuffle': False,
     'log_frequency': 10,
     'validation_frequency': 1,
     'parallel_trained': False,

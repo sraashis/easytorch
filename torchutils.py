@@ -9,23 +9,40 @@ import nnviz as viz
 from measurements import ScoreAccumulator
 import sys
 
+from torch.utils.data.dataset import Dataset
+import numpy as np
+
+
+class NNDataset(Dataset):
+    def __init__(self, **kwargs):
+        super(NNDataset, self).__init__()
+        self.transforms = kwargs.get('transforms', None)
+        self.indices = kwargs.get('indices', [])
+        self.limit = kwargs.get('limit', np.inf)
+        self.mode = kwargs.get('mode', None)
+        self.images_dir = kwargs.get('images_dir', None)
+        self.conf = kwargs.get('conf', None)
+
+    def load_indices(self, **kwargs):
+        return NotImplementedError('Must be implemented.')
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, index):
+        return NotImplementedError('Must be implemented loading proper data as pointed by index:', index)
+
+    @classmethod
+    def get_test_set(cls, **kwargs):
+        return NotImplementedError('Must be implemented.')
+
+    @classmethod
+    def split_train_validation_set(cls, **kwargs):
+        return NotImplementedError('Must be implemented.')
+
 
 def safe_collate(batch):
     return default_collate([b for b in batch if b])
-
-
-def make_weights_for_balanced_classes(images, nclasses):
-    count = [0] * nclasses
-    for item in images:
-        count[item[1]] += 1
-    weight_per_class = [0.] * nclasses
-    N = float(sum(count))
-    for i in range(nclasses):
-        weight_per_class[i] = N / float(count[i])
-    weight = [0] * len(images)
-    for idx, val in enumerate(images):
-        weight[idx] = weight_per_class[val[1]]
-    return weight
 
 
 class NNDataLoader(DataLoader):
@@ -93,26 +110,24 @@ class NNTrainer:
         self.patience = self.conf.get('patience', 35)
         self.cls_weights = self.conf.get('cls_weights', None)
 
-    def train(self, trainset=None, validationset=None):
+    def train(self, train_loader=None, validation_loader=None):
         print('Training...')
-        trainloader = NNDataLoader.get_loader(trainset, **self.conf)
-        valloader = NNDataLoader.get_loader(validationset, **self.conf)
 
         for epoch in range(1, self.epochs + 1):
             self.model.train()
             self._adjust_learning_rate(epoch=epoch)
             self.checkpoint['total_epochs'] = epoch
 
-            self.one_epoch_run(epoch=epoch, data_loader=trainloader, logger=self.train_logger)
-            self._on_epoch_end(data_loader=trainloader, log_file=self.train_logger.name)
+            self.one_epoch_run(epoch=epoch, data_loader=train_loader, logger=self.train_logger)
+            self._on_epoch_end(data_loader=train_loader, log_file=self.train_logger.name)
 
             # Validation_frequency is the number of epoch until validation
             if epoch % self.validation_frequency == 0:
                 print('############# Running validation... ####################')
                 self.model.eval()
                 with torch.no_grad():
-                    self.validation(epoch=epoch, validation_loader=valloader)
-                self._on_validation_end(data_loader=valloader, log_file=self.val_logger.name)
+                    self.validation(epoch=epoch, validation_loader=validation_loader)
+                self._on_validation_end(data_loader=validation_loader, log_file=self.val_logger.name)
                 if self.early_stop(patience=self.patience):
                     return
                 print('########################################################')
@@ -135,13 +150,13 @@ class NNTrainer:
 
     def _on_epoch_end(self, **kw):
         viz.plot_column_keys(file=kw['log_file'], batches_per_epoch=kw['data_loader'].__len__(),
-                             keys=['F1', 'LOSS', 'ACCURACY'])
-        viz.plot_cmap(file=kw['log_file'], save=True, x='PRECISION', y='RECALL')
+                             keys=['F1', 'LOSS', 'ACCURACY'], title='Train')
+        viz.plot_cmap(file=kw['log_file'], save=True, x='PRECISION', y='RECALL', title='Train')
 
     def _on_validation_end(self, **kw):
         viz.plot_column_keys(file=kw['log_file'], batches_per_epoch=kw['data_loader'].__len__(),
-                             keys=['F1', 'ACCURACY'])
-        viz.plot_cmap(file=kw['log_file'], save=True, x='PRECISION', y='RECALL')
+                             keys=['F1', 'ACCURACY'], title='Validation')
+        viz.plot_cmap(file=kw['log_file'], save=True, x='PRECISION', y='RECALL', title='Validation')
 
     def _on_test_end(self, **kw):
         viz.y_scatter(file=kw['log_file'], y='F1', label='ID', save=True, title='Test')
