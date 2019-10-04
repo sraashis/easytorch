@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import math
@@ -11,19 +11,32 @@ from itertools import islice
 sep = os.sep
 import numpy as np
 import pydicom
-from torch.utils.data.dataset import Dataset
+from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataset import Dataset, random_split
 import torchvision.transforms as tmf
+import pandas as pd
 import random
+from argparse import Namespace
+import copy
 import torch.nn.functional as F
+import json
+from PIL import Image
+import matplotlib.pyplot as plt
+from shutil import copyfile
 
-# In[2]:
+# get_ipython().run_line_magic('matplotlib', 'inline')
+
+
+# In[ ]:
 
 
 import img_utils as iu
+import nnviz as viz
 from measurements import ScoreAccumulator
 from torchutils import NNTrainer, NNDataLoader
 
-from PIL import Image as Image
+# In[ ]:
+
 
 transforms = tmf.Compose([
     tmf.Resize((252, 252), interpolation=2),
@@ -37,11 +50,11 @@ test_transforms = tmf.Compose([
     tmf.ToTensor()
 ])
 
-from torch.utils.data._utils.collate import default_collate
+
+# In[ ]:
 
 
-def clean_collate(batch):
-    return default_collate([b for b in batch if b])
+# In[ ]:
 
 
 class SkullDataset(Dataset):
@@ -59,6 +72,7 @@ class SkullDataset(Dataset):
             linecount, six_rows, _ = 1, True, next(infile)
             while six_rows and len(self) < self.LIM:
                 try:
+
                     print('Reading Line: {}'.format(linecount), end='\r')
 
                     six_rows = list(r.rstrip().split(',') for r in islice(infile, 6))
@@ -111,7 +125,11 @@ class SkullDataset(Dataset):
             img_arr = np.array(iu.rescale2d(image) * 255, np.uint8)
             if self.transforms is not None:
                 img_arr = self.transforms(Image.fromarray(img_arr))
-            return {'inputs': img_arr, 'labels': label, 'index': index}
+
+            return {'inputs': img_arr,
+                    'labels': label[:-1],
+                    'index': index}
+
         except Exception as e:
             traceback.print_exc()
 
@@ -133,6 +151,7 @@ class SkullDataset(Dataset):
         full_dataset.mapping_file = conf['train_mapping_file']
         full_dataset.load_data_indices()
         full_dataset.equalize_index()
+        full_dataset.indices = full_dataset.indices1
         sz = math.ceil(split_ratio[0] * len(full_dataset))
 
         trainset = cls(train_transforms, 'train')
@@ -146,6 +165,9 @@ class SkullDataset(Dataset):
         return trainset, valset
 
 
+# In[ ]:
+
+
 # img_plot = images_arr.copy()
 # plt.tight_layout()
 # fig, axes = plt.subplots(4, 3, figsize=(10, 18), gridspec_kw = {'wspace':0.01, 'hspace':0.01})
@@ -155,6 +177,11 @@ class SkullDataset(Dataset):
 #         axes[i, j].set_xticklabels([])
 #         axes[i, j].set_yticklabels([])
 # plt.show()
+
+
+# # Model
+
+# In[ ]:
 
 
 from torch import nn
@@ -189,8 +216,9 @@ class SkullNet(nn.Module):
         self.C3 = _DoubleConvolution(int(128 / self.reduce_by), int(256 / self.reduce_by), int(256 / self.reduce_by))
         self.C4 = _DoubleConvolution(int(256 / self.reduce_by), int(512 / self.reduce_by), int(256 / self.reduce_by))
         self.C5 = _DoubleConvolution(int(256 / self.reduce_by), int(128 / self.reduce_by), int(64 / self.reduce_by))
-        self.fc1 = nn.Linear(32 * 8 * 8, 64)
-        self.fc2 = nn.Linear(64, 12)
+        self.fc1 = nn.Linear(32 * 8 * 8, 512)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc_out = nn.Linear(256, 10)
 
     def forward(self, x):
         c1 = self.C1(x)
@@ -208,9 +236,10 @@ class SkullNet(nn.Module):
         c5 = self.C5(c4_mxp)
 
         fc1 = self.fc1(c5.view(-1, 32 * 8 * 8))
-        fc1 = F.leaky_relu(F.dropout(fc1, 0.2))
-        fc2 = self.fc2(fc1)
-        out = fc2.view(fc2.shape[0], 2, -1)
+        fc1 = F.dropout(fc1, 0.2)
+        fc2 = self.fc2(F.leaky_relu(fc1))
+        fc_out = self.fc_out(F.leaky_relu(fc2))
+        out = fc_out.view(fc_out.shape[0], 2, -1)
         return out
 
     @staticmethod
@@ -224,6 +253,11 @@ class SkullNet(nn.Module):
 m = SkullNet(1, 2)
 torch_total_params = sum(p.numel() for p in m.parameters() if p.requires_grad)
 print('Total Params:', torch_total_params)
+
+# # Train Validation and Test Module
+
+# In[ ]:
+
 
 EPIDURAL = 'epidural'
 INTRAPARENCHYMAL = 'intraparenchymal'
@@ -257,14 +291,14 @@ class SkullTrainer(NNTrainer):
                     p_INTRAVENTRICULAR = pred[2].item()
                     p_SUBARACHNOID = pred[3].item()
                     p_SUBDURAL = pred[4].item()
-                    p_ANY = pred[5].item()
 
                     log = file + '_' + EPIDURAL + ',' + str(p_EPIDURAL)
                     log += '\n' + file + '_' + INTRAPARENCHYMAL + ',' + str(p_INTRAPARENCHYMAL)
                     log += '\n' + file + '_' + INTRAVENTRICULAR + ',' + str(p_INTRAVENTRICULAR)
                     log += '\n' + file + '_' + SUBARACHNOID + ',' + str(p_SUBARACHNOID)
                     log += '\n' + file + '_' + SUBDURAL + ',' + str(p_SUBDURAL)
-                    log += '\n' + file + '_' + ANY + ',' + str(p_ANY)
+                    log += '\n' + file + '_' + ANY + ',' + str(max(p_EPIDURAL, p_INTRAPARENCHYMAL, p_INTRAVENTRICULAR,
+                                                               p_SUBARACHNOID, p_SUBDURAL))
                     NNTrainer.flush(self.test_logger, log)
                     print('{}/{} test batch processed.'.format(i, len(testloader)), end='\r')
 
@@ -315,6 +349,20 @@ class SkullTrainer(NNTrainer):
                        ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
 
 
+# In[ ]:
+
+
+# # Training setup
+
+# In[ ]:
+
+
+"""
+### author: Aashis Khanal
+### sraashis@gmail.com
+### date: 9/10/2018
+"""
+
 import os
 import traceback
 
@@ -337,7 +385,7 @@ def run(R):
             print('### Train Val Batch size:', len(trainset), len(valset))
             trainer.train(trainset, valset)
 
-        testset = SkullDataset.get_test_set(R, test_transforms)
+        testset = SkullDataset.get_test_set(R, transforms)
         trainer.resume_from_checkpoint(parallel_trained=R.get('parallel_trained'))
 
         trainer.test(testset)
@@ -345,7 +393,9 @@ def run(R):
         traceback.print_exc()
 
 
-# In[15]:
+# 
+
+# In[ ]:
 
 
 train_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_train.csv'
@@ -353,16 +403,30 @@ train_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_train_images/'
 test_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_sample_submission.csv'
 test_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
 
+# import os
+# os.listdir('/kaggle/working/')
+
+
+# In[ ]:
+
+
+# from IPython.display import FileLink
+# FileLink('i.png')
+
+
+# In[ ]:
+
+
 SKDB = {
     'input_channels': 1,
     'num_classes': 2,
-    'batch_size': 32,
-    'epochs': 50,
+    'batch_size': 64,
+    'epochs': 20,
     'learning_rate': 0.001,
     'use_gpu': True,
     'distribute': True,
     'shuffle': True,
-    'log_frequency': 5,
+    'log_frequency': 10,
     'validation_frequency': 1,
     'parallel_trained': False,
     'num_workers': 3,
@@ -370,17 +434,12 @@ SKDB = {
     'test_image_dir': test_images_dir,
     'train_mapping_file': train_mapping_file,
     'test_mapping_file': test_mapping_file,
-    'checkpoint_file': 'checkpoint.tar',
-    'cls_weights': lambda x: np.random.choice(np.arange(1, 101, 1), 2),
-    'mode': 'train',
-    'load_lim': 10000,
-    'log_dir': 'del'
+    'checkpoint_file': 'checkpoint5way.tar',
+    'cls_weights': lambda x: [1, 1],
+    'mode': 'test',
+    'load_lim': 10e10,
+    'log_dir': 'logs_5way'
 }
 
+#
 run(SKDB)
-#
-# os.listdir('net_logs/')
-#
-#
-# from IPython.display import FileLink
-# FileLink('net_logs/checkpoint-VAL-_F1.png')
