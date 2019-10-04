@@ -17,19 +17,19 @@ import torch.nn.functional as F
 from PIL import Image
 
 import img_utils as iu
-from measurements import ScoreAccumulator
+from measurements import ScoreAccumulator, LossAccumulator
 from torchutils import NNTrainer, NNDataLoader, NNDataset
 import datautils
 
 transforms = tmf.Compose([
-    tmf.Resize((252, 252), interpolation=2),
+    tmf.Resize((284, 284), interpolation=2),
     tmf.RandomHorizontalFlip(),
     tmf.RandomVerticalFlip(),
     tmf.ToTensor()
 ])
 
 test_transforms = tmf.Compose([
-    tmf.Resize((252, 252), interpolation=2),
+    tmf.Resize((284, 284), interpolation=2),
     tmf.ToTensor()
 ])
 
@@ -39,7 +39,7 @@ class SkullDataset(NNDataset):
         super(SkullDataset, self).__init__(**kwargs)
         self.mapping_file = kwargs.get('mapping_file')
 
-    def load_indices(self):
+    def load_indices(self, shuffle_indices=False):
         print(self.mapping_file, '...')
         with open(self.mapping_file) as infile:
             linecount, six_rows, _ = 1, True, next(infile)
@@ -61,15 +61,19 @@ class SkullDataset(NNDataset):
                     linecount += 6
                 except Exception as e:
                     traceback.print_exc()
+        if shuffle_indices:
+            random.shuffle(self.indices)
 
-    def equalize_reindex(self, shuffle=True):
+    def equalize_reindex(self, shuffle=False):
         ANYs, NONEs = [], []
         for img_file, label in self.indices:
-            if label[-1] == 1:
+            if np.sum(label) >= 1:
                 ANYs.append([img_file, label])
             else:
                 NONEs.append([img_file, label])
-        self.indices = datautils.uniform_mix_two_lists(ANYs, NONEs, shuffle)
+        # self.indices = datautils.uniform_mix_two_lists(ANYs, NONEs, shuffle)
+        self.indices = ANYs + NONEs[0:len(ANYs)]
+        random.shuffle(self.indices)
         print('Items After Equalize Reindex: ', len(self))
 
     def __getitem__(self, index):
@@ -94,7 +98,7 @@ class SkullDataset(NNDataset):
                 img_arr = self.transforms(Image.fromarray(img_arr))
 
             return {'inputs': img_arr,
-                    'labels': label[:-1],
+                    'labels': label,
                     'index': index}
 
         except Exception as e:
@@ -113,11 +117,11 @@ class SkullDataset(NNDataset):
 
     @classmethod
     def split_train_validation_set(cls, conf, train_transforms, val_transforms, split_ratio=[0.8, 0.2]):
-        full_dataset = cls(transforms=transforms, mode='full', conf=conf['load_lim'])
+        full_dataset = cls(transforms=transforms, mode='full', limit=conf['load_lim'])
         full_dataset.images_dir = conf['train_image_dir']
         full_dataset.mapping_file = conf['train_mapping_file']
         full_dataset.load_indices()
-        full_dataset.equalize_reindex()
+        full_dataset.equalize_reindex(True)
         sz = math.ceil(split_ratio[0] * len(full_dataset))
 
         trainset = cls(transforms=train_transforms, mode='train')
@@ -129,81 +133,6 @@ class SkullDataset(NNDataset):
         valset.image_dir = conf['train_image_dir']
 
         return trainset, valset
-
-
-from torch import nn
-import torch.nn.functional as F
-
-
-class _DoubleConvolution(nn.Module):
-    def __init__(self, in_channels, middle_channel, out_channels, p=0):
-        super(_DoubleConvolution, self).__init__()
-        layers = [
-            nn.Conv2d(in_channels, middle_channel, kernel_size=3, padding=p),
-            nn.BatchNorm2d(middle_channel),
-            nn.LeakyReLU(inplace=True),
-            nn.Conv2d(middle_channel, out_channels, kernel_size=3, padding=p),
-            nn.BatchNorm2d(out_channels),
-            nn.LeakyReLU(inplace=True)
-        ]
-        self.encode = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.encode(x)
-
-
-class SkullNet(nn.Module):
-    def __init__(self, num_channels, num_classes):
-        super(SkullNet, self).__init__()
-        self.reduce_by = 2
-        self.num_classes = num_classes
-
-        self.C1 = _DoubleConvolution(num_channels, int(64 / self.reduce_by), int(64 / self.reduce_by))
-        self.C2 = _DoubleConvolution(int(64 / self.reduce_by), int(128 / self.reduce_by), int(128 / self.reduce_by))
-        self.C3 = _DoubleConvolution(int(128 / self.reduce_by), int(256 / self.reduce_by), int(256 / self.reduce_by))
-        self.C4 = _DoubleConvolution(int(256 / self.reduce_by), int(512 / self.reduce_by), int(256 / self.reduce_by))
-        self.C5 = _DoubleConvolution(int(256 / self.reduce_by), int(128 / self.reduce_by), int(64 / self.reduce_by))
-        self.fc1 = nn.Linear(32 * 8 * 8, 512)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc_out = nn.Linear(256, 10)
-
-    def forward(self, x):
-        c1 = self.C1(x)
-        c1_mxp = F.max_pool2d(c1, kernel_size=2, stride=2)
-
-        c2 = self.C2(c1_mxp)
-        c2_mxp = F.max_pool2d(c2, kernel_size=2, stride=2)
-
-        c3 = self.C3(c2_mxp)
-        c3_mxp = F.max_pool2d(c3, kernel_size=2, stride=2)
-
-        c4 = self.C4(c3_mxp)
-        c4_mxp = F.max_pool2d(c4, kernel_size=2, stride=2)
-
-        c5 = self.C5(c4_mxp)
-
-        fc1 = self.fc1(c5.view(-1, 32 * 8 * 8))
-        fc1 = F.dropout(fc1, 0.2)
-        fc2 = self.fc2(F.leaky_relu(fc1))
-        fc_out = self.fc_out(F.leaky_relu(fc2))
-        out = fc_out.view(fc_out.shape[0], 2, -1)
-        return out
-
-    @staticmethod
-    def match_and_concat(bypass, upsampled, crop=True):
-        if crop:
-            c = (bypass.size()[2] - upsampled.size()[2]) // 2
-            bypass = F.pad(bypass, (-c, -c, -c, -c))
-        return torch.cat((upsampled, bypass), 1)
-
-
-m = SkullNet(1, 2)
-torch_total_params = sum(p.numel() for p in m.parameters() if p.requires_grad)
-print('Total Params:', torch_total_params)
-
-# # Train Validation and Test Module
-
-# In[ ]:
 
 
 EPIDURAL = 'epidural'
@@ -263,11 +192,11 @@ class SkullTrainer(NNTrainer):
         :param kw:
         :return:
         """
-        running_loss = 0.0
+        running_loss = LossAccumulator()
         score_acc = ScoreAccumulator() if self.model.training else kw.get('score_accumulator')
         assert isinstance(score_acc, ScoreAccumulator)
         data_loader = kw['data_loader']
-        data_loader.dataset.equalize_reindex()
+        # data_loader.dataset.equalize_reindex(True)
         for i, data in enumerate(data_loader, 1):
             inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
 
@@ -282,45 +211,36 @@ class SkullTrainer(NNTrainer):
                 _wt = torch.FloatTensor(self.cls_weights(self.conf)).to(self.device)
 
             loss = F.nll_loss(outputs, labels, weight=_wt)
+            current_loss = loss.item()
+            running_loss.add(current_loss)
 
             if self.model.training:
                 loss.backward()
                 self.optimizer.step()
-
-            current_loss = loss.item()
-            running_loss += current_loss
-
-            if self.model.training:
                 score_acc.reset()
 
             p, r, f1, a = score_acc.add_tensor(predicted, labels).get_prfa()
-
             if i % self.log_frequency == 0:
                 print('Epochs[%d/%d] Batch[%d/%d] loss:%.5f pre:%.3f rec:%.3f f1:%.3f acc:%.3f' %
                       (
                           kw['epoch'], self.epochs, i, kw['data_loader'].__len__(),
-                          running_loss / self.log_frequency, p, r, f1,
+                          running_loss.average, p, r, f1,
                           a))
-                running_loss = 0.0
+                running_loss.reset()
+
             self.flush(kw['logger'],
                        ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
 
-
-"""
-### author: Aashis Khanal
-### sraashis@gmail.com
-### date: 9/10/2018
-"""
 
 import os
 import traceback
 
 import torch
 import torch.optim as optim
-
+from models import UNet
 
 def run(R):
-    model = SkullNet(R['input_channels'], R['num_classes'])
+    model = UNet(R['input_channels'], R['num_classes'])
     optimizer = optim.Adam(model.parameters(), lr=R['learning_rate'])
     if R['distribute']:
         model = torch.nn.DataParallel(model)
@@ -355,13 +275,13 @@ test_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
 SKDB = {
     'input_channels': 1,
     'num_classes': 2,
-    'batch_size': 128,
+    'batch_size': 64,
     'epochs': 51,
     'learning_rate': 0.001,
     'use_gpu': True,
     'distribute': True,
-    'shuffle': False,
-    'log_frequency': 10,
+    'shuffle': True,
+    'log_frequency': 1,
     'validation_frequency': 1,
     'parallel_trained': False,
     'num_workers': 3,
@@ -370,7 +290,7 @@ SKDB = {
     'train_mapping_file': train_mapping_file,
     'test_mapping_file': test_mapping_file,
     'checkpoint_file': 'checkpoint6way.tar',
-    'cls_weights': lambda x: np.random.choice(np.arange(1, 101, 1), 2),
+    'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
     'mode': 'train',
     'load_lim': 10e10,
     'log_dir': 'logs_6way'

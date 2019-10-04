@@ -1,6 +1,28 @@
 import torch
 
 
+class LossAccumulator:
+    def __init__(self):
+        self.loss = 0.0
+        self.count = 0.0
+
+    def add(self, loss):
+        self.loss += loss
+        self.count += 1
+
+    @property
+    def average(self):
+        return self.loss / max(self.count, 10e-3)
+
+    def reset(self):
+        self.loss = 0.0
+        self.count = 0.0
+
+    def accumulate(self, other):
+        self.loss += other.loss
+        self.count += other.count
+
+
 class ScoreAccumulator:
     def __init__(self):
         self.tn, self.fp, self.fn, self.tp = [0] * 4
