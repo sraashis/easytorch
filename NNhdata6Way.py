@@ -88,24 +88,27 @@ class SkullDataset(NNDataset):
             image += np.int16(intercept)
 
             # Scope to center skull
-            img_arr = np.array(iu.rescale2d(image) * 255, np.uint8)
-            img_arr = iu.apply_clahe(img_arr)
+            arr = np.array(iu.rescale2d(image) * 255, np.uint8)
+            arr = iu.apply_clahe(arr)
 
-            seg = img_arr.copy()
-            seg[seg > 99] = 255
-            seg[seg <= 99] = 0
+            for th in [100, 50, 20]:
+                seg = arr.copy()
+                seg[seg > th] = 255
+                seg[seg <= th] = 0
 
-            largest_cc = np.array(iu.largest_cc(seg), dtype=np.uint8) * 255
-            x, y, w, h = cv2.boundingRect(largest_cc)
-            img_arr = img_arr[y:y + h, x:x + w]
+                largest_cc = np.array(iu.largest_cc(seg), dtype=np.uint8) * 255
+                x, y, w, h = cv2.boundingRect(largest_cc)
+                img_arr = arr[y:y + h, x:x + w].copy()
 
-            if self.transforms is not None:
-                img_arr = self.transforms(Image.fromarray(img_arr))
+                if np.product(img_arr.shape) > 100 * 100:
+                    if self.transforms is not None:
+                        img_arr = self.transforms(Image.fromarray(img_arr))
 
-            return {'inputs': img_arr,
-                    'labels': label,
-                    'index': index}
+                    return {'inputs': img_arr,
+                            'labels': label,
+                            'index': index}
 
+            print('### Bad file:', image_file, img_arr.shape, self.mode, th)
         except Exception as e:
             traceback.print_exc()
 
@@ -177,12 +180,11 @@ class SkullTrainer(NNTrainer):
             'test': 'ID,Label'
         }
 
-    def test(self, testset=None):
+    def test(self, dataloader=None):
         print('------Running test------')
-        testloader = NNDataLoader.get_loader(testset, **self.conf)
         self.model.eval()
         with torch.no_grad():
-            for i, data in enumerate(testloader, 1):
+            for i, data in enumerate(dataloader, 1):
                 inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
 
                 if self.model.training:
@@ -190,7 +192,7 @@ class SkullTrainer(NNTrainer):
 
                 outputs = F.softmax(self.model(inputs), 1)
                 for ix, pred in zip(data['index'], outputs[:, 1, :]):
-                    file = testset.indices[ix][0].split('.')[0]
+                    file = dataloader.indices[ix][0].split('.')[0]
 
                     p_EPIDURAL = pred[0].item()
                     p_INTRAPARENCHYMAL = pred[1].item()
@@ -206,7 +208,7 @@ class SkullTrainer(NNTrainer):
                     log += '\n' + file + '_' + SUBDURAL + ',' + str(p_SUBDURAL)
                     log += '\n' + file + '_' + ANY + ',' + str(p_ANY)
                     NNTrainer.flush(self.test_logger, log)
-                    print('{}/{} test batch processed.'.format(i, len(testloader)), end='\r')
+                    print('{}/{} test batch processed.'.format(i, len(dataloader)), end='\r')
 
     def one_epoch_run(self, **kw):
         """
@@ -257,7 +259,7 @@ class SkullTrainer(NNTrainer):
 conf = {
     'input_channels': 1,
     'num_classes': 2,
-    'batch_size': 32,
+    'batch_size': 64,
     'epochs': 251,
     'learning_rate': 0.001,
     'use_gpu': True,
@@ -314,8 +316,9 @@ def run(R):
             trainer.train(train_loader=trainloader, validation_loader=valloader)
 
         testset = SkullDataset.get_test_set(conf=R, test_transforms=transforms)
+        testlaoder = NNDataLoader.get_loader(dataset=testset, **R)
         trainer.resume_from_checkpoint(parallel_trained=R.get('parallel_trained'))
-        trainer.test(testset)
+        trainer.test(dataloader=testlaoder)
     except Exception as e:
         traceback.print_exc()
 
