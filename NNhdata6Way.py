@@ -100,7 +100,6 @@ class SkullDataset(NNDataset):
             largest_cc = np.array(iu.largest_cc(seg), dtype=np.uint8) * 255
             x, y, w, h = cv2.boundingRect(largest_cc)
             img_arr = img_arr[y:y + h, x:x + w]
-            Image.fromarray(img_arr).save('input_chk' + os.sep + image_file + '.png')
 
             if self.transforms is not None:
                 img_arr = self.transforms(Image.fromarray(img_arr))
