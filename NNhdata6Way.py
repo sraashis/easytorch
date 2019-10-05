@@ -6,32 +6,30 @@
 
 import math
 import os
+
+sep = os.sep
+import torchvision.transforms as tmf
+import torch.nn.functional as F
+
+from measurements import ScoreAccumulator, LossAccumulator
+from torchutils import NNTrainer, NNDataLoader, NNDataset
+import os
 from itertools import islice
 
 sep = os.sep
 import numpy as np
 import pydicom
-import torchvision.transforms as tmf
-import torch.nn.functional as F
 from PIL import Image
 
 import img_utils as iu
-from measurements import ScoreAccumulator, LossAccumulator
-from torchutils import NNTrainer, NNDataLoader, NNDataset
 import random
+import os
+import traceback
+
+import torch
+import torch.optim as optim
+from models import UNet
 import cv2
-
-transforms = tmf.Compose([
-    tmf.Resize((284, 284), interpolation=2),
-    tmf.RandomHorizontalFlip(),
-    tmf.RandomVerticalFlip(),
-    tmf.ToTensor()
-])
-
-test_transforms = tmf.Compose([
-    tmf.Resize((284, 284), interpolation=2),
-    tmf.ToTensor()
-])
 
 
 class SkullDataset(NNDataset):
@@ -256,12 +254,42 @@ class SkullTrainer(NNTrainer):
                        ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
 
 
-import os
-import traceback
+conf = {
+    'input_channels': 1,
+    'num_classes': 2,
+    'batch_size': 32,
+    'epochs': 251,
+    'learning_rate': 0.001,
+    'use_gpu': True,
+    'distribute': True,
+    'shuffle': True,
+    'log_frequency': 5,
+    'validation_frequency': 1,
+    'parallel_trained': False,
+    'num_workers': 8,
+    'train_image_dir': '/mnt/iscsi/data/ashis_jay/stage_1_train_images/',
+    'test_image_dir': '/mnt/iscsi/data/ashis_jay/stage_1_test_images/',
+    'train_mapping_file': '/mnt/iscsi/data/ashis_jay/stage_1_train.csv',
+    'test_mapping_file': '/mnt/iscsi/data/ashis_jay/stage_1_sample_submission.csv',
+    'rescale_size': (284, 284),
+    'checkpoint_file': 'checkpoint6way.tar',
+    'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
+    'mode': 'train',
+    'load_lim': 10e10,
+    'log_dir': 'logs_6way_full_dataset'
+}
 
-import torch
-import torch.optim as optim
-from models import UNet
+transforms = tmf.Compose([
+    tmf.Resize(conf['rescale_size'], interpolation=2),
+    tmf.RandomHorizontalFlip(),
+    tmf.RandomVerticalFlip(),
+    tmf.ToTensor()
+])
+
+test_transforms = tmf.Compose([
+    tmf.Resize(conf['rescale_size'], interpolation=2),
+    tmf.ToTensor()
+])
 
 
 def run(R):
@@ -279,46 +307,17 @@ def run(R):
                                                                        train_transforms=transforms,
                                                                        val_transforms=transforms)
 
-            trainloader = NNDataLoader.get_loader(trainset, **R)
-            valloader = NNDataLoader.get_loader(valset, **R)
+            trainloader = NNDataLoader.get_loader(dataset=trainset, pin_memory=True, **R)
+            valloader = NNDataLoader.get_loader(dataset=valset, pin_memory=True, **R)
 
             print('### Train Val Batch size:', len(trainloader), len(valloader))
             trainer.train(train_loader=trainloader, validation_loader=valloader)
+
         testset = SkullDataset.get_test_set(conf=R, test_transforms=transforms)
         trainer.resume_from_checkpoint(parallel_trained=R.get('parallel_trained'))
-
         trainer.test(testset)
     except Exception as e:
         traceback.print_exc()
 
 
-train_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_train.csv'
-train_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_train_images/'
-test_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_sample_submission.csv'
-test_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
-
-SKDB = {
-    'input_channels': 1,
-    'num_classes': 2,
-    'batch_size': 64,
-    'epochs': 251,
-    'learning_rate': 0.001,
-    'use_gpu': True,
-    'distribute': True,
-    'shuffle': True,
-    'log_frequency': 5,
-    'validation_frequency': 1,
-    'parallel_trained': False,
-    'num_workers': 8,
-    'train_image_dir': train_images_dir,
-    'test_image_dir': test_images_dir,
-    'train_mapping_file': train_mapping_file,
-    'test_mapping_file': test_mapping_file,
-    'checkpoint_file': 'checkpoint6way.tar',
-    'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
-    'mode': 'train',
-    'load_lim': 10e10,
-    'log_dir': 'logs_6way_full_dataset'
-}
-
-run(SKDB)
+run(conf)

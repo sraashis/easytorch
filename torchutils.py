@@ -52,24 +52,24 @@ class NNDataLoader(DataLoader):
         super(NNDataLoader, self).__init__(**kw)
 
     @classmethod
-    def get_loader(cls, dataset, **kw):
+    def get_loader(cls, **kw):
         _kw = {
-            'batch_size': None,
+            'dataset': None,
+            'batch_size': 1,
             'shuffle': False,
             'sampler': None,
             'batch_sampler': None,
-            'num_workers': None,
+            'num_workers': 0,
             'pin_memory': False,
             'drop_last': False,
-            'timeout': 0
-            # 'worker_init_fn': None,
-            # 'multiprocessing_context': None
+            'timeout': 0,
+            'worker_init_fn': None
         }
         for k in _kw.keys():
             _kw[k] = kw.get(k, _kw.get(k))
             if _kw[k]:
                 print(k, ':', _kw[k])
-        return cls(dataset=dataset, collate_fn=safe_collate, **_kw)
+        return cls(collate_fn=safe_collate, **_kw)
 
 
 class NNTrainer:

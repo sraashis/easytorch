@@ -250,9 +250,9 @@ def expand_and_mirror_patch(full_img_shape=None, orig_patch_indices=None, expand
 def largest_cc(binary_arr=None):
     from skimage.measure import label
     labels = label(binary_arr)
-    assert (labels.max() != 0)  # assume at least 1 CC
-    largest = labels == np.argmax(np.bincount(labels.flat)[1:]) + 1
-    return largest
+    if labels.max() != 0:  # assume at least 1 CC
+        largest = labels == np.argmax(np.bincount(labels.flat)[1:]) + 1
+        return largest
 
 
 def remove_connected_comp(segmented_img, connected_comp_diam_limit=20):
