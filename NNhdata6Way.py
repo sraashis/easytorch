@@ -64,17 +64,17 @@ class SkullDataset(NNDataset):
         if shuffle_indices:
             random.shuffle(self.indices)
 
-    def equalize_reindex(self, shuffle=False):
+    def equalize_reindex(self, eq=False, shuffle=False):
         ANYs, NONEs = [], []
         for img_file, label in self.indices:
             if np.sum(label) >= 1:
                 ANYs.append([img_file, label])
             else:
                 NONEs.append([img_file, label])
-        # self.indices = ANYs + NONEs[0:len(ANYs) * 2]
-        # if shuffle:
-            # random.shuffle(self.indices)
 
+        # Equal pos and neg
+        if eq:
+            NONEs = NONEs[0:2 * len(ANYs)]
         self.indices = datautils.uniform_mix_two_lists(ANYs, NONEs, shuffle)
         print('Items After Equalize Reindex: ', len(self))
 
@@ -100,7 +100,7 @@ class SkullDataset(NNDataset):
     @classmethod
     def get_test_set(cls, conf, test_transforms):
         testset = cls(transforms=test_transforms, mode='test', limit=conf['load_lim'])
-        testset.image_dir = conf['test_image_dir']
+        testset.images_dir = conf['test_image_dir']
         testset.mapping_file = conf['test_mapping_file']
         testset.load_indices()
         return testset
@@ -111,7 +111,7 @@ class SkullDataset(NNDataset):
         full_dataset.images_dir = conf['train_image_dir']
         full_dataset.mapping_file = conf['train_mapping_file']
         full_dataset.load_indices()
-        full_dataset.equalize_reindex(True)
+        full_dataset.equalize_reindex(eq=True, shuffle=True)
         sz = math.ceil(split_ratio[0] * len(full_dataset))
 
         trainset = cls(transforms=train_transforms, mode='train')
@@ -186,7 +186,7 @@ class SkullTrainer(NNTrainer):
         score_acc = ScoreAccumulator() if self.model.training else kw.get('score_accumulator')
         assert isinstance(score_acc, ScoreAccumulator)
         data_loader = kw['data_loader']
-        data_loader.dataset.equalize_reindex(True)
+        data_loader.dataset.equalize_reindex(eq=False, shuffle=True)
         for i, data in enumerate(data_loader, 1):
             inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
 
@@ -266,8 +266,8 @@ test_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
 SKDB = {
     'input_channels': 1,
     'num_classes': 2,
-    'batch_size': 128,
-    'epochs': 51,
+    'batch_size': 64,
+    'epochs': 251,
     'learning_rate': 0.001,
     'use_gpu': True,
     'distribute': True,
@@ -284,7 +284,7 @@ SKDB = {
     'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
     'mode': 'train',
     'load_lim': 10e10,
-    'log_dir': 'logs_6way'
+    'log_dir': 'logs_6way_full_dataset'
 }
 
 run(SKDB)
