@@ -15,6 +15,7 @@ import torchvision.transforms as tmf
 import random
 import torch.nn.functional as F
 from PIL import Image
+import datautils
 
 import img_utils as iu
 from measurements import ScoreAccumulator, LossAccumulator
@@ -70,10 +71,11 @@ class SkullDataset(NNDataset):
                 ANYs.append([img_file, label])
             else:
                 NONEs.append([img_file, label])
-        # self.indices = datautils.uniform_mix_two_lists(ANYs, NONEs, shuffle)
-        self.indices = ANYs + NONEs[0:len(ANYs) * 2]
-        if shuffle:
-            random.shuffle(self.indices)
+        # self.indices = ANYs + NONEs[0:len(ANYs) * 2]
+        # if shuffle:
+            # random.shuffle(self.indices)
+
+        self.indices = datautils.uniform_mix_two_lists(ANYs, NONEs, shuffle)
         print('Items After Equalize Reindex: ', len(self))
 
     def __getitem__(self, index):
@@ -81,18 +83,6 @@ class SkullDataset(NNDataset):
         try:
             dcm = pydicom.dcmread(self.images_dir + os.sep + image_file)
             image = dcm.pixel_array.copy()
-            image = image.astype(np.int16)
-
-            # Set outside-of-scan pixels to 1
-            # The intercept is usually -1024, so air is approximately 0
-            image[image == -2000] = 0
-
-            intercept = dcm.RescaleIntercept
-            slope = dcm.RescaleSlope
-            if slope != 1:
-                image = slope * image.astype(np.float64)
-                image = image.astype(np.int16)
-            image += np.int16(intercept)
             img_arr = np.array(iu.rescale2d(image) * 255, np.uint8)
             if self.transforms is not None:
                 img_arr = self.transforms(Image.fromarray(img_arr))
@@ -196,7 +186,7 @@ class SkullTrainer(NNTrainer):
         score_acc = ScoreAccumulator() if self.model.training else kw.get('score_accumulator')
         assert isinstance(score_acc, ScoreAccumulator)
         data_loader = kw['data_loader']
-        # data_loader.dataset.equalize_reindex(True)
+        data_loader.dataset.equalize_reindex(True)
         for i, data in enumerate(data_loader, 1):
             inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
 
@@ -276,16 +266,16 @@ test_images_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
 SKDB = {
     'input_channels': 1,
     'num_classes': 2,
-    'batch_size': 64,
+    'batch_size': 128,
     'epochs': 51,
     'learning_rate': 0.001,
     'use_gpu': True,
     'distribute': True,
-    'shuffle': True,
+    'shuffle': False,
     'log_frequency': 5,
     'validation_frequency': 1,
     'parallel_trained': False,
-    'num_workers': 3,
+    'num_workers': 8,
     'train_image_dir': train_images_dir,
     'test_image_dir': test_images_dir,
     'train_mapping_file': train_mapping_file,
