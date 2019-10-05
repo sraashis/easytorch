@@ -22,6 +22,7 @@ class NNDataset(Dataset):
         self.mode = kwargs.get('mode', None)
         self.images_dir = kwargs.get('images_dir', None)
         self.conf = kwargs.get('conf', None)
+        self.parent = kwargs.get('parent', None)
 
     def load_indices(self, **kwargs):
         return NotImplementedError('Must be implemented.')

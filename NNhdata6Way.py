@@ -12,14 +12,13 @@ sep = os.sep
 import numpy as np
 import pydicom
 import torchvision.transforms as tmf
-import random
 import torch.nn.functional as F
 from PIL import Image
-import datautils
 
 import img_utils as iu
 from measurements import ScoreAccumulator, LossAccumulator
 from torchutils import NNTrainer, NNDataLoader, NNDataset
+import random
 
 transforms = tmf.Compose([
     tmf.Resize((284, 284), interpolation=2),
@@ -64,18 +63,12 @@ class SkullDataset(NNDataset):
         if shuffle_indices:
             random.shuffle(self.indices)
 
-    def equalize_reindex(self, eq=False, shuffle=False):
-        ANYs, NONEs = [], []
-        for img_file, label in self.indices:
-            if np.sum(label) >= 1:
-                ANYs.append([img_file, label])
-            else:
-                NONEs.append([img_file, label])
-
-        # Equal pos and neg
-        if eq:
-            NONEs = NONEs[0:2 * len(ANYs)]
-        self.indices = datautils.uniform_mix_two_lists(ANYs, NONEs, shuffle)
+    def resample_train_validation(self):
+        random.shuffle(self.parent.anys[self.mode])
+        random.shuffle(self.parent.nones[self.mode])
+        sz = min(len(self.parent.anys[self.mode]), len(self.parent.nones[self.mode]))
+        self.indices = self.parent.anys[self.mode][0:sz] + self.parent.nones[self.mode][0:sz]
+        random.shuffle(self.indices)
         print('Items After Equalize Reindex: ', len(self))
 
     def __getitem__(self, index):
@@ -111,16 +104,33 @@ class SkullDataset(NNDataset):
         full_dataset.images_dir = conf['train_image_dir']
         full_dataset.mapping_file = conf['train_mapping_file']
         full_dataset.load_indices()
-        full_dataset.equalize_reindex(eq=True, shuffle=True)
-        sz = math.ceil(split_ratio[0] * len(full_dataset))
 
-        trainset = cls(transforms=train_transforms, mode='train')
-        trainset.indices = full_dataset.indices[0:sz]
-        trainset.images_dir = conf['train_image_dir']
+        ANYs, NONEs = [], []
+        for img_file, label in full_dataset.indices:
+            if np.sum(label) >= 1:
+                ANYs.append([img_file, label])
+            else:
+                NONEs.append([img_file, label])
 
-        valset = cls(transforms=val_transforms, mode='validation')
-        valset.indices = full_dataset.indices[sz:len(full_dataset)]
-        valset.images_dir = conf['train_image_dir']
+        sz_any = math.ceil(split_ratio[0] * len(ANYs))
+        full_dataset.anys = {
+            'train': ANYs[0:sz_any],
+            'validation': ANYs[sz_any:]
+        }
+
+        sz_none = math.ceil(split_ratio[0] * len(NONEs))
+        full_dataset.nones = {
+            'train': NONEs[0:sz_none],
+            'validation': NONEs[sz_none:]
+        }
+
+        trainset = cls(transforms=train_transforms, mode='train', parent=full_dataset,
+                       images_dir=full_dataset.images_dir)
+        trainset.resample_train_validation()
+
+        valset = cls(transforms=val_transforms, mode='validation', parent=full_dataset,
+                     images_dir=full_dataset.images_dir)
+        valset.resample_train_validation()
 
         return trainset, valset
 
@@ -186,7 +196,7 @@ class SkullTrainer(NNTrainer):
         score_acc = ScoreAccumulator() if self.model.training else kw.get('score_accumulator')
         assert isinstance(score_acc, ScoreAccumulator)
         data_loader = kw['data_loader']
-        data_loader.dataset.equalize_reindex(eq=False, shuffle=True)
+        data_loader.dataset.resample_train_validation()
         for i, data in enumerate(data_loader, 1):
             inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
 
@@ -283,7 +293,7 @@ SKDB = {
     'checkpoint_file': 'checkpoint6way.tar',
     'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
     'mode': 'train',
-    'load_lim': 10e10,
+    'load_lim': 10000,
     'log_dir': 'logs_6way_full_dataset'
 }
 
