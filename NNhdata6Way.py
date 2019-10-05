@@ -126,11 +126,11 @@ class SkullDataset(NNDataset):
 
         trainset = cls(transforms=train_transforms, mode='train', parent=full_dataset,
                        images_dir=full_dataset.images_dir)
-        trainset.resample_train_validation()
+        trainset.resample()
 
         valset = cls(transforms=val_transforms, mode='validation', parent=full_dataset,
                      images_dir=full_dataset.images_dir)
-        valset.resample_train_validation()
+        valset.resample()
 
         return trainset, valset
 
@@ -196,7 +196,7 @@ class SkullTrainer(NNTrainer):
         score_acc = ScoreAccumulator() if self.model.training else kw.get('score_accumulator')
         assert isinstance(score_acc, ScoreAccumulator)
         data_loader = kw['data_loader']
-        data_loader.dataset.resample_train_validation()
+        data_loader.dataset.resample()
         for i, data in enumerate(data_loader, 1):
             inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
 
