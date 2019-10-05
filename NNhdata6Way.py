@@ -19,6 +19,7 @@ import img_utils as iu
 from measurements import ScoreAccumulator, LossAccumulator
 from torchutils import NNTrainer, NNDataLoader, NNDataset
 import random
+import cv2
 
 transforms = tmf.Compose([
     tmf.Resize((284, 284), interpolation=2),
@@ -75,8 +76,32 @@ class SkullDataset(NNDataset):
         image_file, label = self.indices[index]
         try:
             dcm = pydicom.dcmread(self.images_dir + os.sep + image_file)
-            image = dcm.pixel_array.copy()
+            image = dcm.pixel_array.astype(np.int16)
+
+            # Set outside-of-scan pixels to 1
+            # The intercept is usually -1024, so air is approximately 0
+            image[image == -2000] = 0
+
+            intercept = dcm.RescaleIntercept
+            slope = dcm.RescaleSlope
+            if slope != 1:
+                image = slope * image.astype(np.float64)
+                image = image.astype(np.int16)
+            image += np.int16(intercept)
+
+            # Scope to center skull
             img_arr = np.array(iu.rescale2d(image) * 255, np.uint8)
+            img_arr = iu.apply_clahe(img_arr)
+
+            seg = img_arr.copy()
+            seg[seg > 99] = 255
+            seg[seg <= 99] = 0
+
+            largest_cc = np.array(iu.largest_cc(seg), dtype=np.uint8) * 255
+            x, y, w, h = cv2.boundingRect(largest_cc)
+            img_arr = img_arr[y:y + h, x:x + w]
+            Image.fromarray(img_arr).save('input_chk' + os.sep + image_file + '.png')
+
             if self.transforms is not None:
                 img_arr = self.transforms(Image.fromarray(img_arr))
 
