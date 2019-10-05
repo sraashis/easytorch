@@ -73,7 +73,8 @@ class SkullDataset(NNDataset):
                 NONEs.append([img_file, label])
         # self.indices = datautils.uniform_mix_two_lists(ANYs, NONEs, shuffle)
         self.indices = ANYs + NONEs[0:len(ANYs)]
-        random.shuffle(self.indices)
+        if shuffle:
+            random.shuffle(self.indices)
         print('Items After Equalize Reindex: ', len(self))
 
     def __getitem__(self, index):
@@ -130,7 +131,7 @@ class SkullDataset(NNDataset):
 
         valset = cls(transforms=val_transforms, mode='validation')
         valset.indices = full_dataset.indices[sz:len(full_dataset)]
-        valset.image_dir = conf['train_image_dir']
+        valset.images_dir = conf['train_image_dir']
 
         return trainset, valset
 
@@ -292,7 +293,7 @@ SKDB = {
     'checkpoint_file': 'checkpoint6way.tar',
     'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
     'mode': 'train',
-    'load_lim': 10e10,
+    'load_lim': 10000,
     'log_dir': 'logs_6way'
 }
 
