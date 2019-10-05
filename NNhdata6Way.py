@@ -100,7 +100,7 @@ class SkullDataset(NNDataset):
                 x, y, w, h = cv2.boundingRect(largest_cc)
                 img_arr = arr[y:y + h, x:x + w].copy()
 
-                if np.product(img_arr.shape) > 200 * 200:
+                if np.product(img_arr.shape) > 100 * 100:
                     if self.transforms is not None:
                         img_arr = self.transforms(Image.fromarray(img_arr))
 
