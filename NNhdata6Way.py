@@ -63,13 +63,13 @@ class SkullDataset(NNDataset):
         if shuffle_indices:
             random.shuffle(self.indices)
 
-    def resample_train_validation(self):
+    def resample(self):
         random.shuffle(self.parent.anys[self.mode])
         random.shuffle(self.parent.nones[self.mode])
         sz = min(len(self.parent.anys[self.mode]), len(self.parent.nones[self.mode]))
         self.indices = self.parent.anys[self.mode][0:sz] + self.parent.nones[self.mode][0:sz]
         random.shuffle(self.indices)
-        print('Items After Equalize Reindex: ', len(self))
+        print('Items After Train_Val Resampling: ', len(self))
 
     def __getitem__(self, index):
         image_file, label = self.indices[index]
@@ -281,7 +281,7 @@ SKDB = {
     'learning_rate': 0.001,
     'use_gpu': True,
     'distribute': True,
-    'shuffle': False,
+    'shuffle': True,
     'log_frequency': 5,
     'validation_frequency': 1,
     'parallel_trained': False,
@@ -293,7 +293,7 @@ SKDB = {
     'checkpoint_file': 'checkpoint6way.tar',
     'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
     'mode': 'train',
-    'load_lim': 10000,
+    'load_lim': 10e10,
     'log_dir': 'logs_6way_full_dataset'
 }
 
