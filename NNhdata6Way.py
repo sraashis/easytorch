@@ -19,7 +19,6 @@ from PIL import Image
 import img_utils as iu
 from measurements import ScoreAccumulator, LossAccumulator
 from torchutils import NNTrainer, NNDataLoader, NNDataset
-import datautils
 
 transforms = tmf.Compose([
     tmf.Resize((284, 284), interpolation=2),
@@ -72,7 +71,7 @@ class SkullDataset(NNDataset):
             else:
                 NONEs.append([img_file, label])
         # self.indices = datautils.uniform_mix_two_lists(ANYs, NONEs, shuffle)
-        self.indices = ANYs + NONEs[0:len(ANYs)]
+        self.indices = ANYs + NONEs[0:len(ANYs) * 2]
         if shuffle:
             random.shuffle(self.indices)
         print('Items After Equalize Reindex: ', len(self))
@@ -240,6 +239,7 @@ import torch
 import torch.optim as optim
 from models import UNet
 
+
 def run(R):
     model = UNet(R['input_channels'], R['num_classes'])
     optimizer = optim.Adam(model.parameters(), lr=R['learning_rate'])
@@ -282,7 +282,7 @@ SKDB = {
     'use_gpu': True,
     'distribute': True,
     'shuffle': True,
-    'log_frequency': 1,
+    'log_frequency': 5,
     'validation_frequency': 1,
     'parallel_trained': False,
     'num_workers': 3,
@@ -293,7 +293,7 @@ SKDB = {
     'checkpoint_file': 'checkpoint6way.tar',
     'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
     'mode': 'train',
-    'load_lim': 10000,
+    'load_lim': 10e10,
     'log_dir': 'logs_6way'
 }
 
