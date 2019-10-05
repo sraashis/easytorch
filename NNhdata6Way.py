@@ -91,7 +91,8 @@ class SkullDataset(NNDataset):
             arr = np.array(iu.rescale2d(image) * 255, np.uint8)
             arr = iu.apply_clahe(arr)
 
-            for th in [100, 50, 20]:
+            thresholds = [100, 50, 20]
+            for th in thresholds:
                 seg = arr.copy()
                 seg[seg > th] = 255
                 seg[seg <= th] = 0
@@ -100,16 +101,15 @@ class SkullDataset(NNDataset):
                 x, y, w, h = cv2.boundingRect(largest_cc)
                 img_arr = arr[y:y + h, x:x + w].copy()
 
-                if np.product(img_arr.shape) > 100 * 100:
+                if th == thresholds[-1] or np.product(img_arr.shape) > 200 * 200:
                     if self.transforms is not None:
                         img_arr = self.transforms(Image.fromarray(img_arr))
 
                     return {'inputs': img_arr,
                             'labels': label,
                             'index': index}
-
-            print('### Bad file:', image_file, img_arr.shape, self.mode, th)
         except Exception as e:
+            print('### Bad file:', image_file, self.mode)
             traceback.print_exc()
 
     def __len__(self):
