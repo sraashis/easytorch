@@ -14,14 +14,11 @@ import torch.nn.functional as F
 from measurements import ScoreAccumulator, LossAccumulator
 from torchutils import NNTrainer, NNDataLoader, NNDataset
 import os
-from itertools import islice
 
 sep = os.sep
 import numpy as np
-import pydicom
 from PIL import Image
 
-import img_utils as iu
 import random
 import os
 import traceback
@@ -29,7 +26,6 @@ import traceback
 import torch
 import torch.optim as optim
 from models import UNet
-import cv2
 
 
 class SkullDataset(NNDataset):
@@ -38,29 +34,16 @@ class SkullDataset(NNDataset):
         self.mapping_file = kwargs.get('mapping_file')
 
     def load_indices(self, shuffle_indices=False):
-        print(self.mapping_file, '...')
-        with open(self.mapping_file) as infile:
-            linecount, six_rows, _ = 1, True, next(infile)
-            while six_rows and len(self) < self.limit:
-                try:
+        print(self.images_dir, '...')
 
-                    print('Reading Line: {}'.format(linecount), end='\r')
+        for file in os.listdir(self.images_dir):
+            label, img_file = file.split('-')
+            label = [float(l) for l in label.split('_')]
+            self.indices.append([img_file, np.array(label)])
 
-                    six_rows = list(r.rstrip().split(',') for r in islice(infile, 6))
-                    image_file, cat_label = None, []
-                    for hname, label in six_rows:
-                        (ID, file_ID, htype), label = hname.split('_'), float(label)
-                        image_file = ID + '_' + file_ID + '.dcm'
-                        cat_label.append(label)
-
-                    if image_file and len(cat_label) == 6:
-                        self.indices.append([image_file, np.array(cat_label)])
-
-                    linecount += 6
-                except Exception as e:
-                    traceback.print_exc()
         if shuffle_indices:
             random.shuffle(self.indices)
+        print('{} indices loaded'.format(len(self)))
 
     def resample(self):
         random.shuffle(self.parent.anys[self.mode])
@@ -72,42 +55,13 @@ class SkullDataset(NNDataset):
 
     def __getitem__(self, index):
         image_file, label = self.indices[index]
+        img_arr = np.array(Image.open(self.images_dir + os.sep + image_file))
         try:
-            dcm = pydicom.dcmread(self.images_dir + os.sep + image_file)
-            image = dcm.pixel_array.astype(np.int16)
-
-            # Set outside-of-scan pixels to 1
-            # The intercept is usually -1024, so air is approximately 0
-            image[image == -2000] = 0
-
-            intercept = dcm.RescaleIntercept
-            slope = dcm.RescaleSlope
-            if slope != 1:
-                image = slope * image.astype(np.float64)
-                image = image.astype(np.int16)
-            image += np.int16(intercept)
-
-            # Scope to center skull
-            arr = np.array(iu.rescale2d(image) * 255, np.uint8)
-            arr = iu.apply_clahe(arr)
-
-            thresholds = [100, 50, 20]
-            for th in thresholds:
-                seg = arr.copy()
-                seg[seg > th] = 255
-                seg[seg <= th] = 0
-
-                largest_cc = np.array(iu.largest_cc(seg), dtype=np.uint8) * 255
-                x, y, w, h = cv2.boundingRect(largest_cc)
-                img_arr = arr[y:y + h, x:x + w].copy()
-
-                if th == thresholds[-1] or np.product(img_arr.shape) > 200 * 200:
-                    if self.transforms is not None:
-                        img_arr = self.transforms(Image.fromarray(img_arr))
-
-                    return {'inputs': img_arr,
-                            'labels': label,
-                            'index': index}
+            if self.transforms is not None:
+                img_arr = self.transforms(Image.fromarray(img_arr))
+            return {'inputs': img_arr,
+                    'labels': label,
+                    'index': index}
         except Exception as e:
             print('### Bad file:', image_file, self.mode)
             traceback.print_exc()
@@ -255,7 +209,6 @@ class SkullTrainer(NNTrainer):
             self.flush(kw['logger'],
                        ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
 
-
 conf = {
     'input_channels': 1,
     'num_classes': 2,
@@ -268,17 +221,15 @@ conf = {
     'log_frequency': 5,
     'validation_frequency': 1,
     'parallel_trained': False,
-    'num_workers': 8,
-    'train_image_dir': '/mnt/iscsi/data/ashis_jay/stage_1_train_images/',
-    'test_image_dir': '/mnt/iscsi/data/ashis_jay/stage_1_test_images/',
-    'train_mapping_file': '/mnt/iscsi/data/ashis_jay/stage_1_train.csv',
-    'test_mapping_file': '/mnt/iscsi/data/ashis_jay/stage_1_sample_submission.csv',
+    'num_workers': 32,
     'rescale_size': (284, 284),
     'checkpoint_file': 'checkpoint6way.tar',
     'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
     'mode': 'train',
     'load_lim': 10e10,
-    'log_dir': 'logs_6way_full_dataset'
+    'log_dir': 'logs_6way_full_dataset',
+    'train_image_dir': 'data' + os.sep + 'training_images',
+    'test_image_dir': 'data' + os.sep + 'test_images'
 }
 
 transforms = tmf.Compose([
@@ -323,4 +274,20 @@ def run(R):
         traceback.print_exc()
 
 
+train_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_train_images/'
+test_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
+train_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_train.csv'
+test_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_sample_submission.csv'
+
+import clean_and_save_images as hdata_cleaner
+
+os.makedirs(conf['train_image_dir'], exist_ok=True)
+if not os.listdir(conf['train_image_dir']):
+    hdata_cleaner.execute(train_mapping_file, train_image_dir, out_dir=conf['train_image_dir'],
+                          resize_shape=conf['rescale_size'], limit=conf['load_lim'], num_workers=conf['num_workers'])
+
+os.makedirs(conf['test_image_dir'], exist_ok=True)
+if not os.listdir(conf['test_image_dir']):
+    hdata_cleaner.execute(test_mapping_file, test_image_dir, out_dir=conf['test_image_dir'],
+                          resize_shape=conf['rescale_size'], limit=conf['load_lim'], num_workers=conf['num_workers'])
 run(conf)

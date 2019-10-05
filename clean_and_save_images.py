@@ -14,7 +14,6 @@ import cv2
 
 def load_indices(mapping_file, shuffle_indices=False, limit=10e10):
     indices = []
-    print(mapping_file, '...')
     with open(mapping_file) as infile:
         linecount, six_rows, _ = 1, True, next(infile)
         while six_rows and len(indices) < limit:
@@ -40,41 +39,61 @@ def load_indices(mapping_file, shuffle_indices=False, limit=10e10):
     return indices
 
 
-def run(mapping_file, images_dir, out_dir, resize_shape=None):
-    indices = load_indices(mapping_file=mapping_file)
-    for icount, (image_file, label) in enumerate(indices, 1):
-        print('Saving {}/{}'.format(icount, len(indices)), end='\r')
-        try:
-            dcm = pydicom.dcmread(images_dir + os.sep + image_file)
-            image = dcm.pixel_array.astype(np.int16)
+def _save(ix, file, label, images_dir, out_dir, resize_shape):
+    print('Writing:{} {}'.format(file, ix), end='\r')
+    try:
+        dcm = pydicom.dcmread(images_dir + os.sep + file)
+        image = dcm.pixel_array.astype(np.int16)
 
-            # Set outside-of-scan pixels to 1
-            # The intercept is usually -1024, so air is approximately 0
-            image[image == -2000] = 0
+        # Set outside-of-scan pixels to 1
+        # The intercept is usually -1024, so air is approximately 0
+        image[image == -2000] = 0
 
-            intercept = dcm.RescaleIntercept
-            slope = dcm.RescaleSlope
-            if slope != 1:
-                image = slope * image.astype(np.float64)
-                image = image.astype(np.int16)
-            image += np.int16(intercept)
+        intercept = dcm.RescaleIntercept
+        slope = dcm.RescaleSlope
+        if slope != 1:
+            image = slope * image.astype(np.float64)
+            image = image.astype(np.int16)
+        image += np.int16(intercept)
 
-            # Scope to center skull
-            img_arr = np.array(iu.rescale2d(image) * 255, np.uint8)
-            img_arr = iu.apply_clahe(img_arr)
+        # Scope to center skull
+        arr = np.array(iu.rescale2d(image) * 255, np.uint8)
+        arr = iu.apply_clahe(arr)
 
-            seg = img_arr.copy()
-            seg[seg > 99] = 255
-            seg[seg <= 99] = 0
+        thresholds = [100, 50, 20]
+        for th in thresholds:
+            seg = arr.copy()
+            seg[seg > th] = 255
+            seg[seg <= th] = 0
 
-            largest_cc = np.array(iu.largest_cc(seg), dtype=np.uint8) * 255
-            x, y, w, h = cv2.boundingRect(largest_cc)
-            img_arr = img_arr[y:y + h, x:x + w]
+            largest = np.array(iu.largest_cc(seg), dtype=np.uint8) * 255
+            x, y, w, h = cv2.boundingRect(largest)
+            img_arr = arr[y:y + h, x:x + w].copy()
 
-            img = Image.fromarray(img_arr)
-            _name = '_'.join() + '-' + image_file.split['.'][0] + '.png'
-            img.resize(resize_shape, Image.BILINEAR) \
-                .save(out_dir + os.sep + _name)
-            print('H')
-        except Exception as e:
-            print('###' + image_file, str(e))
+            if th == thresholds[-1] or np.product(img_arr.shape) > 200 * 200:
+                img = Image.fromarray(img_arr)
+                _lbl = '_'.join([str(int(l)) for l in label])
+                _name = _lbl + '-' + file.split('.')[0] + '.png'
+                img.resize(resize_shape, Image.BILINEAR) \
+                    .save(out_dir + os.sep + _name)
+                break
+    except Exception as e:
+        traceback.print_exc()
+
+
+import multiprocessing as mp
+from functools import partial
+
+
+def execute(mapping_file, images_dir, out_dir, resize_shape=None, limit=10e10, num_workers=1):
+    print(mapping_file, images_dir)
+    indices = load_indices(mapping_file=mapping_file, limit=limit)
+    params = []
+    mapper = partial(_save, images_dir=images_dir, out_dir=out_dir,
+                     resize_shape=resize_shape)
+    for ix, (file, label) in enumerate(indices, 1):
+        params.append([ix, file, label])
+    pool = mp.Pool(num_workers)
+    pool.starmap(mapper, params)
+    pool.close()
+    pool.join()
