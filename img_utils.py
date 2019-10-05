@@ -1,17 +1,15 @@
-import copy
 import math
-import os
 
 import cv2
 import numpy as np
 from PIL import Image as IMG
-from scipy.ndimage.measurements import label
 
 """
 ##################################################################################################
 Very useful image related utilities
 ##################################################################################################
 """
+
 
 def apply_clahe(arr_img, clip_limit=2.0, tile_shape=(8, 8)):
     arr = arr_img.copy()
@@ -249,6 +247,14 @@ def expand_and_mirror_patch(full_img_shape=None, orig_patch_indices=None, expand
     return a, b, c, d, [(pad_a, pad_b), (pad_c, pad_d)]
 
 
+def largest_cc(binary_arr=None):
+    from skimage.measure import label
+    labels = label(binary_arr)
+    assert (labels.max() != 0)  # assume at least 1 CC
+    largest = labels == np.argmax(np.bincount(labels.flat)[1:]) + 1
+    return largest
+
+
 def remove_connected_comp(segmented_img, connected_comp_diam_limit=20):
     """
     Remove connected components of a binary image that are less than smaller than specified diameter.
@@ -256,6 +262,9 @@ def remove_connected_comp(segmented_img, connected_comp_diam_limit=20):
     :param connected_comp_diam_limit: Diameter limit
     :return:
     """
+
+    from scipy.ndimage.measurements import label
+
     img = segmented_img.copy()
     structure = np.ones((3, 3), dtype=np.int)
     labeled, n_components = label(img, structure)
