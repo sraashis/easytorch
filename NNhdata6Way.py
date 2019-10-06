@@ -27,6 +27,7 @@ import torch
 import torch.optim as optim
 from models import SkullNet
 import argparse
+import clean_and_save_images as hdata_cleaner
 
 
 class SkullDataset(NNDataset):
@@ -223,9 +224,6 @@ ap.add_argument('-lf', '--log_frequency', default=10, type=int, help='Log after 
 ap.add_argument('-vf', '--validation_frequency', default=1, type=int, help='Validation after ? epochs.')
 ap.add_argument('-pt', '--parallel_trained', default=False, type=bool, help='If model to resume was parallel trained.')
 ap.add_argument('-nw', '--num_workers', default=8, type=int, help='Number of workers to work with data loading.')
-ap.add_argument('-idim', '--rescale_size', default=(284, 284), help='Input image rescale size.')
-ap.add_argument('-cw', '--cls_weights', default=lambda x: np.random.choice(np.arange(1, 100, 1), 2),
-                help='Input image rescale size.')
 ap.add_argument('-chk', '--checkpoint_file', default='checkpoint.tar', type=str, help='Name of the checkpoint file.')
 ap.add_argument('-m', '--mode', required=True, type=str, help='Mode of operation.')
 ap.add_argument('-lim', '--load_lim', default=float('inf'), type=int, help='Data load limit')
@@ -236,6 +234,8 @@ ap.add_argument('-tsdir', '--test_image_dir', type=str, default='data' + os.sep 
                 help='Training images directory.')
 conf = vars(ap.parse_args())
 
+conf['cls_weights'] = lambda x: np.random.choice(np.arange(1, 100, 1), 2)
+conf['rescale_size'] = (284, 284)
 train_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_train_images/'
 test_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
 train_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_train.csv'
@@ -250,8 +250,6 @@ transforms = tmf.Compose([
 test_transforms = tmf.Compose([
     tmf.ToTensor()
 ])
-
-import clean_and_save_images as hdata_cleaner
 
 
 def run(R):
@@ -296,5 +294,4 @@ def run(R):
     except Exception as e:
         traceback.print_exc()
 
-
-run(conf)
+# run(conf)
