@@ -78,6 +78,7 @@ def _save(ix, file, label, images_dir, out_dir, resize_shape):
                     .save(out_dir + os.sep + _name)
                 break
     except Exception as e:
+        print(file)
         traceback.print_exc()
 
 

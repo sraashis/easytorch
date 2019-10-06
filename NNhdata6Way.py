@@ -36,14 +36,15 @@ class SkullDataset(NNDataset):
     def load_indices(self, shuffle_indices=False):
         print(self.images_dir, '...')
 
-        for file in os.listdir(self.images_dir):
-            label, img_file = file.split('-')
+        for fc, file in enumerate(os.listdir(self.images_dir), 1):
+            print(f'{file}, {fc}', end='\r')
+            label, _ = file.split('-')
             label = [float(l) for l in label.split('_')]
-            self.indices.append([img_file, np.array(label)])
+            self.indices.append([file, np.array(label)])
 
         if shuffle_indices:
             random.shuffle(self.indices)
-        print('{} indices loaded'.format(len(self)))
+        print(f'{len(self)} Indices Loaded')
 
     def resample(self):
         random.shuffle(self.parent.anys[self.mode])
@@ -55,10 +56,8 @@ class SkullDataset(NNDataset):
 
     def __getitem__(self, index):
         image_file, label = self.indices[index]
-        img_arr = np.array(Image.open(self.images_dir + os.sep + image_file))
         try:
-            if self.transforms is not None:
-                img_arr = self.transforms(Image.fromarray(img_arr))
+            img_arr = self.transforms(Image.open(self.images_dir + os.sep + image_file))
             return {'inputs': img_arr,
                     'labels': label,
                     'index': index}
@@ -73,7 +72,6 @@ class SkullDataset(NNDataset):
     def get_test_set(cls, conf, test_transforms):
         testset = cls(transforms=test_transforms, mode='test', limit=conf['load_lim'])
         testset.images_dir = conf['test_image_dir']
-        testset.mapping_file = conf['test_mapping_file']
         testset.load_indices()
         return testset
 
@@ -81,7 +79,6 @@ class SkullDataset(NNDataset):
     def split_train_validation_set(cls, conf, train_transforms, val_transforms, split_ratio=[0.8, 0.2]):
         full_dataset = cls(transforms=transforms, mode='full', limit=conf['load_lim'])
         full_dataset.images_dir = conf['train_image_dir']
-        full_dataset.mapping_file = conf['train_mapping_file']
         full_dataset.load_indices()
 
         ANYs, NONEs = [], []
@@ -209,6 +206,7 @@ class SkullTrainer(NNTrainer):
             self.flush(kw['logger'],
                        ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
 
+
 conf = {
     'input_channels': 1,
     'num_classes': 2,
@@ -221,7 +219,7 @@ conf = {
     'log_frequency': 5,
     'validation_frequency': 1,
     'parallel_trained': False,
-    'num_workers': 32,
+    'num_workers': 8,
     'rescale_size': (284, 284),
     'checkpoint_file': 'checkpoint6way.tar',
     'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
@@ -232,17 +230,22 @@ conf = {
     'test_image_dir': 'data' + os.sep + 'test_images'
 }
 
+train_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_train_images/'
+test_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
+train_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_train.csv'
+test_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_sample_submission.csv'
+
 transforms = tmf.Compose([
-    tmf.Resize(conf['rescale_size'], interpolation=2),
     tmf.RandomHorizontalFlip(),
     tmf.RandomVerticalFlip(),
     tmf.ToTensor()
 ])
 
 test_transforms = tmf.Compose([
-    tmf.Resize(conf['rescale_size'], interpolation=2),
     tmf.ToTensor()
 ])
+
+import clean_and_save_images as hdata_cleaner
 
 
 def run(R):
@@ -256,6 +259,13 @@ def run(R):
     try:
         trainer = SkullTrainer(model=model, conf=R, optimizer=optimizer)
         if R.get('mode') == 'train':
+            # Prepare and load training data
+            os.makedirs(conf['train_image_dir'], exist_ok=True)
+            if not os.listdir(conf['train_image_dir']):
+                hdata_cleaner.execute(train_mapping_file, train_image_dir, out_dir=conf['train_image_dir'],
+                                      resize_shape=conf['rescale_size'], limit=conf['load_lim'],
+                                      num_workers=conf['num_workers'])
+
             trainset, valset = SkullDataset.split_train_validation_set(conf=R,
                                                                        train_transforms=transforms,
                                                                        val_transforms=transforms)
@@ -266,6 +276,13 @@ def run(R):
             print('### Train Val Batch size:', len(trainloader), len(valloader))
             trainer.train(train_loader=trainloader, validation_loader=valloader)
 
+        # Load and prepare test data
+        os.makedirs(conf['test_image_dir'], exist_ok=True)
+        if not os.listdir(conf['test_image_dir']):
+            hdata_cleaner.execute(test_mapping_file, test_image_dir, out_dir=conf['test_image_dir'],
+                                  resize_shape=conf['rescale_size'], limit=conf['load_lim'],
+                                  num_workers=conf['num_workers'])
+
         testset = SkullDataset.get_test_set(conf=R, test_transforms=transforms)
         testlaoder = NNDataLoader.get_loader(dataset=testset, **R)
         trainer.resume_from_checkpoint(parallel_trained=R.get('parallel_trained'))
@@ -274,20 +291,4 @@ def run(R):
         traceback.print_exc()
 
 
-train_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_train_images/'
-test_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
-train_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_train.csv'
-test_mapping_file = '/mnt/iscsi/data/ashis_jay/stage_1_sample_submission.csv'
-
-import clean_and_save_images as hdata_cleaner
-
-os.makedirs(conf['train_image_dir'], exist_ok=True)
-if not os.listdir(conf['train_image_dir']):
-    hdata_cleaner.execute(train_mapping_file, train_image_dir, out_dir=conf['train_image_dir'],
-                          resize_shape=conf['rescale_size'], limit=conf['load_lim'], num_workers=conf['num_workers'])
-
-os.makedirs(conf['test_image_dir'], exist_ok=True)
-if not os.listdir(conf['test_image_dir']):
-    hdata_cleaner.execute(test_mapping_file, test_image_dir, out_dir=conf['test_image_dir'],
-                          resize_shape=conf['rescale_size'], limit=conf['load_lim'], num_workers=conf['num_workers'])
 run(conf)
