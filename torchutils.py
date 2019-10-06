@@ -112,7 +112,7 @@ class NNTrainer:
                            'score': 0.0, 'model': 'EMPTY',
                            'params': str([src(v).replace(' ', '') if callable(v) else f'{str(p)}={str(v)}' for p, v in
                                           self.conf.items()])}
-        self.patience = self.conf.get('patience', 35)
+        self.patience = self.conf.get('patience', 51)
         self.cls_weights = self.conf.get('cls_weights', None)
 
     def train(self, train_loader=None, validation_loader=None):
