@@ -26,6 +26,7 @@ import traceback
 import torch
 import torch.optim as optim
 from models import SkullNet
+import argparse
 
 
 class SkullDataset(NNDataset):
@@ -41,6 +42,8 @@ class SkullDataset(NNDataset):
             label, _ = file.split('-')
             label = [float(l) for l in label.split('_')]
             self.indices.append([file, np.array(label)])
+            if len(self) >= self.limit:
+                break
 
         if shuffle_indices:
             random.shuffle(self.indices)
@@ -207,28 +210,31 @@ class SkullTrainer(NNTrainer):
                        ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
 
 
-conf = {
-    'input_channels': 1,
-    'num_classes': 2,
-    'batch_size': 32,
-    'epochs': 251,
-    'learning_rate': 0.001,
-    'use_gpu': True,
-    'distribute': True,
-    'shuffle': True,
-    'log_frequency': 5,
-    'validation_frequency': 1,
-    'parallel_trained': False,
-    'num_workers': 8,
-    'rescale_size': (284, 284),
-    'checkpoint_file': 'checkpoint6way.tar',
-    'cls_weights': lambda x: np.random.choice(np.arange(1, 100, 1), 2),
-    'mode': 'train',
-    'load_lim': 10e10,
-    'log_dir': 'logs_6way_full_dataset',
-    'train_image_dir': 'data' + os.sep + 'training_images',
-    'test_image_dir': 'data' + os.sep + 'test_images'
-}
+ap = argparse.ArgumentParser()
+ap.add_argument("-nch", "--input_channels", default=1, type=int, help="Number of channels of input image.")
+ap.add_argument("-ncl", "--num_classes", default=2, type=int, help="Number of output classes.")
+ap.add_argument("-b", "--batch_size", default=32, type=int, help="Mini batch size.")
+ap.add_argument('-ep', '--epochs', default=151, type=int, help='Number of epochs.')
+ap.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
+ap.add_argument('-gpu', '--use_gpu', default=True, type=bool, help='Use GPU?')
+ap.add_argument('-d', '--distribute', default=True, type=bool, help='Distribute to all GPUs.')
+ap.add_argument('-s', '--shuffle', default=True, type=bool, help='Shuffle before each epoch.')
+ap.add_argument('-lf', '--log_frequency', default=10, type=int, help='Log after ? iterations.')
+ap.add_argument('-vf', '--validation_frequency', default=1, type=int, help='Validation after ? epochs.')
+ap.add_argument('-pt', '--parallel_trained', default=False, type=bool, help='If model to resume was parallel trained.')
+ap.add_argument('-nw', '--num_workers', default=8, type=int, help='Number of workers to work with data loading.')
+ap.add_argument('-idim', '--rescale_size', default=(284, 284), help='Input image rescale size.')
+ap.add_argument('-cw', '--cls_weights', default=lambda x: np.random.choice(np.arange(1, 100, 1), 2),
+                help='Input image rescale size.')
+ap.add_argument('-chk', '--checkpoint_file', default='checkpoint.tar', type=str, help='Name of the checkpoint file.')
+ap.add_argument('-m', '--mode', required=True, type=str, help='Mode of operation.')
+ap.add_argument('-lim', '--load_lim', default=float('inf'), type=int, help='Data load limit')
+ap.add_argument('-log', '--log_dir', default='net_logs', type=str, help='Logging directory.')
+ap.add_argument('-trdir', '--train_image_dir', type=str, default='data' + os.sep + 'train_images',
+                help='Training images directory.')
+ap.add_argument('-tsdir', '--test_image_dir', type=str, default='data' + os.sep + 'test_images',
+                help='Training images directory.')
+conf = vars(ap.parse_args())
 
 train_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_train_images/'
 test_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
@@ -263,7 +269,7 @@ def run(R):
             os.makedirs(conf['train_image_dir'], exist_ok=True)
             if not os.listdir(conf['train_image_dir']):
                 hdata_cleaner.execute(train_mapping_file, train_image_dir, out_dir=conf['train_image_dir'],
-                                      resize_shape=conf['rescale_size'], limit=conf['load_lim'],
+                                      resize_shape=tuple(conf['rescale_size']), limit=conf['load_lim'],
                                       num_workers=conf['num_workers'])
 
             trainset, valset = SkullDataset.split_train_validation_set(conf=R,
@@ -280,7 +286,7 @@ def run(R):
         os.makedirs(conf['test_image_dir'], exist_ok=True)
         if not os.listdir(conf['test_image_dir']):
             hdata_cleaner.execute(test_mapping_file, test_image_dir, out_dir=conf['test_image_dir'],
-                                  resize_shape=conf['rescale_size'], limit=conf['load_lim'],
+                                  resize_shape=tuple(conf['rescale_size']), limit=conf['load_lim'],
                                   num_workers=conf['num_workers'])
 
         testset = SkullDataset.get_test_set(conf=R, test_transforms=transforms)

@@ -35,7 +35,7 @@ class _DoubleConvolution(nn.Module):
 class SkullNet(nn.Module):
     def __init__(self, num_channels, num_classes):
         super(SkullNet, self).__init__()
-        self.r = 2
+        self.r = 1
         self.num_classes = num_classes
 
         self.C1 = _DoubleConvolution(num_channels, int(64 / self.r), int(64 / self.r))
@@ -63,18 +63,11 @@ class SkullNet(nn.Module):
         c5 = self.C5(c4)
 
         fc1 = self.fc1(c5.view(-1, self.c5_out_flat_shape))
-        fc1 = F.dropout(self.fc1_bn(fc1), 0.2)
+        fc1 = self.fc1_bn(fc1)
         fc2 = self.fc2(F.relu(fc1))
         fc_out = self.fc_out(F.relu(fc2))
         out = fc_out.view(fc_out.shape[0], 2, -1)
         return out
-
-    @staticmethod
-    def match_and_concat(bypass, upsampled, crop=True):
-        if crop:
-            c = (bypass.size()[2] - upsampled.size()[2]) // 2
-            bypass = F.pad(bypass, (-c, -c, -c, -c))
-        return torch.cat((upsampled, bypass), 1)
 
 
 m = SkullNet(1, 2)
