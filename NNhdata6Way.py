@@ -25,7 +25,7 @@ import traceback
 
 import torch
 import torch.optim as optim
-from models import UNet
+from models import SkullNet
 
 
 class SkullDataset(NNDataset):
@@ -143,7 +143,7 @@ class SkullTrainer(NNTrainer):
 
                 outputs = F.softmax(self.model(inputs), 1)
                 for ix, pred in zip(data['index'], outputs[:, 1, :]):
-                    file = dataloader.indices[ix][0].split('.')[0]
+                    file = dataloader.dataset.indices[ix][0].split('.')[0].split('-')[1]
 
                     p_EPIDURAL = pred[0].item()
                     p_INTRAPARENCHYMAL = pred[1].item()
@@ -210,7 +210,7 @@ class SkullTrainer(NNTrainer):
 conf = {
     'input_channels': 1,
     'num_classes': 2,
-    'batch_size': 64,
+    'batch_size': 32,
     'epochs': 251,
     'learning_rate': 0.001,
     'use_gpu': True,
@@ -249,7 +249,7 @@ import clean_and_save_images as hdata_cleaner
 
 
 def run(R):
-    model = UNet(R['input_channels'], R['num_classes'])
+    model = SkullNet(R['input_channels'], R['num_classes'])
     optimizer = optim.Adam(model.parameters(), lr=R['learning_rate'])
     if R['distribute']:
         model = torch.nn.DataParallel(model)
