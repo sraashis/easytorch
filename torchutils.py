@@ -11,6 +11,7 @@ import sys
 
 from torch.utils.data.dataset import Dataset
 import numpy as np
+from inspect import getsource as src
 
 
 class NNDataset(Dataset):
@@ -107,7 +108,10 @@ class NNTrainer:
         # Extra utility parameters
         self.model = model.to(self.device)
         self.optimizer = optimizer
-        self.checkpoint = {'total_epochs:': 0, 'epochs': 0, 'state': None, 'score': 0.0, 'model': 'EMPTY'}
+        self.checkpoint = {'total_epochs:': 0, 'epochs': 0, 'state': None,
+                           'score': 0.0, 'model': 'EMPTY',
+                           'params': str([src(v).replace(' ', '') if callable(v) else f'{str(p)}={str(v)}' for p, v in
+                                          self.conf.items()])}
         self.patience = self.conf.get('patience', 35)
         self.cls_weights = self.conf.get('cls_weights', None)
 
