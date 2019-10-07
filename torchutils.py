@@ -6,7 +6,6 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
 import nnviz as viz
-from measurements import ScoreAccumulator
 import sys
 
 from torch.utils.data.dataset import Dataset
@@ -114,6 +113,7 @@ class NNTrainer:
                                           self.conf.items()])}
         self.patience = self.conf.get('patience', 51)
         self.cls_weights = self.conf.get('cls_weights', None)
+        self.optimizing_score = 0.0
 
     def train(self, train_loader=None, validation_loader=None):
         print('Training...')
@@ -131,24 +131,18 @@ class NNTrainer:
                 print('############# Running validation... ####################')
                 self.model.eval()
                 with torch.no_grad():
-                    self.validation(epoch=epoch, validation_loader=validation_loader)
-                self._on_validation_end(data_loader=validation_loader, log_file=self.val_logger.name)
-                if self.early_stop(patience=self.patience):
-                    return
+                    epoch_score = self.one_epoch_run(epoch=epoch, data_loader=validation_loader,
+                                                     logger=self.val_logger)
+                    self._save_if_better(score=epoch_score)
+                    self._on_validation_end(data_loader=validation_loader, log_file=self.val_logger.name)
+                    if self.early_stop(patience=self.patience):
+                        return
                 print('########################################################')
 
         if not self.train_logger and not self.train_logger.closed:
             self.train_logger.close()
         if not self.val_logger and not self.val_logger.closed:
             self.val_logger.close()
-
-    def validation(self, epoch=None, validation_loader=None):
-        score_acc = ScoreAccumulator()
-        self.one_epoch_run(epoch=epoch, data_loader=validation_loader,
-                           logger=self.val_logger, score_accumulator=score_acc)
-        p, r, f1, a = score_acc.get_prfa()
-        print('>>> PRF1: ', [p, r, f1, a])
-        self._save_if_better(score=f1)
 
     def test(self, testset=None):
         return NotImplementedError('Must be implemented by a child class.')
@@ -241,4 +235,4 @@ class NNTrainer:
                     param_group['lr'] = param_group['lr'] * 0.7
 
     def one_epoch_run(self, **kw):
-        return NotImplementedError('Must be implemented by a child. Used in both training and validation.')
+        return 0

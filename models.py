@@ -66,7 +66,7 @@ class SkullNet(nn.Module):
         fc1 = self.fc1_bn(fc1)
         fc2 = self.fc2(F.relu(fc1))
         fc_out = self.fc_out(F.relu(fc2))
-        out = fc_out.view(fc_out.shape[0], 2, -1)
+        out = fc_out.view(fc_out.shape[0], 2, -1, 1)
         return out
 
 

@@ -1,30 +1,31 @@
 import torch
 
 
-class LossAccumulator:
+class NNVal:
     def __init__(self):
-        self.loss = 0.0
+        self.value = 0.0
         self.count = 0.0
 
     def add(self, loss):
-        self.loss += loss
+        self.value += loss
         self.count += 1
 
     @property
     def average(self):
-        return self.loss / max(self.count, 10e-3)
+        return self.value / max(self.count, 10e-9)
 
     def reset(self):
-        self.loss = 0.0
+        self.value = 0.0
         self.count = 0.0
 
     def accumulate(self, other):
-        self.loss += other.loss
+        self.value += other.value
         self.count += other.count
 
 
-class ScoreAccumulator:
+class Prf1a:
     def __init__(self):
+        self.optimizing = 0
         self.tn, self.fp, self.fn, self.tp = [0] * 4
 
     def add(self, tn=0, fp=0, fn=0, tp=0):
@@ -73,7 +74,7 @@ class ScoreAccumulator:
         self.tn, self.fp, self.fn, self.tp = [0] * 4
         return self
 
-    def get_prfa(self, beta=1):
+    def prf1a(self, key=None, beta=1):
         try:
             p = self.tp / (self.tp + self.fp)
         except ZeroDivisionError:
@@ -90,5 +91,11 @@ class ScoreAccumulator:
             a = (self.tp + self.tn) / (self.tp + self.fp + self.fn + self.tn)
         except ZeroDivisionError:
             a = 0
-        return [round(max(p, 0.001), 5), round(max(r, 0.001), 5),
-                round(max(f, 0.001), 5), round(max(a, 0.001), 5)]
+
+        prf1a = {
+            'Precision': round(max(p, 0.0001), 5),
+            'Recall': round(max(r, 0.0001), 5),
+            'F1': round(max(f, 0.0001), 5),
+            'Accuracy': round(max(a, 0.0001), 5)
+        }
+        return prf1a[key] if key else prf1a

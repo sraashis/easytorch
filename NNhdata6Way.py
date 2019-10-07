@@ -11,7 +11,7 @@ sep = os.sep
 import torchvision.transforms as tmf
 import torch.nn.functional as F
 
-from measurements import ScoreAccumulator, LossAccumulator
+from measurements import Prf1a, NNVal
 from torchutils import NNTrainer, NNDataLoader, NNDataset
 import os
 
@@ -47,6 +47,7 @@ class SkullDataset(NNDataset):
                 break
 
         if shuffle_indices:
+            random.seed(111)
             random.shuffle(self.indices)
         print(f'{len(self)} Indices Loaded')
 
@@ -63,7 +64,7 @@ class SkullDataset(NNDataset):
         try:
             img_arr = self.transforms(Image.open(self.images_dir + os.sep + image_file))
             return {'inputs': img_arr,
-                    'labels': label,
+                    'labels': label[..., None],
                     'index': index}
         except Exception as e:
             print('### Bad file:', image_file, self.mode)
@@ -83,7 +84,7 @@ class SkullDataset(NNDataset):
     def split_train_validation_set(cls, conf, train_transforms, val_transforms, split_ratio=[0.8, 0.2]):
         full_dataset = cls(transforms=transforms, mode='full', limit=conf['load_lim'])
         full_dataset.images_dir = conf['train_image_dir']
-        full_dataset.load_indices()
+        full_dataset.load_indices(shuffle_indices=True)
 
         ANYs, NONEs = [], []
         for img_file, label in full_dataset.indices:
@@ -171,9 +172,9 @@ class SkullTrainer(NNTrainer):
         :param kw:
         :return:
         """
-        running_loss = LossAccumulator()
-        score_acc = ScoreAccumulator() if self.model.training else kw.get('score_accumulator')
-        assert isinstance(score_acc, ScoreAccumulator)
+        metrics = Prf1a()
+        optimloss = NNVal()
+        running_loss = NNVal()
         data_loader = kw['data_loader']
         data_loader.dataset.resample()
         for i, data in enumerate(data_loader, 1):
@@ -189,16 +190,29 @@ class SkullTrainer(NNTrainer):
             if self.cls_weights:
                 _wt = torch.FloatTensor(self.cls_weights(self.conf)).to(self.device)
 
-            loss = F.nll_loss(outputs, labels, weight=_wt)
+            # weights1 = torch.ones_like(labels.unsqueeze(1)).float().to(self.device)
+            # # Weight of any type is 2
+            # weights1[:, :, 5, :] = 2
+            #
+            # weights2 = torch.ones_like(labels).float().to(self.device)
+            # # Weight of any type is 2
+            # weights2[:, 5, :] = 2
+
+            loss = F.nll_loss(outputs, labels)  # + dice_loss(outputs=outputs.exp(), target=labels)
             current_loss = loss.item()
             running_loss.add(current_loss)
+            optimloss.add(current_loss)
 
             if self.model.training:
                 loss.backward()
                 self.optimizer.step()
-                score_acc.reset()
+                metrics.reset()
 
-            p, r, f1, a = score_acc.add_tensor(predicted, labels).get_prfa()
+            prf1a = metrics.add_tensor(predicted, labels)
+            p = prf1a.prf1a('Precision')
+            r = prf1a.prf1a('Recall')
+            f1 = prf1a.prf1a('F1')
+            a = prf1a.prf1a('Accuracy')
             if i % self.log_frequency == 0:
                 print('Epochs[%d/%d] Batch[%d/%d] loss:%.5f pre:%.3f rec:%.3f f1:%.3f acc:%.3f' %
                       (
@@ -209,13 +223,14 @@ class SkullTrainer(NNTrainer):
 
             self.flush(kw['logger'],
                        ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
+        return metrics.prf1a('F1')
 
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-nch", "--input_channels", default=1, type=int, help="Number of channels of input image.")
 ap.add_argument("-ncl", "--num_classes", default=2, type=int, help="Number of output classes.")
 ap.add_argument("-b", "--batch_size", default=32, type=int, help="Mini batch size.")
-ap.add_argument('-ep', '--epochs', default=151, type=int, help='Number of epochs.')
+ap.add_argument('-ep', '--epochs', default=51, type=int, help='Number of epochs.')
 ap.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
 ap.add_argument('-gpu', '--use_gpu', default=True, type=bool, help='Use GPU?')
 ap.add_argument('-d', '--distribute', default=True, type=bool, help='Distribute to all GPUs.')
@@ -226,6 +241,7 @@ ap.add_argument('-pt', '--parallel_trained', default=False, type=bool, help='If 
 ap.add_argument('-nw', '--num_workers', default=8, type=int, help='Number of workers to work with data loading.')
 ap.add_argument('-chk', '--checkpoint_file', default='checkpoint.tar', type=str, help='Name of the checkpoint file.')
 ap.add_argument('-m', '--mode', required=True, type=str, help='Mode of operation.')
+ap.add_argument('-lbl', '--label', required=True, type=str, nargs='+', help='Label to identify the experiment.')
 ap.add_argument('-lim', '--load_lim', default=float('inf'), type=int, help='Data load limit')
 ap.add_argument('-log', '--log_dir', default='net_logs', type=str, help='Logging directory.')
 ap.add_argument('-trdir', '--train_image_dir', type=str, default='data' + os.sep + 'train_images',
@@ -234,7 +250,7 @@ ap.add_argument('-tsdir', '--test_image_dir', type=str, default='data' + os.sep 
                 help='Training images directory.')
 conf = vars(ap.parse_args())
 
-conf['cls_weights'] = lambda x: np.random.choice(np.arange(1, 100, 1), 2)
+conf['cls_weights'] = lambda x: [1, 1]  # np.random.choice(np.arange(1, 100, 1), 2)
 conf['rescale_size'] = (284, 284)
 train_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_train_images/'
 test_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'
@@ -294,4 +310,5 @@ def run(R):
     except Exception as e:
         traceback.print_exc()
 
-# run(conf)
+
+run(conf)
