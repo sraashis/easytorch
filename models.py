@@ -44,7 +44,7 @@ class SkullNet(nn.Module):
         self.C4 = _DoubleConvolution(int(256 / self.r), int(512 / self.r), int(256 / self.r), s=2)
         self.C5 = _DoubleConvolution(int(256 / self.r), int(128 / self.r), int(64 / self.r))
 
-        self.c5_out_dropout = nn.Dropout2d(p=0.5)
+        # self.c5_out_dropout = nn.Dropout2d(p=0.5)
         self.c5_out_flat_shape = int(64 / self.r) * 11 * 11
         self.fc1 = nn.Linear(self.c5_out_flat_shape, 1024)
         self.fc1_bn = nn.BatchNorm1d(1024)
@@ -62,7 +62,7 @@ class SkullNet(nn.Module):
         c4 = self.C4(c3)
 
         c5 = self.C5(c4)
-        c5 = self.c5_out_dropout(c5)
+        # c5 = self.c5_out_dropout(c5)
         fc1 = self.fc1(c5.view(-1, self.c5_out_flat_shape))
         fc1 = self.fc1_bn(fc1)
         fc2 = self.fc2(F.relu(fc1))
