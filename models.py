@@ -35,7 +35,7 @@ class _DoubleConvolution(nn.Module):
 class SkullNet(nn.Module):
     def __init__(self, num_channels, num_classes):
         super(SkullNet, self).__init__()
-        self.r = 1
+        self.r = 2
         self.num_classes = num_classes
 
         self.C1 = _DoubleConvolution(num_channels, int(64 / self.r), int(64 / self.r))

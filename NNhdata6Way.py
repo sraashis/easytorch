@@ -213,18 +213,24 @@ class SkullTrainer(NNTrainer):
         return metrics.prf1a('F1')
 
 
+def boolean_string(s):
+    if s not in {'False', 'True'}:
+        raise ValueError('Not a valid boolean string')
+    return s == 'True'
+
+
 ap = argparse.ArgumentParser()
 ap.add_argument("-nch", "--input_channels", default=1, type=int, help="Number of channels of input image.")
 ap.add_argument("-ncl", "--num_classes", default=2, type=int, help="Number of output classes.")
 ap.add_argument("-b", "--batch_size", default=32, type=int, help="Mini batch size.")
 ap.add_argument('-ep', '--epochs', default=51, type=int, help='Number of epochs.')
 ap.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
-ap.add_argument('-gpu', '--use_gpu', default=True, type=bool, help='Use GPU?')
-ap.add_argument('-d', '--distribute', default=True, type=bool, help='Distribute to all GPUs.')
-ap.add_argument('-s', '--shuffle', default=True, type=bool, help='Shuffle before each epoch.')
+ap.add_argument('-gpu', '--use_gpu', default=True, type=boolean_string, help='Use GPU?')
+ap.add_argument('-d', '--distribute', default=True, type=boolean_string, help='Distribute to all GPUs.')
+ap.add_argument('-s', '--shuffle', default=True, type=boolean_string, help='Shuffle before each epoch.')
 ap.add_argument('-lf', '--log_frequency', default=10, type=int, help='Log after ? iterations.')
 ap.add_argument('-vf', '--validation_frequency', default=1, type=int, help='Validation after ? epochs.')
-ap.add_argument('-pt', '--parallel_trained', default=False, type=bool, help='If model to resume was parallel trained.')
+ap.add_argument('-pt', '--parallel_trained', default=False, type=boolean_string, help='If model to resume was parallel trained.')
 ap.add_argument('-nw', '--num_workers', default=8, type=int, help='Number of workers to work with data loading.')
 ap.add_argument('-chk', '--checkpoint_file', default='checkpoint.tar', type=str, help='Name of the checkpoint file.')
 ap.add_argument('-m', '--mode', required=True, type=str, help='Mode of operation.')
@@ -297,4 +303,5 @@ def run(R):
         traceback.print_exc()
 
 
+torch.cuda.set_device(1)
 run(conf)
