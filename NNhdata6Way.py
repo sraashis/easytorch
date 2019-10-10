@@ -179,26 +179,17 @@ class SkullTrainer(NNTrainer):
         data_loader.dataset.resample()
         for i, data in enumerate(data_loader, 1):
             inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
+            labels_1h = torch.cat([1 - labels.unsqueeze(1), labels.unsqueeze(1)], 1).float().to(self.device)
+            wts = torch.ones_like(labels_1h).float().to(self.device)
+            wts[:, :, 5, :] = 2
 
             if self.model.training:
                 self.optimizer.zero_grad()
 
-            outputs = F.log_softmax(self.model(inputs), 1)
+            outputs = torch.sigmoid(self.model(inputs))
             _, predicted = torch.max(outputs, 1)
 
-            _wt = None
-            if self.cls_weights:
-                _wt = torch.FloatTensor(self.cls_weights(self.conf)).to(self.device)
-
-            # weights1 = torch.ones_like(labels.unsqueeze(1)).float().to(self.device)
-            # # Weight of any type is 2
-            # weights1[:, :, 5, :] = 2
-            #
-            # weights2 = torch.ones_like(labels).float().to(self.device)
-            # # Weight of any type is 2
-            # weights2[:, 5, :] = 2
-
-            loss = F.nll_loss(outputs, labels)  # + dice_loss(outputs=outputs.exp(), target=labels)
+            loss = F.binary_cross_entropy(outputs, labels_1h, weight=wts)
             current_loss = loss.item()
             running_loss.add(current_loss)
             optimloss.add(current_loss)
@@ -208,11 +199,7 @@ class SkullTrainer(NNTrainer):
                 self.optimizer.step()
                 metrics.reset()
 
-            prf1a = metrics.add_tensor(predicted, labels)
-            p = prf1a.prf1a('Precision')
-            r = prf1a.prf1a('Recall')
-            f1 = prf1a.prf1a('F1')
-            a = prf1a.prf1a('Accuracy')
+            p, r, f1, a = metrics.add_tensor(predicted, labels).prf1a()
             if i % self.log_frequency == 0:
                 print('Epochs[%d/%d] Batch[%d/%d] loss:%.5f pre:%.3f rec:%.3f f1:%.3f acc:%.3f' %
                       (
@@ -250,7 +237,6 @@ ap.add_argument('-tsdir', '--test_image_dir', type=str, default='data' + os.sep 
                 help='Training images directory.')
 conf = vars(ap.parse_args())
 
-conf['cls_weights'] = lambda x: [1, 1]  # np.random.choice(np.arange(1, 100, 1), 2)
 conf['rescale_size'] = (284, 284)
 train_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_train_images/'
 test_image_dir = '/mnt/iscsi/data/ashis_jay/stage_1_test_images/'

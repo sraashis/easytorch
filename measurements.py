@@ -98,4 +98,4 @@ class Prf1a:
             'F1': round(max(f, 0.0001), 5),
             'Accuracy': round(max(a, 0.0001), 5)
         }
-        return prf1a[key] if key else prf1a
+        return prf1a[key] if key else [p, r, f, a]
