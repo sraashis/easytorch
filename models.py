@@ -29,27 +29,13 @@ class FullConv(nn.Module):
         return self.encode(x)
 
 
-class FullDeConv(nn.Module):
-    def __init__(self, in_channels, out_channels, k=2, s=2, p=0):
-        super().__init__()
-        layers = [
-            nn.ConvTranspose2d(in_channels, out_channels, kernel_size=k, stride=s, padding=p),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        ]
-        self.encode = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.encode(x)
-
-
 class BottleNeck(nn.Module):
     def __init__(self, in_channels, out_channels, include_x=True):
         super().__init__()
         self.include_x = include_x
         self.conv_dwn = nn.MaxPool2d(kernel_size=2, stride=2)
         self.conv = FullConv(in_channels, out_channels)
-        self.conv_up = FullDeConv(out_channels, out_channels)
+        self.conv_up = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2, padding=0)
         _ch = in_channels + out_channels if self.include_x else out_channels
         self.conv_out = FullConv(_ch, out_channels)
 
@@ -64,7 +50,7 @@ class BottleNeck(nn.Module):
 class SkullNet(nn.Module):
     def __init__(self, num_channels, num_classes):
         super(SkullNet, self).__init__()
-        self.r = 4
+        self.r = 2
         self.num_classes = num_classes
         self.c = FullConv(num_channels, int(16 * self.r))
         self.c1 = BottleNeck(int(16 * self.r), int(16 * self.r))
@@ -99,6 +85,7 @@ class SkullNet(nn.Module):
         self.fc1 = nn.Linear(self.out_flat_shape, 1024)
         self.fc1_bn = nn.BatchNorm1d(1024)
         self.fc2 = nn.Linear(1024, 512)
+        self.fc2_bn = nn.BatchNorm1d(512)
         self.fc_out = nn.Linear(512, 12)
         initialize_model_weights(self)
 
@@ -155,9 +142,9 @@ class SkullNet(nn.Module):
         c_dwns = self.c15_dwns(c_dwns)
         c_dwns = self.c16_dwns(c_dwns)
         fc1 = self.fc1(c_dwns.view(-1, self.out_flat_shape))
-        fc1 = self.fc1_bn(fc1)
-        fc2 = self.fc2(F.relu(fc1))
-        fc_out = self.fc_out(F.relu(fc2))
+        fc1 = F.relu(self.fc1_bn(fc1), inplace=True)
+        fc2 = F.relu(self.fc2_bn(self.fc2(fc1)), inplace=True)
+        fc_out = self.fc_out(fc2)
         out = fc_out.view(fc_out.shape[0], 2, -1, 1)
         return out
 
