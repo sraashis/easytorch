@@ -50,38 +50,35 @@ class BottleNeck(nn.Module):
 class SkullNet(nn.Module):
     def __init__(self, num_channels, num_classes):
         super(SkullNet, self).__init__()
-        self.r = 2
+        self.r = 4
         self.num_classes = num_classes
         self.c = FullConv(num_channels, int(16 * self.r))
         self.c1 = BottleNeck(int(16 * self.r), int(16 * self.r))
         self.c2 = BottleNeck(int(16 * self.r), int(16 * self.r))
-        self.c3 = BottleNeck(int(16 * self.r), int(16 * self.r), include_x=False)
+        self.c3 = BottleNeck(int(16 * self.r), int(16 * self.r))
         self.c4 = BottleNeck(int(16 * self.r), int(16 * self.r))
         self.c5 = BottleNeck(int(16 * self.r), int(16 * self.r))
         self.c6 = BottleNeck(int(16 * self.r), int(16 * self.r))
-        self.c7 = BottleNeck(int(16 * self.r), int(16 * self.r), include_x=False)
-        self.c8 = BottleNeck(int(16 * self.r), int(16 * self.r))
-        self.c9 = BottleNeck(int(16 * self.r), int(16 * self.r))
-        self.c10 = BottleNeck(int(16 * self.r), int(16 * self.r))
+        self.c7 = BottleNeck(int(16 * self.r), int(16 * self.r))
 
-        self.c1_dwns = FullConv(int(10 * 16 * self.r), int(9 * 16 * self.r), p=0)
-        self.c2_dwns = FullConv(int(9 * 16 * self.r), int(8 * 16 * self.r), p=0)
-        self.c3_dwns = FullConv(int(8 * 16 * self.r), int(7 * 16 * self.r), p=0)
-        self.c4_dwns = FullConv(int(7 * 16 * self.r), int(6 * 16 * self.r), p=0)
-        self.c5_dwns = FullConv(int(6 * 16 * self.r), int(5 * 16 * self.r), p=0)
-        self.c6_dwns = FullConv(int(5 * 16 * self.r), int(4 * 16 * self.r), p=0)
-        self.c7_dwns = FullConv(int(4 * 16 * self.r), int(3 * 16 * self.r), p=0)
-        self.c8_dwns = FullConv(int(3 * 16 * self.r), int(2 * 16 * self.r), p=0)
-        self.c9_dwns = FullConv(int(2 * 16 * self.r), int(1 * 16 * self.r), p=0)
-        self.c10_dwns = FullConv(int(1 * 16 * self.r), int(16 / 2 * self.r), p=0)
-        self.c11_dwns = FullConv(int(16 / 2 * self.r), int(16 / 4 * self.r), p=0)
-        self.c12_dwns = FullConv(int(16 / 4 * self.r), int(16 / 8 * self.r), p=0)
-        self.c13_dwns = FullConv(int(16 / 8 * self.r), int(16 / 16 * self.r), p=0)
-        self.c14_dwns = FullConv(int(16 / 16 * self.r), int(16 / 16 * self.r), p=0)
-        self.c15_dwns = FullConv(int(16 / 16 * self.r), int(16 / 16 * self.r), p=0)
-        self.c16_dwns = FullConv(int(16 / 16 * self.r), int(16 / 16 * self.r), p=0)
+        self.c1_dwns = FullConv(int(16 * self.r), int(16 * self.r), p=0)
+        self.c2_dwns = FullConv(int(16 * self.r), int(15 * self.r), p=0)
+        self.c3_dwns = FullConv(int(15 * self.r), int(14 * self.r), p=0, s=2)
+        self.c4_dwns = FullConv(int(14 * self.r), int(13 * self.r), p=0)
+        self.c5_dwns = FullConv(int(13 * self.r), int(12 * self.r), p=0)
+        self.c6_dwns = FullConv(int(12 * self.r), int(11 * self.r), p=0)
+        self.c7_dwns = FullConv(int(11 * self.r), int(10 * self.r), p=0, s=2)
+        self.c8_dwns = FullConv(int(10 * self.r), int(9 * self.r), p=0)
+        self.c9_dwns = FullConv(int(9 * self.r), int(8 * self.r), p=0)
+        self.c10_dwns = FullConv(int(8 * self.r), int(7 * self.r), p=0)
+        self.c11_dwns = FullConv(int(7 * self.r), int(6 * self.r), p=0)
+        self.c12_dwns = FullConv(int(6 * self.r), int(5 * self.r), p=0)
+        self.c13_dwns = FullConv(int(5 * self.r), int(4 * self.r), p=0)
+        self.c14_dwns = FullConv(int(4 * self.r), int(3 * self.r), p=0)
+        self.c15_dwns = FullConv(int(3 * self.r), int(2 * self.r), p=0)
+        self.c16_dwns = FullConv(int(2 * self.r), int(1 * self.r), p=0)
 
-        self.out_flat_shape = self.r * 39 * 39
+        self.out_flat_shape = self.r * 12 * 12
         self.fc1 = nn.Linear(self.out_flat_shape, 1024)
         self.fc1_bn = nn.BatchNorm1d(1024)
         self.fc2 = nn.Linear(1024, 512)
@@ -92,40 +89,20 @@ class SkullNet(nn.Module):
     def forward(self, x):
         c = self.c(x)
         c1_b, c1_dwn = self.c1(c)
-        _, c1_dwn_dwn = self.c1(c1_dwn)
 
         c2_b, c2_dwn = self.c2(c1_b)
-        _, c2_dwn_dwn = self.c2(c2_dwn)
 
         c3_b, c3_dwn = self.c3(c2_b)
-        _, c3_dwn_dwn = self.c3(c3_dwn)
 
         c4_b, c4_dwn = self.c4(c3_b)
-        _, c4_dwn_dwn = self.c4(c4_dwn)
 
         c5_b, c5_dwn = self.c5(c4_b)
-        _, c5_dwn_dwn = self.c5(c5_dwn)
 
         c6_b, c6_dwn = self.c6(c5_b)
-        _, c6_dwn_dwn = self.c6(c6_dwn)
 
         c7_b, c7_dwn = self.c7(c6_b)
-        _, c7_dwn_dwn = self.c7(c7_dwn)
 
-        c8_b, c8_dwn = self.c8(c7_b)
-        _, c8_dwn_dwn = self.c8(c8_dwn)
-
-        c9_b, c9_dwn = self.c9(c8_b)
-        _, c9_dwn_dwn = self.c9(c9_dwn)
-
-        c10_b, c10_dwn = self.c10(c9_b)
-        _, c10_dwn_dwn = self.c10(c10_dwn)
-
-        dwns_cat = torch.cat(
-            [c1_dwn_dwn, c2_dwn_dwn, c3_dwn_dwn, c4_dwn_dwn, c5_dwn_dwn, c6_dwn_dwn, c7_dwn_dwn, c8_dwn_dwn,
-             c9_dwn_dwn, c10_dwn_dwn], 1)
-
-        c_dwns = self.c1_dwns(dwns_cat)
+        c_dwns = self.c1_dwns(c7_dwn)
         c_dwns = self.c2_dwns(c_dwns)
         c_dwns = self.c3_dwns(c_dwns)
         c_dwns = self.c4_dwns(c_dwns)
@@ -141,6 +118,8 @@ class SkullNet(nn.Module):
         c_dwns = self.c14_dwns(c_dwns)
         c_dwns = self.c15_dwns(c_dwns)
         c_dwns = self.c16_dwns(c_dwns)
+
+        print(c_dwns.shape)
         fc1 = self.fc1(c_dwns.view(-1, self.out_flat_shape))
         fc1 = F.relu(self.fc1_bn(fc1), inplace=True)
         fc2 = F.relu(self.fc2_bn(self.fc2(fc1)), inplace=True)
