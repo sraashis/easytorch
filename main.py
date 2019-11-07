@@ -115,18 +115,15 @@ class KernelTrainer(NNTrainer):
                 self.optimizer.step()
                 metrics.reset()
 
-            p, r, f1, a = metrics.add_tensor(predicted, labels).prf1a()
+            p, r, f1, a = metrics.add_tensor(predicted, labels).prfa()
             if i % self.log_frequency == 0:
-                print('Epochs[%d/%d] Batch[%d/%d] loss:%.5f pre:%.3f rec:%.3f f1:%.3f acc:%.3f' %
-                      (
-                          kw['epoch'], self.epochs, i, kw['data_loader'].__len__(),
-                          running_loss.average, p, r, f1,
-                          a))
+                self.debug_prf1a(kw['epoch'], self.epochs, i, len(kw['data_loader']), running_loss.average, p, r,
+                                 f1, a)
                 running_loss.reset()
 
             self.flush(kw['logger'],
                        ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
-        return metrics.prf1a('F1')
+        return metrics.f1
 
 
 def boolean_string(s):
@@ -196,7 +193,7 @@ def run(conf, data):
                 print('### Train Val Batch size:', len(train_loader), len(validation_loader))
                 trainer.train(train_loader=train_loader, validation_loader=validation_loader)
 
-            test_loader = KernelDataset.get_loader(shuffle=True, mode='test', transforms=transforms,
+            test_loader = KernelDataset.get_loader(shuffle=False, mode='test', transforms=transforms,
                                                    images=split['test'], data_conf=data, run_conf=conf)
 
             trainer.resume_from_checkpoint(parallel_trained=conf.get('parallel_trained'))

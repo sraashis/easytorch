@@ -5,6 +5,7 @@ class NNVal:
     def __init__(self):
         self.value = 0.0
         self.count = 0.0
+        self.eps = 1e-5
 
     def add(self, loss):
         self.value += loss
@@ -12,7 +13,7 @@ class NNVal:
 
     @property
     def average(self):
-        return self.value / max(self.count, 10e-9)
+        return self.value / max(self.count, self.eps)
 
     def reset(self):
         self.value = 0.0
@@ -25,6 +26,7 @@ class NNVal:
 
 class Prf1a:
     def __init__(self):
+        self.eps = 1e-5
         self.optimizing = 0
         self.tn, self.fp, self.fn, self.tp = [0] * 4
 
@@ -74,28 +76,40 @@ class Prf1a:
         self.tn, self.fp, self.fn, self.tp = [0] * 4
         return self
 
-    def prf1a(self, key=None, beta=1):
+    @property
+    def precision(self):
         try:
             p = self.tp / (self.tp + self.fp)
         except ZeroDivisionError:
             p = 0
+        return round(p, 5) + self.eps
+
+    @property
+    def recall(self):
         try:
             r = self.tp / (self.tp + self.fn)
         except ZeroDivisionError:
             r = 0
-        try:
-            f = (1 + beta ** 2) * p * r / (((beta ** 2) * p) + r)
-        except ZeroDivisionError:
-            f = 0
+        return round(r, 5) + self.eps
+
+    @property
+    def accuracy(self):
         try:
             a = (self.tp + self.tn) / (self.tp + self.fp + self.fn + self.tn)
         except ZeroDivisionError:
             a = 0
+        return round(a, 5) + self.eps
 
-        prf1a = {
-            'Precision': round(max(p, 0.0001), 5),
-            'Recall': round(max(r, 0.0001), 5),
-            'F1': round(max(f, 0.0001), 5),
-            'Accuracy': round(max(a, 0.0001), 5)
-        }
-        return prf1a[key] if key else [p, r, f, a]
+    @property
+    def f1(self):
+        return self.f_beta(beta=1)
+
+    def f_beta(self, beta=1):
+        try:
+            f_beta = (1 + beta ** 2) * self.precision * self.recall / (((beta ** 2) * self.precision) + self.recall)
+        except ZeroDivisionError:
+            f_beta = 0
+        return round(f_beta, 5) + self.eps
+
+    def prfa(self, beta=1):
+        return self.precision, self.recall, self.f_beta(beta=beta), self.accuracy

@@ -271,3 +271,7 @@ class NNTrainer:
 
     def one_epoch_run(self, **kw):
         raise NotImplementedError('Must be implemented.')
+
+    def debug_prf1a(self, epoch, epochs, iter, iter_max, loss, p, r, f1, a, *kw):
+        print('Epochs[%d/%d] Batch[%d/%d] loss:%.5f pre:%.3f rec:%.3f f1:%.3f acc:%.3f' % (
+        epoch, epochs, iter, iter_max, loss, p, r, f1, a))
