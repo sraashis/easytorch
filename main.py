@@ -179,7 +179,7 @@ def run(conf, data):
             optimizer = optim.Adam(model.module.parameters(), lr=conf['learning_rate'])
 
         try:
-            trainer = KernelTrainer(model=model, conf=conf, optimizer=optimizer)
+            trainer = KernelTrainer(run_conf=conf, model=model, optimizer=optimizer)
 
             if conf.get('mode') == 'train':
                 train_loader = KernelDataset.get_loader(shuffle=True, mode='train', transforms=transforms,

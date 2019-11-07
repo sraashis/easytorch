@@ -14,15 +14,15 @@ sep = os.sep
 
 
 class NNDataset(Dataset):
-    def __init__(self, indices=None, transforms=None, limit=float('inf'), mode='init', data_conf=None):
-        self.transforms = transforms
-        self.indices = indices if indices else []
-        self.limit = limit
-        self.mode = mode
-        self.images_dir = data_conf.get('images_dir')
-        self.labels_dir = data_conf.get('labels_dir')
-        self.parent = data_conf.get('parent', None)
-        self.mappings = {}
+    def __init__(self, **kw):
+        self.transforms = kw['transforms']
+        self.indices = kw.get('indices', [])
+        self.limit = kw.get('limit', float('inf'))
+        self.mode = kw.get('mode', 'init')
+        self.images_dir = kw.get('images_dir')
+        self.labels_dir = kw.get('labels_dir')
+        self.parent = kw.get('parent', None)
+        self.mappings = kw.get('mappings', {})
 
     def load_indices(self, **kw):
         raise NotImplementedError('Must be implemented by child class.')
@@ -34,14 +34,14 @@ class NNDataset(Dataset):
         return len(self.indices)
 
     @classmethod
-    def _load(cls, shuffle=False, mode=None, transforms=None, images=None, data_conf=None):
-        dataset = cls(mode=mode, transforms=transforms, data_conf=data_conf)
+    def _load(cls, shuffle=False, mode=None, transforms=None, images=None, **data_conf):
+        dataset = cls(mode=mode, transforms=transforms, **data_conf)
         dataset.load_indices(shuffle=shuffle, images=images if images else os.listdir(dataset.images_dir))
         return dataset
 
     @classmethod
     def get_loader(cls, shuffle=False, mode=None, transforms=None, images=None, run_conf=None, data_conf=None):
-        dataset = cls._load(shuffle=shuffle, mode=mode, transforms=transforms, images=images, data_conf=data_conf)
+        dataset = cls._load(shuffle=shuffle, mode=mode, transforms=transforms, images=images, **data_conf)
         return NNDataLoader.get_loader(dataset=dataset, **run_conf)
 
     @classmethod
@@ -104,10 +104,10 @@ class NNDataLoader(DataLoader):
 
 class NNTrainer:
 
-    def __init__(self, conf=None, model=None, optimizer=None):
+    def __init__(self, run_conf=None, model=None, optimizer=None):
 
         # Initialize parameters and directories before-hand so that we can clearly track which ones are used
-        self.conf = conf
+        self.conf = run_conf
         self.epochs = self.conf.get('epochs', 100)
         self.log_frequency = self.conf.get('log_frequency', 10)
         self.validation_frequency = self.conf.get('validation_frequency', 1)
@@ -139,8 +139,8 @@ class NNTrainer:
         self.optimizer = optimizer
         self.checkpoint = {'total_epochs:': 0, 'epochs': 0, 'state': None,
                            'score': 0.0, 'model': 'EMPTY',
-                           'params': str([src(v).replace(' ', '') if callable(v) else f'{str(p)}={str(v)}' for p, v in
-                                          self.conf.items()])}
+                           'conf': str([src(v).replace(' ', '') if callable(v) else f'{str(p)}={str(v)}' for p, v in
+                                        self.conf.items()])}
         self.patience = self.conf.get('patience', 31)
 
     def train(self, train_loader=None, validation_loader=None):
@@ -219,9 +219,6 @@ class NNTrainer:
         except Exception as e:
             print('ERROR: ' + str(e))
 
-    def get_eval_score(self, metrics=None):
-        return NotImplementedError('Not Implemented.')
-
     def _save_if_better(self, score=None):
 
         if self.mode == 'test':
@@ -274,4 +271,4 @@ class NNTrainer:
 
     def debug_prf1a(self, epoch, epochs, iter, iter_max, loss, p, r, f1, a, *kw):
         print('Epochs[%d/%d] Batch[%d/%d] loss:%.5f pre:%.3f rec:%.3f f1:%.3f acc:%.3f' % (
-        epoch, epochs, iter, iter_max, loss, p, r, f1, a))
+            epoch, epochs, iter, iter_max, loss, p, r, f1, a))
