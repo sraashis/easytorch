@@ -133,7 +133,7 @@ def boolean_string(s):
 
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-nch", "--input_channels", default=1, type=int, help="Number of channels of input image.")
+ap.add_argument("-nch", "--input_channels", default=3, type=int, help="Number of channels of input image.")
 ap.add_argument("-ncl", "--num_classes", default=2, type=int, help="Number of output classes.")
 ap.add_argument("-b", "--batch_size", default=32, type=int, help="Mini batch size.")
 ap.add_argument('-ep', '--epochs', default=51, type=int, help='Number of epochs.')

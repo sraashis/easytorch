@@ -35,7 +35,8 @@ class Net(nn.Module):
     def __init__(self, num_channels, num_classes):
         super(Net, self).__init__()
         self.c1 = Conv2D(num_channels, num_classes)
+        self.c2 = Conv2D()
         initialize_weights(self)
 
     def forward(self, x):
-        return x
+        return self.c1(x)
