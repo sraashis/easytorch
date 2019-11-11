@@ -13,9 +13,10 @@ import torch.nn.functional as F
 from core.measurements import Prf1a, NNVal
 from core.torchutils import NNTrainer, NNDataset
 from core import image_utils as iu
+from core.image_utils import Image
+from PIL import Image as IMG
 
 import numpy as np
-from PIL import Image as IMG
 
 import random
 import os
@@ -23,20 +24,29 @@ import traceback
 
 import torch
 import torch.optim as optim
-from models import Net
+from models import FishNet
 import argparse
 
 
 class KernelDataset(NNDataset):
     def __init__(self, **kw):
         super().__init__(**kw)
+        self.get_label = kw['label_getter']
+        self.get_mask = kw['mask_getter']
 
     def load_indices(self, images=None, shuffle=False):
         print(self.images_dir, '...')
 
         for fc, file in enumerate(images, 1):
             print(f'{file}, {fc}', end='\r')
-            self.indices.append(file)
+            img_obj = Image()
+            img_obj.load(self.images_dir, file)
+            img_obj.load_ground_truth(self.labels_dir, self.get_label)
+            img_obj.apply_clahe()
+            for chunk_ix in iu.get_chunk_indexes(img_obj.array.shape[0:2], (448, 448), (200, 200)):
+                self.indices.append([fc] + chunk_ix)
+                self.mappings[fc] = img_obj
+
             if len(self) >= self.limit:
                 break
 
@@ -45,17 +55,16 @@ class KernelDataset(NNDataset):
         print(f'{len(self)} Indices Loaded')
 
     def __getitem__(self, index):
-        image_file = self.indices[index]
-        arr = np.array(IMG.open(self.images_dir + os.sep + image_file))
-        arr = iu.apply_clahe(arr)
-        try:
-            img_tensor = self.transforms(IMG.fromarray(arr))
-            return {'inputs': img_tensor,
-                    'labels': img_tensor,
-                    'indices': index}
-        except Exception as e:
-            print('### Bad file:', image_file, self.mode)
-            traceback.print_exc()
+        ID, row_from, row_to, col_from, col_to = self.indices[index]
+        img_tensor = self.mappings[ID].array[row_from:row_to, col_from:col_to]
+        gt = self.mappings[ID].ground_truth[row_from:row_to, col_from:col_to]
+        gt[gt > 0] = 1
+        IMG.fromarray(img_tensor).save('net_logs'+os.sep+str(index)+'.png')
+        IMG.fromarray(gt*255).save('net_logs' + os.sep + 'gt_' + str(index) + '.png')
+        if self.transforms is not None:
+            img_tensor = self.transforms(IMG.fromarray(img_tensor))
+
+        return {'indices': index, 'inputs': img_tensor, 'labels': gt.copy()}
 
 
 class KernelTrainer(NNTrainer):
@@ -75,7 +84,7 @@ class KernelTrainer(NNTrainer):
         self.model.eval()
         with torch.no_grad():
             for i, data in enumerate(data_loader, 1):
-                inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
+                inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).float()
                 indices = data['indices'].to(self.device).long()
 
                 if self.model.training:
@@ -86,7 +95,7 @@ class KernelTrainer(NNTrainer):
                 for ix, pred in enumerate(predicted):
                     arr = np.array(predicted[ix].cpu().numpy() * 255, dtype=np.uint8)
                     name = data_loader.dataset.indices[indices[ix]][0].split('.')[0]
-                    Image.fromarray(arr).save(self.conf['log_dir'] + os.sep + name + '.png')
+                    IMG.fromarray(arr).save(self.conf['log_dir'] + os.sep + name + '.png')
 
     def one_epoch_run(self, **kw):
         """
@@ -103,10 +112,11 @@ class KernelTrainer(NNTrainer):
             if self.model.training:
                 self.optimizer.zero_grad()
 
-            outputs = F.log_softmax(self.model(inputs), 1)
-            _, predicted = torch.max(outputs, 1)
+            o1, o2, o3, o4, o5, o6, o7 = self.model(inputs)
+            binary = F.log_softmax(o7, 1)
+            _, predicted = torch.max(binary, 1)
 
-            loss = F.nll_loss(outputs, labels)
+            loss = F.nll_loss(binary, labels)
             current_loss = loss.item()
             running_loss.add(current_loss)
 
@@ -171,7 +181,7 @@ import core.datautils as du
 def run(conf, data):
     for file in os.listdir(data['splits_dir']):
         split = du.load_split_json(data['splits_dir'] + sep + file)
-        model = Net(conf['input_channels'], conf['num_classes'])
+        model = FishNet(conf['input_channels'], conf['num_classes'])
         optimizer = optim.Adam(model.parameters(), lr=conf['learning_rate'])
         if conf['distribute']:
             model = torch.nn.DataParallel(model)
@@ -183,7 +193,8 @@ def run(conf, data):
 
             if conf.get('mode') == 'train':
                 train_loader = KernelDataset.get_loader(shuffle=True, mode='train', transforms=transforms,
-                                                        images=split['train'], data_conf=data, run_conf=conf)
+                                                        images=split['train'], data_conf=data,
+                                                        run_conf=conf)
 
                 validation_loader = KernelDataset.get_loader(shuffle=True, mode='validation',
                                                              transforms=transforms,

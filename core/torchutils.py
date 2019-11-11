@@ -21,6 +21,7 @@ class NNDataset(Dataset):
         self.mode = kw.get('mode', 'init')
         self.images_dir = kw.get('images_dir')
         self.labels_dir = kw.get('labels_dir')
+        self.masks_dir = kw.get('masks_dir')
         self.parent = kw.get('parent', None)
         self.mappings = kw.get('mappings', {})
 
