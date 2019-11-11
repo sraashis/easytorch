@@ -59,8 +59,8 @@ class KernelDataset(NNDataset):
         img_tensor = self.mappings[ID].array[row_from:row_to, col_from:col_to]
         gt = self.mappings[ID].ground_truth[row_from:row_to, col_from:col_to]
         gt[gt > 0] = 1
-        IMG.fromarray(img_tensor).save('net_logs'+os.sep+str(index)+'.png')
-        IMG.fromarray(gt*255).save('net_logs' + os.sep + 'gt_' + str(index) + '.png')
+        # IMG.fromarray(img_tensor).save('net_logs'+os.sep+str(index)+'.png')
+        # IMG.fromarray(gt*255).save('net_logs' + os.sep + 'gt_' + str(index) + '.png')
         if self.transforms is not None:
             img_tensor = self.transforms(IMG.fromarray(img_tensor))
 
@@ -94,8 +94,7 @@ class KernelTrainer(NNTrainer):
                 _, predicted = torch.max(outputs, 1)
                 for ix, pred in enumerate(predicted):
                     arr = np.array(predicted[ix].cpu().numpy() * 255, dtype=np.uint8)
-                    name = data_loader.dataset.indices[indices[ix]][0].split('.')[0]
-                    IMG.fromarray(arr).save(self.conf['log_dir'] + os.sep + name + '.png')
+                    IMG.fromarray(arr).save(self.conf['log_dir'] + os.sep + str(indices[ix]) + '.png')
 
     def one_epoch_run(self, **kw):
         """
@@ -112,11 +111,10 @@ class KernelTrainer(NNTrainer):
             if self.model.training:
                 self.optimizer.zero_grad()
 
-            o1, o2, o3, o4, o5, o6, o7 = self.model(inputs)
-            binary = F.log_softmax(o7, 1)
-            _, predicted = torch.max(binary, 1)
+            out = F.log_softmax(self.model(inputs), 1)
+            _, predicted = torch.max(out, 1)
 
-            loss = F.nll_loss(binary, labels)
+            loss = F.nll_loss(out, labels)
             current_loss = loss.item()
             running_loss.add(current_loss)
 
