@@ -14,7 +14,6 @@ Very useful image related utilities
 
 
 class Image:
-
     def __init__(self):
         self.dir = None
         self.file = None
@@ -45,6 +44,10 @@ class Image:
         except Exception as e:
             print('### Fail to load ground truth: ' + str(e))
 
+    def apply_mask(self):
+        if self.mask is not None:
+            self.array[self.mask == 0] = 0
+
     def apply_clahe(self, clip_limit=2.0, tile_shape=(8, 8)):
         enhancer = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_shape)
         if len(self.array.shape) == 2:
@@ -55,12 +58,6 @@ class Image:
             self.array[:, :, 2] = enhancer.apply(self.array[:, :, 2])
         else:
             print('### More than three channels')
-
-    def apply_mask(self):
-        if self.mask is not None:
-            self.array[self.mask == 0] = 0
-        else:
-            print('### Mask not applied. ', self.file)
 
     def __copy__(self):
         copy_obj = Image()
