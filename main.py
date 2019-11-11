@@ -42,6 +42,8 @@ class KernelDataset(NNDataset):
             img_obj = Image()
             img_obj.load(self.images_dir, file)
             img_obj.load_ground_truth(self.labels_dir, self.get_label)
+            img_obj.load_mask(self.masks_dir, self.get_mask)
+            img_obj.apply_mask()
             img_obj.apply_clahe()
             for chunk_ix in iu.get_chunk_indexes(img_obj.array.shape[0:2], (448, 448), (200, 200)):
                 self.indices.append([fc] + chunk_ix)
@@ -56,9 +58,9 @@ class KernelDataset(NNDataset):
 
     def __getitem__(self, index):
         ID, row_from, row_to, col_from, col_to = self.indices[index]
-        img_tensor = self.mappings[ID].array[row_from:row_to, col_from:col_to]
+        img_tensor = self.mappings[ID].array[row_from:row_to, col_from:col_to, 1]
         gt = self.mappings[ID].ground_truth[row_from:row_to, col_from:col_to]
-        gt[gt > 0] = 1
+        gt[gt == 255] = 1
         # IMG.fromarray(img_tensor).save('net_logs'+os.sep+str(index)+'.png')
         # IMG.fromarray(gt*255).save('net_logs' + os.sep + 'gt_' + str(index) + '.png')
         if self.transforms is not None:
@@ -94,7 +96,7 @@ class KernelTrainer(NNTrainer):
                 _, predicted = torch.max(outputs, 1)
                 for ix, pred in enumerate(predicted):
                     arr = np.array(predicted[ix].cpu().numpy() * 255, dtype=np.uint8)
-                    IMG.fromarray(arr).save(self.conf['log_dir'] + os.sep + str(indices[ix]) + '.png')
+                    IMG.fromarray(arr).save(self.conf['log_dir'] + os.sep + str(indices[ix].item()) + '.png')
 
     def one_epoch_run(self, **kw):
         """
@@ -164,9 +166,7 @@ ap.add_argument('-log', '--log_dir', default='net_logs', type=str, help='Logging
 run_conf = vars(ap.parse_args())
 
 transforms = tmf.Compose([
-    tmf.RandomHorizontalFlip(),
-    tmf.RandomVerticalFlip(),
-    tmf.ToTensor()
+   tmf.ToTensor()
 ])
 
 test_transforms = tmf.Compose([

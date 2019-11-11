@@ -66,8 +66,10 @@ class FishNet(nn.Module):
         self.c1 = Conv2D(num_channels, 64)
         self.c2 = Conv2D(64, 128)
         self.c3 = Conv2D(128, 256)
-        self.c4 = Conv2D(256, 128)
-        self.c5 = Conv2D(128, 64)
+        self.c4 = Conv2D(256, 512)
+        self.c5 = Conv2D(512, 256)
+        self.c6 = Conv2D(256, 128)
+        self.c7 = Conv2D(128, 64)
         self.out = ConvOut(64, num_classes)
 
     def forward(self, x):
@@ -76,6 +78,8 @@ class FishNet(nn.Module):
         x = self.c3(x)
         x = self.c4(x)
         x = self.c5(x)
+        x = self.c6(x)
+        x = self.c7(x)
         return self.out(x)
 
 
