@@ -3,6 +3,9 @@ import math
 import cv2
 import numpy as np
 from PIL import Image as IMG
+import os
+import copy
+
 
 """
 ##################################################################################################
@@ -11,20 +14,63 @@ Very useful image related utilities
 """
 
 
-def apply_clahe(arr_img, clip_limit=2.0, tile_shape=(8, 8)):
-    arr = arr_img.copy()
-    enhancer = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_shape)
-    if len(arr.shape) == 2:
-        arr = enhancer.apply(arr)
-    elif len(arr.shape) == 3:
-        arr[:, :, 0] = enhancer.apply(arr[:, :, 0])
-        arr[:, :, 1] = enhancer.apply(arr[:, :, 1])
-        arr[:, :, 2] = enhancer.apply(arr[:, :, 2])
-    else:
-        print('### More than three channels')
-    return arr
+class Image:
 
+    def __init__(self):
+        self.dir = None
+        self.file = None
+        self.array = None
+        self.mask = None
+        self.ground_truth = None
+        self.extras = {}
 
+    def load(self, dir, file):
+        try:
+            self.dir = dir
+            self.file = file
+            self.array = np.array(IMG.open(self.path), dtype=np.uint8)
+        except Exception as e:
+            print('### Error Loading file: ' + self.file + ': ' + str(e))
+
+    def load_mask(self, mask_dir=None, fget_mask=lambda x: x):
+        try:
+            mask_file = fget_mask(self.file)
+            self.mask = np.array(IMG.open(os.path.join(mask_dir, mask_file)), dtype=np.uint8)
+        except Exception as e:
+            print('### Fail to load mask: ' + str(e))
+
+    def load_ground_truth(self, gt_dir=None, fget_ground_truth=lambda x: x):
+        try:
+            gt_file = fget_ground_truth(self.file)
+            self.ground_truth = np.array(IMG.open(os.path.join(gt_dir, gt_file)), dtype=np.uint8)
+        except Exception as e:
+            print('### Fail to load ground truth: ' + str(e))
+
+    def apply_clahe(self, clip_limit=2.0, tile_shape=(8, 8)):
+        enhancer = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_shape)
+        if len(self.array.shape) == 2:
+            self.array = enhancer.apply(self.array)
+        elif len(self.array.shape) == 3:
+            self.array[:, :, 0] = enhancer.apply(self.array[:, :, 0])
+            self.array[:, :, 1] = enhancer.apply(self.array[:, :, 1])
+            self.array[:, :, 2] = enhancer.apply(self.array[:, :, 2])
+        else:
+            print('### More than three channels')
+
+    def __copy__(self):
+        copy_obj = Image()
+        copy_obj.file = copy.copy(self.file)
+        copy_obj.array = copy.copy(self.array)
+        copy_obj.mask = copy.copy(self.mask)
+        copy_obj.ground_truth = copy.copy(self.ground_truth)
+        copy_obj.extras = copy.deepcopy(self.extras)
+        return copy_obj
+
+    @property
+    def path(self):
+        return os.path.join(self.dir, self.file)
+        
+        
 def get_rgb_scores(arr_2d=None, truth=None):
     """
     Returns a rgb image of pixelwise separation between ground truth and arr_2d

@@ -15,7 +15,7 @@ from core.torchutils import NNTrainer, NNDataset
 from core import image_utils as iu
 
 import numpy as np
-from PIL import Image
+from PIL import Image as IMG
 
 import random
 import os
@@ -46,10 +46,10 @@ class KernelDataset(NNDataset):
 
     def __getitem__(self, index):
         image_file = self.indices[index]
-        arr = np.array(Image.open(self.images_dir + os.sep + image_file))
+        arr = np.array(IMG.open(self.images_dir + os.sep + image_file))
         arr = iu.apply_clahe(arr)
         try:
-            img_tensor = self.transforms(Image.fromarray(arr))
+            img_tensor = self.transforms(IMG.fromarray(arr))
             return {'inputs': img_tensor,
                     'labels': img_tensor,
                     'indices': index}
