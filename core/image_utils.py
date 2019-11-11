@@ -1,11 +1,10 @@
+import copy
 import math
+import os
 
 import cv2
 import numpy as np
 from PIL import Image as IMG
-import os
-import copy
-
 
 """
 ##################################################################################################
@@ -57,6 +56,12 @@ class Image:
         else:
             print('### More than three channels')
 
+    def apply_mask(self):
+        if self.mask is not None:
+            self.array[self.mask == 0] = 0
+        else:
+            print('### Mask not applied. ', self.file)
+
     def __copy__(self):
         copy_obj = Image()
         copy_obj.file = copy.copy(self.file)
@@ -69,8 +74,8 @@ class Image:
     @property
     def path(self):
         return os.path.join(self.dir, self.file)
-        
-        
+
+
 def get_rgb_scores(arr_2d=None, truth=None):
     """
     Returns a rgb image of pixelwise separation between ground truth and arr_2d
