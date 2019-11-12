@@ -6,9 +6,12 @@ def dice_loss(outputs=None, target=None, beta=1, weights=None, ):
     :param beta: More beta, better precision. 1 is neutral
     :return:
     """
-    smooth = 1.
+    from torch import min as tmin
+    smooth = 1.0
     if weights is not None:
         weights = weights.contiguous().float().view(-1)
+        if tmin(weights).item() == 0:
+            weights += smooth
     else:
         weights = 1
 
@@ -16,13 +19,6 @@ def dice_loss(outputs=None, target=None, beta=1, weights=None, ):
     tflat = target.contiguous().float().view(-1)
     intersection = (iflat * tflat * weights).sum()
 
-    f = (((1 + beta ** 2) * intersection) + smooth) / (((beta ** 2 * iflat.sum()) + tflat.sum()) + smooth)
+    f = (((1 + beta ** 2) * intersection) + smooth) / (
+            ((beta ** 2 * (weights * iflat).sum()) + (weights * tflat).sum()) + smooth)
     return 1 - f
-
-
-def per_pixel_weighted_nll(logp, labels, weights):
-    # Multiply with weights
-    weighted_logp = (logp * weights).view(len(labels), -1)
-    # Rescale so that loss is in approx. same interval
-    weighted_loss = weighted_logp.sum(1) / weights.view(len(labels), -1).sum(1)
-    return - weighted_loss.sum() / len(labels)
