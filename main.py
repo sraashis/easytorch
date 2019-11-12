@@ -83,20 +83,19 @@ class KernelTrainer(NNTrainer):
 
     def test(self, data_loader=None):
         print('------Running test------')
+        score = Prf1a()
         self.model.eval()
         with torch.no_grad():
             for i, data in enumerate(data_loader, 1):
                 inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).float()
                 indices = data['indices'].to(self.device).long()
-
-                if self.model.training:
-                    self.optimizer.zero_grad()
-
                 outputs = F.log_softmax(self.model(inputs), 1)
                 _, predicted = torch.max(outputs, 1)
+                score.add_tensor(predicted, labels)
                 for ix, pred in enumerate(predicted):
                     arr = np.array(predicted[ix].cpu().numpy() * 255, dtype=np.uint8)
                     IMG.fromarray(arr).save(self.conf['log_dir'] + os.sep + str(indices[ix].item()) + '.png')
+        print(score.prfa())
 
     def one_epoch_run(self, **kw):
         """
