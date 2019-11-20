@@ -64,7 +64,7 @@ class KernelDataset(NNDataset):
         if self.transforms is not None:
             img_tensor = self.transforms(IMG.fromarray(img_tensor))
 
-        return {'indices': index, 'inputs': img_tensor, 'labels': img_tensor}
+        return {'indices': index, 'inputs': img_tensor, 'labels': gt}
 
 
 class KernelTrainer(NNTrainer):
@@ -117,7 +117,7 @@ class KernelTrainer(NNTrainer):
             out = F.log_softmax(self.model(inputs), 1)
             # _, predicted = torch.max(out, 1)
 
-            loss = F.mse_loss(out, labels)
+            loss = F.nll_loss(out, labels)
             current_loss = loss.item()
             running_loss.add(current_loss)
 
