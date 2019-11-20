@@ -58,15 +58,13 @@ class KernelDataset(NNDataset):
 
     def __getitem__(self, index):
         ID, row_from, row_to, col_from, col_to = self.indices[index]
-        img_tensor = self.mappings[ID].array[row_from:row_to, col_from:col_to, 1]
+        img_tensor = self.mappings[ID].array[row_from:row_to, col_from:col_to]
         gt = self.mappings[ID].ground_truth[row_from:row_to, col_from:col_to]
         gt[gt == 255] = 1
-        # IMG.fromarray(img_tensor).save('net_logs'+os.sep+str(index)+'.png')
-        # IMG.fromarray(gt*255).save('net_logs' + os.sep + 'gt_' + str(index) + '.png')
         if self.transforms is not None:
             img_tensor = self.transforms(IMG.fromarray(img_tensor))
 
-        return {'indices': index, 'inputs': img_tensor, 'labels': gt.copy()}
+        return {'indices': index, 'inputs': img_tensor, 'labels': img_tensor}
 
 
 class KernelTrainer(NNTrainer):
@@ -89,6 +87,10 @@ class KernelTrainer(NNTrainer):
             for i, data in enumerate(data_loader, 1):
                 inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).float()
                 indices = data['indices'].to(self.device).long()
+
+                if self.model.training:
+                    self.optimizer.zero_grad()
+
                 outputs = F.log_softmax(self.model(inputs), 1)
                 _, predicted = torch.max(outputs, 1)
                 score.add_tensor(predicted, labels)
@@ -103,19 +105,19 @@ class KernelTrainer(NNTrainer):
         :param kw:
         :return:
         """
-        metrics = Prf1a()
+        metrics = NNVal()
         running_loss = NNVal()
         data_loader = kw['data_loader']
         for i, data in enumerate(data_loader, 1):
-            inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
+            inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).float()
 
             if self.model.training:
                 self.optimizer.zero_grad()
 
             out = F.log_softmax(self.model(inputs), 1)
-            _, predicted = torch.max(out, 1)
+            # _, predicted = torch.max(out, 1)
 
-            loss = F.nll_loss(out, labels)
+            loss = F.mse_loss(out, labels)
             current_loss = loss.item()
             running_loss.add(current_loss)
 
@@ -124,15 +126,12 @@ class KernelTrainer(NNTrainer):
                 self.optimizer.step()
                 metrics.reset()
 
-            p, r, f1, a = metrics.add_tensor(predicted, labels).prfa()
+            metrics.add(current_loss)
             if i % self.log_frequency == 0:
-                self.debug_prf1a(kw['epoch'], self.epochs, i, len(kw['data_loader']), running_loss.average, p, r,
-                                 f1, a)
+                print(kw['epoch'], self.epochs, i, len(kw['data_loader']), running_loss.average)
                 running_loss.reset()
 
-            self.flush(kw['logger'],
-                       ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
-        return metrics.f1
+        return 1 / metrics.average
 
 
 def boolean_string(s):

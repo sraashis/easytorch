@@ -1,6 +1,7 @@
 import torch.nn as nn
-from torch import cat
-
+from torch import cat, sigmoid
+import torchvision
+import os
 
 def initialize_weights(*models):
     for model in models:
@@ -35,8 +36,7 @@ class ConvDown2D(nn.Module):
         self.dwn = nn.MaxPool2d(kernel_size=2, stride=2)
 
     def forward(self, x):
-        x = self.conv(x)
-        return x, self.dwn(x)
+        return self.dwn(self.conv(x))
 
 
 class ConvUp2D(nn.Module):
@@ -46,8 +46,7 @@ class ConvUp2D(nn.Module):
         self.up = nn.ConvTranspose2d(in_channels=out_channels, out_channels=out_channels, kernel_size=2, stride=2)
 
     def forward(self, x):
-        x = self.conv(x)
-        return x, self.up(x)
+        return self.up(self.conv(x))
 
 
 class ConvOut(nn.Module):
@@ -63,23 +62,24 @@ class FishNet(nn.Module):
     def __init__(self, num_channels, num_classes):
         super(FishNet, self).__init__()
 
-        self.c1 = Conv2D(num_channels, 64)
-        self.c2 = Conv2D(64, 128)
-        self.c3 = Conv2D(128, 256)
-        self.c4 = Conv2D(256, 512)
-        self.c5 = Conv2D(512, 256)
-        self.c6 = Conv2D(256, 128)
-        self.c7 = Conv2D(128, 64)
-        self.out = ConvOut(64, num_classes)
+        self.c = Conv2D(num_channels, 32)
+        self.e1 = ConvDown2D(32, 64)
+        self.e2 = ConvDown2D(64, 128)
+        self.e3 = ConvDown2D(128, 256)
+        self.d3 = ConvUp2D(256, 128)
+        self.d2 = ConvUp2D(128, 64)
+        self.d1 = ConvUp2D(64, 32)
+        self.out = ConvOut(32, num_classes)
 
     def forward(self, x):
-        x = self.c1(x)
-        x = self.c2(x)
-        x = self.c3(x)
-        x = self.c4(x)
-        x = self.c5(x)
-        x = self.c6(x)
-        x = self.c7(x)
+        x = self.c(x)
+
+        x = self.e1(x)
+        x = self.e2(x)
+        x = self.e3(x)
+        x = self.d3(x)
+        x = self.d2(x)
+        x = self.d1(x)
         return self.out(x)
 
 
