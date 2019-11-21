@@ -109,6 +109,7 @@ class NNTrainer:
 
         # Initialize parameters and directories before-hand so that we can clearly track which ones are used
         self.conf = run_conf
+        self.epochs_begin = 1
         self.epochs = self.conf.get('epochs', 100)
         self.log_frequency = self.conf.get('log_frequency', 10)
         self.validation_frequency = self.conf.get('validation_frequency', 1)
@@ -118,14 +119,14 @@ class NNTrainer:
         self.log_headers = self.get_log_headers()
         self.log_dir = self.conf.get('log_dir', 'net_logs')
         os.makedirs(self.log_dir, exist_ok=True)
-        log_key = self.conf.get('checkpoint_file', 'checkpoint').split('.')[0]
-        self.checkpoint_file = os.path.join(self.log_dir, log_key + '.tar')
-        self.test_logger = NNTrainer.get_logger(log_file=os.path.join(self.log_dir, log_key + '-TEST.csv'),
+        self.log_key = self.conf.get('log_key', 'chk').split('.')[0]
+        self.test_logger = NNTrainer.get_logger(log_file=os.path.join(self.log_dir, self.log_key + '-TEST.csv'),
                                                 header=self.log_headers.get('test', ''))
         if self.mode == 'train':
             self.train_logger = NNTrainer.get_logger(
-                log_file=os.path.join(self.log_dir, log_key + '-TRAIN.csv'), header=self.log_headers.get('train', ''))
-            self.val_logger = NNTrainer.get_logger(log_file=os.path.join(self.log_dir, log_key + '-VAL.csv'),
+                log_file=os.path.join(self.log_dir, self.log_key + '-TRAIN.csv'),
+                header=self.log_headers.get('train', ''))
+            self.val_logger = NNTrainer.get_logger(log_file=os.path.join(self.log_dir, self.log_key + '-VAL.csv'),
                                                    header=self.log_headers.get('validation', ''))
 
         # Handle gpu/cpu
@@ -138,34 +139,36 @@ class NNTrainer:
         # Extra utility parameters
         self.model = model.to(self.device)
         self.optimizer = optimizer
-        self.checkpoint = {'total_epochs:': 0, 'epochs': 0, 'state': None,
-                           'score': 0.0, 'model': 'EMPTY',
+        self.patience = self.conf.get('patience', 31)
+        self.checkpoint = {'latest_epoch': 0, 'latest_score': 0.0, 'latest_model_state': None,
+                           'latest_optimizer_state': None, 'best_epoch': 0, 'best_score': 0.0, 'best_model_state': None,
+                           'best_optimizer_state': None, 'model': str(self.model),
                            'conf': str([src(v).replace(' ', '') if callable(v) else f'{str(p)}={str(v)}' for p, v in
                                         self.conf.items()])}
-        self.patience = self.conf.get('patience', 31)
 
     def train(self, train_loader=None, validation_loader=None):
         print('Training...')
 
-        for epoch in range(1, self.epochs + 1):
+        for epoch in range(self.epochs_begin, self.epochs_begin + self.epochs + 1):
             self.model.train()
             self._adjust_learning_rate(epoch=epoch)
-            self.checkpoint['total_epochs'] = epoch
 
             self.one_epoch_run(epoch=epoch, data_loader=train_loader, logger=self.train_logger)
             self._on_epoch_end(data_loader=train_loader, log_file=self.train_logger.name)
 
             # Validation_frequency is the number of epoch until validation
             if epoch % self.validation_frequency == 0:
-                print('############# Running validation... ####################')
+                print('----------------- Running validation... --------------------')
                 self.model.eval()
                 with torch.no_grad():
-                    self._save_if_better(self.validation(epoch=epoch, data_loader=validation_loader,
-                                                         logger=self.val_logger))
+                    direction, score = self.validation(epoch=epoch, data_loader=validation_loader,
+                                                       logger=self.val_logger)
                     self._on_validation_end(data_loader=validation_loader, log_file=self.val_logger.name)
-                    if self.early_stop(patience=self.patience):
+                    self.save_checkpoint(epoch=epoch, score=score, direction=direction)
+                    if self.checkpoint['latest_epoch'] - self.checkpoint['best_epoch'] >= self.patience:
+                        print(f'### Patience exceeded. Stopping...')
                         return
-                print('########################################################')
+                print('-------------------------------------------------------------')
 
         if not self.train_logger and not self.train_logger.closed:
             self.train_logger.close()
@@ -203,48 +206,58 @@ class NNTrainer:
             'test': 'ID,PRECISION,RECALL,F1,ACCURACY,LOSS'
         }
 
-    def resume_from_checkpoint(self, checkpoint_path=None, parallel_trained=False):
-        self.checkpoint = torch.load(checkpoint_path if checkpoint_path else self.checkpoint_file)
-        print(checkpoint_path if checkpoint_path else self.checkpoint_file, 'Loaded...')
+    def resume_from_checkpoint(self, checkpoint_file=None, parallel_trained=False, key=None):
         try:
+            path = checkpoint_file if checkpoint_file else os.path.join(self.log_dir, f'{self.log_key}.tar')
+            checkpoint = torch.load(path)
+            print(path, 'Loaded...')
             if parallel_trained:
                 from collections import OrderedDict
                 new_state_dict = OrderedDict()
-                for k, v in self.checkpoint['state'].items():
+                for k, v in checkpoint[f'{key}_model_state'].items():
                     name = k[7:]  # remove `module.`
                     new_state_dict[name] = v
                 # load params
                 self.model.load_state_dict(new_state_dict)
+                self.optimizer.load_state_dict(checkpoint[f'{key}_optimizer_state'])
             else:
-                self.model.load_state_dict(self.checkpoint['state'])
+                self.model.load_state_dict(checkpoint[f'{key}_model_state'])
+                self.optimizer.load_state_dict(checkpoint[f'{key}_optimizer_state'])
+            self.epochs_begin = checkpoint[f'{key}_epoch']
         except Exception as e:
             print('ERROR: ' + str(e))
 
-    def _save_if_better(self, score=None):
+    def save_checkpoint(self, **kw):
 
-        if self.mode == 'test':
-            return
+        assert (kw['direction'] == 'maximize' or kw[
+            'direction'] == 'minimize'), 'direction must be minimize(eg. MSE) or maximize(eg. F1 score)'
 
-        if score > self.checkpoint['score']:
-            print('Score improved: ',
-                  str(self.checkpoint['score']) + ' to ' + str(score) + ' BEST CHECKPOINT SAVED')
-            self.checkpoint['state'] = self.model.state_dict()
-            self.checkpoint['epochs'] = self.checkpoint['total_epochs']
-            self.checkpoint['score'] = score
-            self.checkpoint['model'] = str(self.model)
-            torch.save(self.checkpoint, self.checkpoint_file)
+        self.checkpoint['latest_model_state'] = self.model.state_dict()
+        self.checkpoint['latest_optimizer_state'] = self.optimizer.state_dict()
+        self.checkpoint['latest_epoch'] = kw.get('epoch')
+        self.checkpoint['latest_score'] = kw.get('score')
+
+        self.checkpoint['best_score'] = self.checkpoint.get('best_score', kw.get('score'))
+        self.checkpoint['best_epoch'] = self.checkpoint.get('best_epoch', kw.get('epoch'))
+        self.checkpoint['best_model_state'] = self.checkpoint.get('best_model_state', self.model.state_dict())
+        self.checkpoint['best_optimizer_state'] = self.checkpoint.get('best_optimizer_state',
+                                                                      self.optimizer.state_dict())
+        if kw['direction'] == 'maximize' and kw['score'] >= self.checkpoint['best_score'] \
+                or kw['direction'] == 'minimize' and kw['score'] <= self.checkpoint['best_score']:
+            print(
+                f'#### SCORE IMPROVED from {self.checkpoint["best_score"]} to {self.checkpoint["latest_score"]}.')
+            self.checkpoint['best_score'] = self.checkpoint["latest_score"]
+            self.checkpoint['best_epoch'] = self.checkpoint["latest_epoch"]
+            self.checkpoint['best_model_state'] = self.checkpoint['latest_model_state']
+            self.checkpoint['best_optimizer_state'] = self.checkpoint['latest_optimizer_state']
         else:
-            print('Score did not improve:' + str(score) + ' BEST: ' + str(
-                self.checkpoint['score']) + ' Best EP: ' + (
-                      str(self.checkpoint['epochs'])))
+            print(
+                f'Score did not improve. Best was {self.checkpoint["best_score"]} on epoch {self.checkpoint["best_epoch"]}.')
 
-    def early_stop(self, patience=35):
-        return self.checkpoint['total_epochs'] - self.checkpoint[
-            'epochs'] >= patience * self.validation_frequency
+        torch.save(self.checkpoint, os.path.join(self.log_dir, f'{self.log_key}.tar'))
 
     @staticmethod
     def get_logger(log_file=None, header=''):
-
         if os.path.isfile(log_file):
             print('### CRITICAL!!! ' + log_file + '" already exists.')
             ip = input('Override? [Y/N]: ')
@@ -269,7 +282,3 @@ class NNTrainer:
 
     def one_epoch_run(self, **kw):
         raise NotImplementedError('Must be implemented.')
-
-    def debug_prf1a(self, epoch, epochs, iter, iter_max, loss, p, r, f1, a, *kw):
-        print('Epochs[%d/%d] Batch[%d/%d] loss:%.5f pre:%.3f rec:%.3f f1:%.3f acc:%.3f' % (
-            epoch, epochs, iter, iter_max, loss, p, r, f1, a))

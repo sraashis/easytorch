@@ -65,15 +65,14 @@ class FishNet(nn.Module):
         self.c = Conv2D(num_channels, 32)
         self.e1 = ConvDown2D(32, 64)
         self.e2 = ConvDown2D(64, 128)
-        self.e3 = ConvDown2D(128, 256)
-        self.d3 = ConvUp2D(256, 128)
+        self.e3 = ConvDown2D(128, 512)
+        self.d3 = ConvUp2D(512, 128)
         self.d2 = ConvUp2D(128, 64)
         self.d1 = ConvUp2D(64, 32)
         self.out = ConvOut(32, num_classes)
 
     def forward(self, x):
         x = self.c(x)
-
         x = self.e1(x)
         x = self.e2(x)
         x = self.e3(x)

@@ -1,4 +1,4 @@
-def dice_loss(outputs=None, target=None, beta=1, weights=None, ):
+def dice_loss_binary(outputs=None, target=None, beta=1, weights=None):
     """
     :param weights: element-wise weights
     :param outputs:
@@ -8,17 +8,17 @@ def dice_loss(outputs=None, target=None, beta=1, weights=None, ):
     """
     from torch import min as tmin
     smooth = 1.0
-    if weights is not None:
-        weights = weights.contiguous().float().view(-1)
-        if tmin(weights).item() == 0:
-            weights += smooth
+    if weights:
+        w = weights.contiguous().float().view(-1)
+        if tmin(w).item() == 0:
+            w += smooth
     else:
-        weights = 1
+        w = 1.0
 
     iflat = outputs.contiguous().float().view(-1)
     tflat = target.contiguous().float().view(-1)
-    intersection = (iflat * tflat * weights).sum()
+    intersection = (iflat * tflat * w).sum()
 
     f = (((1 + beta ** 2) * intersection) + smooth) / (
-            ((beta ** 2 * (weights * iflat).sum()) + (weights * tflat).sum()) + smooth)
+            ((beta ** 2 * (w * iflat).sum()) + (w * tflat).sum()) + smooth)
     return 1 - f

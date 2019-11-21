@@ -58,13 +58,13 @@ class KernelDataset(NNDataset):
 
     def __getitem__(self, index):
         ID, row_from, row_to, col_from, col_to = self.indices[index]
-        img_tensor = self.mappings[ID].array[row_from:row_to, col_from:col_to]
+        img_tensor = self.mappings[ID].array[row_from:row_to, col_from:col_to, 1]
         gt = self.mappings[ID].ground_truth[row_from:row_to, col_from:col_to]
         gt[gt == 255] = 1
         if self.transforms is not None:
             img_tensor = self.transforms(IMG.fromarray(img_tensor))
 
-        return {'indices': index, 'inputs': img_tensor, 'labels': gt}
+        return {'indices': index, 'inputs': img_tensor, 'labels': gt.copy()}
 
 
 class KernelTrainer(NNTrainer):
@@ -87,10 +87,6 @@ class KernelTrainer(NNTrainer):
             for i, data in enumerate(data_loader, 1):
                 inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).float()
                 indices = data['indices'].to(self.device).long()
-
-                if self.model.training:
-                    self.optimizer.zero_grad()
-
                 outputs = F.log_softmax(self.model(inputs), 1)
                 _, predicted = torch.max(outputs, 1)
                 score.add_tensor(predicted, labels)
@@ -105,17 +101,17 @@ class KernelTrainer(NNTrainer):
         :param kw:
         :return:
         """
-        metrics = NNVal()
+        metrics = Prf1a()
         running_loss = NNVal()
         data_loader = kw['data_loader']
         for i, data in enumerate(data_loader, 1):
-            inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).float()
+            inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).long()
 
             if self.model.training:
                 self.optimizer.zero_grad()
 
             out = F.log_softmax(self.model(inputs), 1)
-            # _, predicted = torch.max(out, 1)
+            _, predicted = torch.max(out, 1)
 
             loss = F.nll_loss(out, labels)
             current_loss = loss.item()
@@ -126,12 +122,16 @@ class KernelTrainer(NNTrainer):
                 self.optimizer.step()
                 metrics.reset()
 
-            metrics.add(current_loss)
+            p, r, f1, a = metrics.add_tensor(predicted, labels).prfa()
             if i % self.log_frequency == 0:
-                print(kw['epoch'], self.epochs, i, len(kw['data_loader']), running_loss.average)
+                print('Epochs[%d/%d] Batch[%d/%d] loss:%.5f pre:%.3f rec:%.3f f1:%.3f acc:%.3f' % (
+                    kw['epoch'], self.epochs, i, len(kw['data_loader']), running_loss.average, p, r,
+                    f1, a))
                 running_loss.reset()
 
-        return 1 / metrics.average
+            self.flush(kw['logger'],
+                       ','.join(str(x) for x in [0, kw['epoch'], i, p, r, f1, a, current_loss]))
+        return 'maximize', metrics.f1
 
 
 def boolean_string(s):
@@ -198,12 +198,13 @@ def run(conf, data):
                                                              run_conf=conf)
 
                 print('### Train Val Batch size:', len(train_loader), len(validation_loader))
+                trainer.resume_from_checkpoint(parallel_trained=conf.get('parallel_trained'), key='latest')
                 trainer.train(train_loader=train_loader, validation_loader=validation_loader)
 
             test_loader = KernelDataset.get_loader(shuffle=False, mode='test', transforms=transforms,
                                                    images=split['test'], data_conf=data, run_conf=conf)
 
-            trainer.resume_from_checkpoint(parallel_trained=conf.get('parallel_trained'))
+            trainer.resume_from_checkpoint(parallel_trained=conf.get('parallel_trained'), key='best')
             trainer.test(data_loader=test_loader)
         except Exception as e:
             traceback.print_exc()
