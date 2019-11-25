@@ -83,18 +83,15 @@ def get_rgb_scores(arr_2d=None, truth=None):
     :return:
     """
     arr_rgb = np.zeros([arr_2d.shape[0], arr_2d.shape[1], 3], dtype=np.uint8)
-    for i in range(0, arr_2d.shape[0]):
-        for j in range(0, arr_2d.shape[1]):
-            if arr_2d[i, j] == 255 and truth[i, j] == 255:
-                arr_rgb[i, j, :] = 255
-            if arr_2d[i, j] == 255 and truth[i, j] == 0:
-                arr_rgb[i, j, 0] = 0
-                arr_rgb[i, j, 1] = 255
-                arr_rgb[i, j, 2] = 0
-            if arr_2d[i, j] == 0 and truth[i, j] == 255:
-                arr_rgb[i, j, 0] = 255
-                arr_rgb[i, j, 1] = 0
-                arr_rgb[i, j, 2] = 0
+    x = arr_2d.copy()
+    y = truth.copy()
+    x[x == 255] = 1
+    y[y == 255] = 1
+    xy = x + (y * 2)
+    arr_rgb[xy == 3] = [255, 255, 255]
+    arr_rgb[xy == 1] = [0, 255, 0]
+    arr_rgb[xy == 2] = [255, 0, 0]
+    arr_rgb[xy == 0] = [0, 0, 0]
     return arr_rgb
 
 

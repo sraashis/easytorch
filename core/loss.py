@@ -19,6 +19,5 @@ def dice_loss_binary(outputs=None, target=None, beta=1, weights=None):
     tflat = target.contiguous().float().view(-1)
     intersection = (iflat * tflat * w).sum()
 
-    f = (((1 + beta ** 2) * intersection) + smooth) / (
+    return (((1 + beta ** 2) * intersection) + smooth) / (
             ((beta ** 2 * (w * iflat).sum()) + (w * tflat).sum()) + smooth)
-    return 1 - f

@@ -83,16 +83,30 @@ class KernelTrainer(NNTrainer):
         print('------Running test------')
         score = Prf1a()
         self.model.eval()
+        img_objects = {}
         with torch.no_grad():
             for i, data in enumerate(data_loader, 1):
                 inputs, labels = data['inputs'].to(self.device).float(), data['labels'].to(self.device).float()
                 indices = data['indices'].to(self.device).long()
-                outputs = F.log_softmax(self.model(inputs), 1)
+                outputs = F.softmax(self.model(inputs), 1)
                 _, predicted = torch.max(outputs, 1)
                 score.add_tensor(predicted, labels)
                 for ix, pred in enumerate(predicted):
-                    arr = np.array(predicted[ix].cpu().numpy() * 255, dtype=np.uint8)
-                    IMG.fromarray(arr).save(self.conf['log_dir'] + os.sep + str(indices[ix].item()) + '.png')
+                    obj_id, _ = indices[ix].item()
+                    if not img_objects.get(obj_id):
+                        img_objects[obj_id] = data_loader.dataset.mappings[obj_id]
+
+                    if img_objects.get(obj_id).extras.get('predicted_patches'):
+                        img_objects.get(obj_id).extras.get('predicted_patches').append(
+                            np.array(predicted[ix].cpu().numpy() * 255, dtype=np.uint8))
+                    else:
+                        img_objects.get(obj_id).extras['predicted_patches'] = []
+
+        for ID, obj in img_objects.items():
+            merged_arr = iu.merge_patches(obj.extras['predicted_patches'], obj.arr.shape[0:2],
+                                          data_loader.dataset.patch_size,
+                                          data_loader.dataset.window_offset)
+            IMG.fromarray(merged_arr).save(self.log_dir + os.sep + obj.file.split('.')[0] + '.png')
         print(score.prfa())
 
     def one_epoch_run(self, **kw):
