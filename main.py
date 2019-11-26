@@ -79,7 +79,7 @@ class KernelTrainer(NNTrainer):
             'test': 'ID,Label'
         }
 
-    def test(self, data_loader=None):
+    def test(self, data_loader=None, gen_images=False):
         print('------Running test------')
         score = Prf1a()
         self.model.eval()
@@ -91,23 +91,23 @@ class KernelTrainer(NNTrainer):
                 outputs = F.softmax(self.model(inputs), 1)
                 _, predicted = torch.max(outputs, 1)
                 score.add_tensor(predicted, labels)
+                print(f'Batch: {i}/{len(data_loader)} PRF1A: {score.prfa()}', end='\r')
                 for ix, pred in enumerate(predicted):
-                    obj_id, _ = indices[ix].item()
+                    obj_id, _, _, _, _ = data_loader.dataset.indices[indices[ix].item()]
                     if not img_objects.get(obj_id):
                         img_objects[obj_id] = data_loader.dataset.mappings[obj_id]
-
-                    if img_objects.get(obj_id).extras.get('predicted_patches'):
-                        img_objects.get(obj_id).extras.get('predicted_patches').append(
-                            np.array(predicted[ix].cpu().numpy() * 255, dtype=np.uint8))
+                    if img_objects.get(obj_id).extras.get('predicted_patches') is not None:
+                        img_objects.get(obj_id).extras.get('predicted_patches').append(predicted[ix])
                     else:
-                        img_objects.get(obj_id).extras['predicted_patches'] = []
-
-        for ID, obj in img_objects.items():
-            merged_arr = iu.merge_patches(obj.extras['predicted_patches'], obj.arr.shape[0:2],
-                                          data_loader.dataset.patch_size,
-                                          data_loader.dataset.window_offset)
-            IMG.fromarray(merged_arr).save(self.log_dir + os.sep + obj.file.split('.')[0] + '.png')
-        print(score.prfa())
+                        img_objects.get(obj_id).extras['predicted_patches'] = [predicted[ix]]
+        print('Test Score:', score.prfa())
+        if gen_images:
+            for ID, obj in img_objects.items():
+                np_arrays = [np.array(arr.cpu().numpy() * 255, dtype=np.uint8) for arr in obj.extras['predicted_patches']]
+                merged_arr = iu.merge_patches(np.array(np_arrays), obj.array.shape[0:2],
+                                              data_loader.dataset.patch_size,
+                                              data_loader.dataset.window_offset)
+                IMG.fromarray(merged_arr).save(self.log_dir + os.sep + obj.file.split('.')[0] + '.png')
 
     def one_epoch_run(self, **kw):
         """
@@ -178,7 +178,7 @@ ap.add_argument('-log', '--log_dir', default='net_logs', type=str, help='Logging
 run_conf = vars(ap.parse_args())
 
 transforms = tmf.Compose([
-   tmf.ToTensor()
+    tmf.ToTensor()
 ])
 
 test_transforms = tmf.Compose([
