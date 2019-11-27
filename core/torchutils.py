@@ -43,6 +43,7 @@ class NNDataset(Dataset):
     @classmethod
     def get_loader(cls, shuffle=False, mode=None, transforms=None, images=None, run_conf=None, data_conf=None):
         dataset = cls._load(shuffle=shuffle, mode=mode, transforms=transforms, images=images, **data_conf)
+        run_conf['shuffle'] = shuffle
         return NNDataLoader.get_loader(dataset=dataset, **run_conf)
 
     @classmethod
@@ -242,8 +243,8 @@ class NNTrainer:
         self.checkpoint['best_model_state'] = self.checkpoint.get('best_model_state', self.model.state_dict())
         self.checkpoint['best_optimizer_state'] = self.checkpoint.get('best_optimizer_state',
                                                                       self.optimizer.state_dict())
-        if kw['direction'] == 'maximize' and kw['score'] >= self.checkpoint['best_score'] \
-                or kw['direction'] == 'minimize' and kw['score'] <= self.checkpoint['best_score']:
+        if (kw['direction'] == 'maximize' and kw['score'] >= self.checkpoint['best_score']) \
+                or (kw['direction'] == 'minimize' and kw['score'] <= self.checkpoint['best_score']):
             print(
                 f'#### SCORE IMPROVED from {self.checkpoint["best_score"]} to {self.checkpoint["latest_score"]}.')
             self.checkpoint['best_score'] = self.checkpoint["latest_score"]
@@ -252,7 +253,7 @@ class NNTrainer:
             self.checkpoint['best_optimizer_state'] = self.checkpoint['latest_optimizer_state']
         else:
             print(
-                f'Score did not improve. Best was {self.checkpoint["best_score"]} on epoch {self.checkpoint["best_epoch"]}.')
+                f'Score: {self.checkpoint["latest_score"]} Best was {self.checkpoint["best_score"]} on epoch {self.checkpoint["best_epoch"]}.')
 
         torch.save(self.checkpoint, os.path.join(self.log_dir, f'{self.log_key}.tar'))
 
