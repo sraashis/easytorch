@@ -190,6 +190,7 @@ import core.datautils as du
 
 def run(conf, data):
     for file in os.listdir(data['splits_dir']):
+        conf['log_key'] = file
         split = du.load_split_json(data['splits_dir'] + sep + file)
         model = FishNet(conf['input_channels'], conf['num_classes'])
         optimizer = optim.Adam(model.parameters(), lr=conf['learning_rate'])
