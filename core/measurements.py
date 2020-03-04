@@ -113,3 +113,11 @@ class Prf1a:
 
     def prfa(self, beta=1):
         return self.precision, self.recall, self.f_beta(beta=beta), self.accuracy
+
+    @property
+    def overlap(self):
+        try:
+            o = self.tp / (self.tp + self.fp + self.fn)
+        except ZeroDivisionError:
+            o = 0
+        return round(o, 5) + self.eps

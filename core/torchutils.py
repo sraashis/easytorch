@@ -42,7 +42,7 @@ class NNDataset(Dataset):
 
     @classmethod
     def get_loader(cls, shuffle=False, mode=None, transforms=None, images=None, run_conf=None, data_conf=None):
-        dataset = cls._load(shuffle=shuffle, mode=mode, transforms=transforms, images=images, **data_conf)
+        dataset = cls._load(limit=data_conf['load_limit'], shuffle=shuffle, mode=mode, transforms=transforms, images=images, **data_conf)
         return NNDataLoader.get_loader(dataset=dataset, **run_conf)
 
     @classmethod
