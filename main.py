@@ -94,17 +94,17 @@ class KernelTrainer(NNTrainer):
                 print(f'Batch: {i}/{len(data_loader)} PRF1A: {score.prfa()}', end='\r')
                 for ix, pred in enumerate(predicted):
                     obj_id, _, _, _, _ = data_loader.dataset.indices[indices[ix].item()]
+                    arr = np.array(predicted[ix].cpu().numpy() * 255, dtype=np.uint8)
                     if not img_objects.get(obj_id):
                         img_objects[obj_id] = data_loader.dataset.mappings[obj_id]
                     if img_objects.get(obj_id).extras.get('predicted_patches') is not None:
-                        img_objects.get(obj_id).extras.get('predicted_patches').append(predicted[ix])
+                        img_objects.get(obj_id).extras.get('predicted_patches').append(arr)
                     else:
-                        img_objects.get(obj_id).extras['predicted_patches'] = [predicted[ix]]
+                        img_objects.get(obj_id).extras['predicted_patches'] = [arr]
         print('Test Score:', score.prfa())
         if gen_images:
             for ID, obj in img_objects.items():
-                np_arrays = [np.array(arr.cpu().numpy() * 255, dtype=np.uint8) for arr in obj.extras['predicted_patches']]
-                merged_arr = iu.merge_patches(np.array(np_arrays), obj.array.shape[0:2],
+                merged_arr = iu.merge_patches(np.array(obj.extras['predicted_patches']), obj.array.shape[0:2],
                                               data_loader.dataset.patch_size,
                                               data_loader.dataset.window_offset)
                 IMG.fromarray(merged_arr).save(self.log_dir + os.sep + obj.file.split('.')[0] + '.png')
@@ -190,6 +190,7 @@ import core.datautils as du
 
 def run(conf, data):
     for file in os.listdir(data['splits_dir']):
+        conf['log_key'] = file
         split = du.load_split_json(data['splits_dir'] + sep + file)
         model = FishNet(conf['input_channels'], conf['num_classes'])
         optimizer = optim.Adam(model.parameters(), lr=conf['learning_rate'])
