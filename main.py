@@ -172,6 +172,7 @@ ap.add_argument('-pin', '--pin_memory', default=True, type=boolean_string,
 ap.add_argument('-nw', '--num_workers', default=8, type=int, help='Number of workers to work with data loading.')
 ap.add_argument('-chk', '--checkpoint_file', default='checkpoint.tar', type=str, help='Name of the checkpoint file.')
 ap.add_argument('-m', '--mode', required=True, type=str, help='Mode of operation.')
+ap.add_argument('-data', '--data_dir', default='data', required=False, type=str, help='Root path to input Data.')
 ap.add_argument('-lbl', '--label', type=str, nargs='+', help='Label to identify the experiment.')
 ap.add_argument('-lim', '--load_limit', default=float('inf'), type=int, help='Data load limit')
 ap.add_argument('-log', '--log_dir', default='net_logs', type=str, help='Logging directory.')
@@ -230,4 +231,7 @@ from runs import DRIVE
 data_confs = [DRIVE]
 if __name__ == "__main__":
     for data_conf in data_confs:
+        for k, v in data_conf.items():
+            if 'dir' in k:
+                data_conf[k] = run_conf['data_dir'] + os.sep + data_conf[k]
         run(run_conf, data_conf)
