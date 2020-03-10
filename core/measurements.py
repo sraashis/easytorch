@@ -121,3 +121,68 @@ class Prf1a:
         except ZeroDivisionError:
             o = 0
         return round(o, 5) + self.eps
+
+
+class ConfusionMatrix:
+    """
+    x-axis is predicted. y-axis is true lable.
+    F1 score from average precision and recall is calculated
+    """
+
+    def __init__(self, num_classes=None, device='cpu'):
+        self.num_classes = num_classes
+        self.matrix = torch.zeros(num_classes, num_classes).float()
+        self.eps = 10e-10
+        self.device = device
+
+    def reset(self):
+        self.matrix = torch.zeros(self.num_classes, self.num_classes).float()
+        return self
+
+    def accumulate(self, other):
+        self.matrix += other.matrix
+        return self
+
+    def add(self, y_true, y_pred):
+        y_true = y_true.clone().long().reshape(1, -1).squeeze()
+        y_pred = y_pred.clone().long().reshape(1, -1).squeeze()
+        self.matrix += torch.sparse.LongTensor(
+            torch.stack([y_true, y_pred]).to(self.device),
+            torch.ones_like(y_true).long().to(self.device),
+            torch.Size([self.num_classes, self.num_classes])).to_dense().to(self.device)
+        return self
+
+    def precision(self, average=True):
+        precision = [0] * self.num_classes
+        for i in range(self.num_classes):
+            try:
+                precision[i] = self.matrix[i, i] / torch.sum(self.matrix[i, :])
+            except ZeroDivisionError:
+                precision[i] = 0.0
+
+        precision = np.array(precision) + self.eps
+        return precision.sum() / self.num_classes if average else precision
+
+    def recall(self, average=True):
+        recall = [0] * self.num_classes
+        for i in range(self.num_classes):
+            try:
+                recall[i] = self.matrix[i, i] / torch.sum(self.matrix[:, i])
+            except ZeroDivisionError:
+                recall[i] = 0.0
+        recall = np.array(recall) + self.eps
+        return recall.sum() / self.num_classes if average else recall
+
+    def f1(self, average=True):
+        f_1 = []
+        precision = [self.precision(average)] if average else self.precision(average)
+        recall = [self.recall(average)] if average else self.recall(average)
+        for p, r in zip(precision, recall):
+            try:
+                f_1.append(2 * p * r / (p + r))
+            except ZeroDivisionError:
+                f_1.append(0)
+        return f_1[0] if average else f_1
+
+    def prf1(self):
+        return [self.precision(True), self.recall(True), self.f1(True)]
