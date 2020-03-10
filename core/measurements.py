@@ -123,6 +123,9 @@ class Prf1a:
         return round(o, 5) + self.eps
 
 
+import numpy as np
+
+
 class ConfusionMatrix:
     """
     x-axis is predicted. y-axis is true lable.
