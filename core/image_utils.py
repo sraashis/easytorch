@@ -197,37 +197,21 @@ def get_chunk_indexes(img_shape=(0, 0), chunk_shape=(0, 0), offset_row_col=None)
 
 
 def get_chunk_indices_by_index(img_shape=(0, 0), chunk_shape=(0, 0), indices=None):
-    """
-    :param img_shape: Original image shape
-    :param chunk_shape: Desired patch shape
-    :param indices: List of pixel location around which the patch corners will be generated
-    :return:
-    """
     x, y = chunk_shape
-    row_end, col_end = img_shape
-
-    if x % 2 == 0:
-        row_from = x / 2 - 1
-    else:
-        row_from = x // 2
-
-    if y % 2 == 0:
-        col_from = y / 2 - 1
-    else:
-        col_from = y // 2
-    row_to, col_to = x // 2 + 1, y // 2 + 1
-
-    for i, j in indices:
-        p = i - row_from
-        q = i + row_to
-        r = j - col_from
-        s = j + col_to
-
-        if p < 0 or r < 0:
-            continue
-        if q > row_end or s > col_end:
-            continue
-        yield [int(p), int(q), int(r), int(s)]
+    ix = []
+    for (c1, c2) in indices:
+        w, h = img_shape
+        p, q, r, s = c1 - x // 2, c1 + x // 2, c2 - y // 2, c2 + y // 2
+        if p < 0:
+            p, q = 0, x
+        if q > w:
+            p, q = w - x, w
+        if r < 0:
+            r, s = 0, y
+        if s > h:
+            r, s = h - y, h
+        ix.append([int(p), int(q), int(r), int(s)])
+    return ix
 
 
 def merge_patches(patches=None, image_size=(0, 0), patch_size=(0, 0), offset_row_col=None):
