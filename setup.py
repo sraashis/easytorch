@@ -26,9 +26,7 @@ setup(
     ],
     packages=['quenn', 'quenn.utils', 'quenn.core'],
     include_package_data=True,
-    install_requires=[
-        'numpy', 'scipy', 'scikit-learn', 'scikit-image',
-        'pillow', 'matplotlib', 'torch', 'torchvision',
-        'opencv-python', 'pandas', 'seaborn'
-    ]
+    install_requires=['wheel', 'numpy', 'scipy', 'scikit-learn', 'scikit-image',
+                      'pillow', 'matplotlib', 'torch', 'torchvision',
+                      'opencv-python', 'pandas', 'seaborn']
 )
