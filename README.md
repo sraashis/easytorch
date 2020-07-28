@@ -1,4 +1,4 @@
-### **Qu**ick **N**eural **N**etwork **E**xperimentation (QueNN)
+## **Qu**ick **N**eural **N**etwork **E**xperimentation (QueNN)
 ### Higlights
 * A convenient framework to easily setup neural network experiments.
 * Minimal configuration to setup a newu experimenton new dataset:
