@@ -28,9 +28,9 @@ if __name__ == "__main__":
     pooled_run(ap, dataspecs, MyTrainer, MyDataset)
 ```
 
-**Training+Validation+Test**
+##### **Training+Validation+Test**
     * $python main.py -p train -nch 3 -e 3 -b 2 -sp True
-**Only Test**
+##### **Only Test**
     * $python main.py -p test -nch 3 -e 3 -b 2 -sp True
 
 ## References
