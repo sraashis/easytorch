@@ -1,2 +1,2 @@
-## quenn v1.0
+## quenn
 **Qu**ick **N**eural **N**etwork **E**xperimentation
