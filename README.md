@@ -25,16 +25,6 @@ AV_WIDE = {
     'label_getter': lambda file_name: file_name.split('.')[0] + '_gt.png'
 }
 ```
-Dataset:
-* DRIVE Dataset Reference:
-Staal, J., Abramoff, M., Niemeijer, M., Viergever, M., and van Ginneken, B. (2004). 
-Ridge based vessel segmentation in color images of the retina.
-IEEE Transactions on Medical Imaging23, 501–509
-* AV-WIDE Dataset Reference: 
-Estrada,  R.,  Tomasi,  C.,  Schmidler,  S. C.,  and Farsiu,  S. (2015).  
-Tree topology estimation. IEEE Transactions on Pattern Analysis and Machine Intelligence
-37, 1688–1701. doi:10.1109/TPAMI.2014.2592382116
-"""
 * **data_dir** is the path to images/or any data points.
 * **label_dir** is the path to ground truth.
 * **mask_dir** is the path to masks if any.
@@ -78,3 +68,14 @@ Here we like to highlight a very use ful feature call dataset pooling. With such
 * For that, we only need to write dataspecs.py for the dataset we want to pool.
 * **run** method runs for all dataset separately  at a time.
 * **pooled_run** pools all the dataset and runs experiments like in the example where we combine two datasets **[dspec.DRIVE, dspec.AV_WIDE]** internally creating a larger unified dataset and training on that.
+
+
+**Fundus images/masks used in example are from the following datasets. Whereas, optic disc ground truth are product of our work (Optical Disc Segmentation using Disk Centered Patch Augmentation):**
+* DRIVE Dataset Reference:
+Staal, J., Abramoff, M., Niemeijer, M., Viergever, M., and van Ginneken, B. (2004). 
+Ridge based vessel segmentation in color images of the retina.
+IEEE Transactions on Medical Imaging23, 501–509
+* AV-WIDE Dataset Reference: 
+Estrada,  R.,  Tomasi,  C.,  Schmidler,  S. C.,  and Farsiu,  S. (2015).  
+Tree topology estimation. IEEE Transactions on Pattern Analysis and Machine Intelligence
+37, 1688–1701. doi:10.1109/TPAMI.2014.2592382116
