@@ -4,10 +4,7 @@
 name: Upload Python Package
 
 on:
-  commit_comment:
-    'publish-pypi'
-  release:
-    types: [created]
+  push
 
 jobs:
   deploy:
@@ -15,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@stable
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
