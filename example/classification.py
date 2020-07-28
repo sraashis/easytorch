@@ -15,7 +15,7 @@ from example.models import DiskExcNet
 sep = os.sep
 
 
-class KernelDataset(QNDataset):
+class MyDataset(QNDataset):
     def __init__(self, **kw):
         super().__init__(**kw)
         self.get_label = kw.get('label_getter')
@@ -56,7 +56,7 @@ class KernelDataset(QNDataset):
             [tmf.Resize((128, 128)), tmf.ToTensor()])
 
 
-class KernelTrainer(QNTrainer):
+class MyTrainer(QNTrainer):
     def __init__(self, args, **kw):
         super().__init__(args, **kw)
 
