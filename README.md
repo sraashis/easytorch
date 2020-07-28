@@ -68,6 +68,7 @@ Here we like to highlight a very use ful feature call dataset pooling. With such
 * **pooled_run** pools all the dataset and runs experiments like in the example where we combine two datasets **[dspec.DRIVE, dspec.AV_WIDE]** internally creating a larger unified dataset and training on that.
 
 
+## References
 **Fundus images/masks used in the example are from the following datasets. Whereas, optic disc ground truth are product of our work [Optical Disc Segmentation using Disk Centered Patch Augmentation](#):**
 * DRIVE Dataset Reference:
 Staal, J., Abramoff, M., Niemeijer, M., Viergever, M., and van Ginneken, B. (2004). 
@@ -78,15 +79,15 @@ Estrada,  R.,  Tomasi,  C.,  Schmidler,  S. C.,  and Farsiu,  S. (2015).
 Tree topology estimation. IEEE Transactions on Pattern Analysis and Machine Intelligence
 37, 1688–1701. doi:10.1109/TPAMI.2014.2592382116
 
-* ##### Please cite the original authors if you use the dataset/ground-truths.
-* #### Please cite us if you use this framework(quenn) as follows:
+**Please cite the original authors if you use the dataset/ground-truths.**
+**Please cite us if you use this framework(quenn) as follows:**
 
-    @misc{qenn,
-      author = {Khanal, Aashis},
-      title = {Quick Neural Network Experimentation},
-      year = {2020},
-      publisher = {GitHub},
-      journal = {GitHub repository},
-      url = {https://github.com/sraashis/quenn}
-    }
+@misc{qenn,
+  author = {Khanal, Aashis},
+  title = {Quick Neural Network Experimentation},
+  year = {2020},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  url = {https://github.com/sraashis/quenn}
+}
     
