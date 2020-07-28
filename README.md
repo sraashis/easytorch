@@ -28,6 +28,11 @@ if __name__ == "__main__":
     pooled_run(ap, dataspecs, MyTrainer, MyDataset)
 ```
 
+**Training+Validation+Test**
+    * $python main.py -p train -nch 3 -e 3 -b 2 -sp True
+**Only Test**
+    * $python main.py -p test -nch 3 -e 3 -b 2 -sp True
+
 ## References
 **Please cite us if you use this framework(quenn) as follows:**
 @misc{qenn,
