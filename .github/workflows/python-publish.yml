@@ -4,13 +4,13 @@
 name: Upload Python Package
 
 on:
-  push
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   deploy:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python
