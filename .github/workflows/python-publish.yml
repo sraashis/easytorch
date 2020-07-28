@@ -4,8 +4,7 @@
 name: Upload Python Package
 
 on:
-  release:
-    types: [created]
+  push
 
 jobs:
   deploy:
@@ -24,8 +23,8 @@ jobs:
         pip install setuptools wheel twine
     - name: Build and publish
       env:
-        TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-        TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        TWINE_USERNAME: ${{ secrets.PYPI_USR }}
+        TWINE_PASSWORD: ${{ secrets.PYPI_PASS }}
       run: |
-        python setup.py sdist bdist_wheel
+        python setup.py clean sdist
         twine upload dist/*
