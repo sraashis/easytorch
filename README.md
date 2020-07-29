@@ -1,19 +1,21 @@
 ## EasyTorch setup
 1. Install pytorch and torchvision from [Pytorch official website](https://pytorch.org/)
 2.  pip install easytorch
+
+### [Link to a full working example](https://github.com/sraashis/easytorchexample)
+
 ### Higlights
 * A convenient framework to easily setup neural network experiments.
 * Minimal configuration to setup a newu experimenton new dataset:
-    * Only need to initialize neural network architecture, if needed.
+    * Use your choice of Neural Network architecture.
     * Create a python dictionary pointing to data ,ground truth, and mask directory(dataspecs.py).
     * Automatic k-fold cross validation.
-    * Automatic logging and model checkpointing.
-    * Works an all sort of classification and regression task.
+    * Automatic logging/plotting, and model checkpointing.
+    * Works on all sort of neural network related task.
     * GPU enabled metrics like precision, recall, f1, overlap, and confusion matrix with maximum GPU utilization.
-    * Ability to combine all dataset with correct dataspecs. Combining dataset and running experiments is hassle free.
+    * Ability to automatically combine all the dataset with correct dataspecs and run on your favourite architecture.
 
-### [Link to a full working example](https://github.com/sraashis/easytorchexample)
-Sample usecase as follows:
+Sample use case as follows:
 ```python
 import argparse
 
