@@ -28,7 +28,7 @@ class ETTrainer:
             for k, m in self.nn.items():
                 if isinstance(m, _torch.nn.Module):
                     print(f' ### Total params in {k}: {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
-                
+
         self._set_gpus()
         self._init_optimizer()
 
@@ -125,7 +125,7 @@ class ETTrainer:
         return {}
 
     @_abc.abstractmethod
-    def save_predictions(self, accumulator):
+    def save_predictions(self, dataset, accumulator):
         return
 
     def evaluation(self, split_key=None, save_pred=False, dataset_list=None):
@@ -138,13 +138,15 @@ class ETTrainer:
         val_loaders = [ETDataLoader.new(shuffle=False, dataset=d, **self.args) for d in dataset_list]
         with _torch.no_grad():
             for loader in val_loaders:
-                accumulator = [loader.dataset]
+                accumulator = []
                 score = self.new_metrics()
                 for i, batch in enumerate(loader):
                     it = self.iteration(batch)
                     score.accumulate(it['scores'])
                     running_loss.accumulate(it['avg_loss'])
-                    accumulator.append([batch, it])
+
+                    if save_pred:
+                        accumulator.append([batch, it])
                     if self.args['debug'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
                         print(f"Itr:{i}/{len(loader)}, {it['avg_loss'].average}, {it['scores'].scores()}")
 
@@ -152,7 +154,7 @@ class ETTrainer:
                 if self.args['debug'] and len(dataset_list) > 1:
                     print(f"{split_key}, {score.scores()}")
                 if save_pred:
-                    self.save_predictions(accumulator)
+                    self.save_predictions(loader.dataset, accumulator)
 
         if self.args['debug']:
             print(f"{self.cache['experiment_id']} {split_key} scores: {eval_score.scores()}")
@@ -248,14 +250,14 @@ class ETDataset(_Dataset):
         self.indices = []
         self.dmap = {}
 
-    def load_index(self, map_id, file_id, file):
-        self.indices.append([map_id, file_id, file])
+    def load_index(self, map_id, file):
+        self.indices.append([map_id, file])
 
     def _load_indices(self, map_id, files, **kw):
-        for file_id, file in enumerate(files, 1):
+        for file in files:
             if len(self) >= self.limit:
                 break
-            self.load_index(map_id, file_id, file)
+            self.load_index(map_id, file)
 
         if kw.get('debug', True):
             print(f'{map_id}, {self.mode}, {len(self)} Indices Loaded')
