@@ -1,4 +1,7 @@
-## EasyTorch setup
+
+## EasyTorch is a quick and easy way to start running with pytorch by only writing how to parse data, and desired neural network architecture. Rest, it handles.
+
+### Installation
 1. Install pytorch and torchvision from [Pytorch official website](https://pytorch.org/)
 2.  pip install easytorch
 
