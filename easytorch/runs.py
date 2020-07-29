@@ -2,8 +2,8 @@ import json as _json
 import os as _os
 from copy import deepcopy as _deep_copy
 
-import quenn.core.utils as _utils
-from quenn.utils import logutils as _logutils, datautils as _datautils
+import easytorch.core.utils as _utils
+from easytorch.utils import logutils as _logutils, datautils as _datautils
 
 _sep = _os.sep
 
