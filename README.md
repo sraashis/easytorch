@@ -1,4 +1,5 @@
 ## **Qu**ick **N**eural **N**etwork **E**xperimentation (QueNN)
+### pip install quenn
 ### Higlights
 * A convenient framework to easily setup neural network experiments.
 * Minimal configuration to setup a newu experimenton new dataset:
