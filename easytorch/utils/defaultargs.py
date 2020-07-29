@@ -21,7 +21,8 @@ ap.add_argument('-data', '--dataset_dir', default='datasets', required=False, ty
 ap.add_argument('-dix', '--dataset_ix', default=0, required=False, type=int, help='Dataset name index in dataspec.')
 ap.add_argument('-lim', '--load_limit', default=10e10, type=int, help='Data load limit')
 ap.add_argument('-log', '--log_dir', default='net_logs', type=str, help='Logging directory.')
-ap.add_argument('-chk', '--checkpoint', default=None, type=str, help='Logging directory.')
+ap.add_argument('-pt', '--pretrained_path', default=None, type=str, help='Full path to pretrained weights. It will be '
+                                                                         'loaded before training.')
 ap.add_argument('-d', '--debug', default=True, type=boolean_string, help='Logging directory.')
 ap.add_argument('-s', '--seed', default=0, type=int, help='Seed')
 ap.add_argument('-f', '--force', default=False, type=boolean_string, help='Force')

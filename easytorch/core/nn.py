@@ -14,27 +14,46 @@ import torch.cuda.amp as amp
 _sep = _os.sep
 
 
-class QNTrainer:
-    def __init__(self, args, **kw):
+class ETTrainer:
+    def __init__(self, args):
         self.args = _utils.FrozenDict()
         self.args.update(**args)
         self.cache = {}
         self.nn = {}
 
-    def init_nn(self, init_weights=False):
+    def init_nn(self):
         self._init_nn()
-        if init_weights:
+
+        if self.args['debug']:
+            for k, m in self.nn.items():
+                if isinstance(m, _torch.nn.Module):
+                    print(f' ### Total params in {k}: {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
+                
+        self._set_gpus()
+        self._init_optimizer()
+
+    def init_nn_weights(self, random_init=True):
+        if self.args['pretrained_path'] is not None:
+            self._load_checkpoint(self.args['pretrained_path'])
+        elif random_init:
             _torch.manual_seed(self.args['seed'])
             _utils.initialize_weights(self.nn['model'])
-        self.set_gpus()
-        self.init_optimizer()
-        self.load_checkpoint()
+
+    def load_best_model(self):
+        self._load_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
+
+    def _load_checkpoint(self, full_path):
+        chk = _torch.load(full_path)
+        try:
+            self.nn['model'].module.load_state_dict(chk)
+        except:
+            self.nn['model'].load_state_dict(chk)
 
     @_abc.abstractmethod
     def _init_nn(self):
         return
 
-    def set_gpus(self):
+    def _set_gpus(self):
         self.nn['device'] = _torch.device("cpu")
         if _torch.cuda.is_available():
             if len(self.args['gpus']) > 0:
@@ -44,7 +63,7 @@ class QNTrainer:
                 self.nn['device'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
         self.nn['model'] = self.nn['model'].to(self.nn['device'])
 
-    def init_optimizer(self):
+    def _init_optimizer(self):
         self.nn['optimizer'] = _torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
 
     @_abc.abstractmethod
@@ -76,17 +95,6 @@ class QNTrainer:
             state_dict = self.nn['model'].state_dict()
 
         _torch.save(state_dict, self.cache['log_dir'] + _sep + self.cache['checkpoint'])
-
-    def load_checkpoint(self):
-        self.cache['checkpoint'] = self.args['checkpoint']
-        if self.cache.get('checkpoint') is None:
-            self.cache['checkpoint'] = self.cache['experiment_id'] + '.pt'
-        if _os.path.exists(self.cache['log_dir'] + _sep + self.cache['checkpoint']):
-            chk = _torch.load(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
-            try:
-                self.nn['model'].module.load_state_dict(chk)
-            except:
-                self.nn['model'].load_state_dict(chk)
 
     @_abc.abstractmethod
     def reset_dataset_cache(self):
@@ -127,7 +135,7 @@ class QNTrainer:
 
         running_loss = _measurements.Avg()
         eval_score = self.new_metrics()
-        val_loaders = [QNDataLoader.new(shuffle=False, dataset=d, **self.args) for d in dataset_list]
+        val_loaders = [ETDataLoader.new(shuffle=False, dataset=d, **self.args) for d in dataset_list]
         with _torch.no_grad():
             for loader in val_loaders:
                 accumulator = [loader.dataset]
@@ -165,8 +173,10 @@ class QNTrainer:
         return it
 
     def train(self, dataset, val_dataset):
-        train_loader = QNDataLoader.new(shuffle=True, dataset=dataset, **self.args)
-        scaler = amp.GradScaler() if self.args.get('mixed_precision') else None
+        train_loader = ETDataLoader.new(shuffle=True, dataset=dataset, **self.args)
+        scaler = None
+        if _torch.cuda.is_available() and self.args.get('mixed_precision'):
+            scaler = amp.GradScaler()
         for ep in range(1, self.args['epochs'] + 1):
             self.nn['model'].train()
             _score = self.new_metrics()
@@ -207,10 +217,10 @@ def safe_collate(batch):
     return _default_collate([b for b in batch if b])
 
 
-class QNDataLoader(_DataLoader):
+class ETDataLoader(_DataLoader):
 
     def __init__(self, **kw):
-        super(QNDataLoader, self).__init__(**kw)
+        super(ETDataLoader, self).__init__(**kw)
 
     @classmethod
     def new(cls, **kw):
@@ -231,7 +241,7 @@ class QNDataLoader(_DataLoader):
         return cls(collate_fn=safe_collate, **_kw)
 
 
-class QNDataset(_Dataset):
+class ETDataset(_Dataset):
     def __init__(self, mode='init', limit=float('inf'), **kw):
         self.mode = mode
         self.limit = limit
