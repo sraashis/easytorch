@@ -1,9 +1,7 @@
-
-## EasyTorch is a quick and easy way to start running with pytorch by only writing how to parse data, and desired neural network architecture. Rest, it handles.
-
-### Installation
+**EasyTorch is a quick and easy way to start running pytorch experiments. As a phd student, I could not lose time on boilerplate neural network setups, so I started this sort of general framework to run experiments quickly. It consist of rich utilities useful for image manipulation as my research is focused on biomedical images. I would be more than happy if it becomes useful to any one getting started with neural netowrks.
+Installation**
 1. Install pytorch and torchvision from [Pytorch official website](https://pytorch.org/)
-2.  pip install easytorch
+2. pip install easytorch
 
 ### [Link to a full working example](https://github.com/sraashis/easytorchexample)
 
