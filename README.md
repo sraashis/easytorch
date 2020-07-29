@@ -24,7 +24,7 @@ from classification import MyTrainer, MyDataset
 
 ap = argparse.ArgumentParser(parents=[ap], add_help=False)
 
-dataspecs = [dspec.AV_WIDE, dspec.VEVIO]
+dataspecs = [dspec.DRIVE, dspec.STARE]
 if __name__ == "__main__":
     run(ap, dataspecs, MyTrainer, MyDataset)
     pooled_run(ap, dataspecs, MyTrainer, MyDataset)
