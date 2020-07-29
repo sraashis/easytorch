@@ -166,7 +166,9 @@ class QNTrainer:
 
     def train(self, dataset, val_dataset):
         train_loader = QNDataLoader.new(shuffle=True, dataset=dataset, **self.args)
-        scaler = amp.GradScaler() if self.args.get('mixed_precision') else None
+        scaler = None
+        if _torch.cuda.is_available() and self.args.get('mixed_precision'):
+            scaler = amp.GradScaler()
         for ep in range(1, self.args['epochs'] + 1):
             self.nn['model'].train()
             _score = self.new_metrics()
