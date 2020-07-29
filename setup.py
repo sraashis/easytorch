@@ -11,7 +11,7 @@ README = (HERE / "README.md").read_text()
 # This call to setup() does all the work
 setup(
     name="quenn",
-    version="1.2",
+    version="1.3"
     description="Quick Neural Network Experimentation",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -26,7 +26,6 @@ setup(
     ],
     packages=['quenn', 'quenn.utils', 'quenn.core'],
     include_package_data=True,
-    install_requires=['setuptools', 'wheel', 'numpy', 'scipy', 'scikit-learn', 'scikit-image',
-                      'pillow', 'matplotlib', 'torch', 'torchvision',
-                      'opencv-python', 'pandas', 'seaborn']
+    install_requires=['numpy', 'scipy', 'scikit-learn', 'scikit-image',
+                      'pillow', 'matplotlib', 'opencv-python', 'pandas', 'seaborn']
 )

@@ -9,6 +9,7 @@ from torch.utils.data._utils.collate import default_collate as _default_collate
 
 from quenn.core import measurements as _measurements, utils as _utils
 from quenn.utils import logutils as _log_utils, datautils as _data_utils
+import torch.cuda.amp as amp
 
 _sep = _os.sep
 
@@ -149,15 +150,23 @@ class QNTrainer:
             print(f"{self.cache['experiment_id']} {split_key} scores: {eval_score.scores()}")
         return running_loss, eval_score
 
-    def training_iteration(self, batch):
+    def training_iteration(self, batch, scaler=None):
         self.nn['optimizer'].zero_grad()
-        it = self.iteration(batch)
-        it['loss'].backward()
-        self.nn['optimizer'].step()
+        if scaler is not None:
+            with amp.autocast():
+                it = self.iteration(batch)
+            scaler.scale(it['loss']).backward()
+            scaler.step(self.nn['optimizer'])
+            scaler.update()
+        else:
+            it = self.iteration(batch)
+            it['loss'].backward()
+            self.nn['optimizer'].step()
         return it
 
     def train(self, dataset, val_dataset):
         train_loader = QNDataLoader.new(shuffle=True, dataset=dataset, **self.args)
+        scaler = amp.GradScaler() if self.args.get('mixed_precision') else None
         for ep in range(1, self.args['epochs'] + 1):
             self.nn['model'].train()
             _score = self.new_metrics()
@@ -166,7 +175,7 @@ class QNTrainer:
             ep_loss = _measurements.Avg()
             ep_score = self.new_metrics()
             for i, batch in enumerate(train_loader, 1):
-                it = self.training_iteration(batch)
+                it = self.training_iteration(batch, scaler)
 
                 """
                 Accumulate epoch loss and scores
