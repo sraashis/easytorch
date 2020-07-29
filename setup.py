@@ -10,12 +10,12 @@ README = (HERE / "README.md").read_text()
 
 # This call to setup() does all the work
 setup(
-    name="quenn",
-    version="2.0",
-    description="Quick Neural Network Experimentation",
+    name="easytorch",
+    version="0.1",
+    description="Easy Neural Network Experiments with pytorch",
     long_description=README,
     long_description_content_type="text/markdown",
-    url="https://github.com/sraashis/nnkernel",
+    url="https://github.com/sraashis/easytorch",
     author="Aashis Khana1",
     author_email="sraashis@gmail.com",
     license="MIT",
