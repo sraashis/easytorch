@@ -24,7 +24,7 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-    packages=['quenn', 'quenn.utils', 'quenn.core'],
+    packages=['easytorch', 'easytorch.utils', 'easytorch.core'],
     include_package_data=True,
     install_requires=['numpy', 'scipy', 'scikit-learn', 'scikit-image',
                       'pillow', 'matplotlib', 'opencv-python', 'pandas', 'seaborn']

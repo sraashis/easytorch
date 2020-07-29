@@ -43,6 +43,6 @@ if __name__ == "__main__":
   year = {2020},
   publisher = {GitHub},
   journal = {GitHub repository},
-  url = {https://github.com/sraashis/quenn}
+  url = {https://github.com/sraashis/easytorch}
 }
     

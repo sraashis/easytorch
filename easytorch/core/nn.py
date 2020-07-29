@@ -7,8 +7,8 @@ import torch as _torch
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 
-from quenn.core import measurements as _measurements, utils as _utils
-from quenn.utils import logutils as _log_utils, datautils as _data_utils
+from easytorch.core import measurements as _measurements, utils as _utils
+from easytorch.utils import logutils as _log_utils, datautils as _data_utils
 import torch.cuda.amp as amp
 
 _sep = _os.sep
