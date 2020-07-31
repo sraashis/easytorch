@@ -106,8 +106,8 @@ class ETTrainer:
         if callable(sc):
             sc = sc()
 
-        if (self.cache['score_direction'] == 'maximize' and sc > self.cache['best_score']) or (
-                self.cache['score_direction'] == 'minimize' and sc < self.cache['best_score']):
+        if (self.cache['score_direction'] == 'maximize' and sc >= self.cache['best_score']) or (
+                self.cache['score_direction'] == 'minimize' and sc <= self.cache['best_score']):
             self.save_checkpoint()
             self.cache['best_score'] = sc
             self.cache['best_epoch'] = epoch
