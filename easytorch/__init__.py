@@ -48,9 +48,8 @@ class EasyTorch:
             trainer = trainer_cls(self.args)
             global_score = trainer.new_metrics()
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
-            _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
-
             trainer.reset_dataset_cache()
+            _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
             for split_file in _os.listdir(dspec['split_dir']):
                 split = _json.loads(open(dspec['split_dir'] + _sep + split_file).read())
 
@@ -93,9 +92,8 @@ class EasyTorch:
     def run_pooled(self, dataset_cls, trainer_cls):
         trainer = trainer_cls(self.args)
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + 'pooled'
-        _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
-
         trainer.reset_dataset_cache()
+        _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
 
         trainer.cache['experiment_id'] = 'pooled'
         trainer.cache['checkpoint'] = trainer.cache['experiment_id'] + '.pt'
