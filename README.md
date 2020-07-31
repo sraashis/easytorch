@@ -17,7 +17,7 @@ It consist of rich utilities useful for image manipulation as my research is foc
 * Automatic logging/plotting, and model checkpointing.
 * Works on all sort of neural network related task.
 * GPU enabled metrics like precision, recall, f1, overlap, and confusion matrix with maximum GPU utilization.
-* Ability to automatically combine all the dataset without having to move the data from original location.
+* Ability to automatically combine multiple datasets without having to move the data from original location.
 
 Sample use case as follows:
 ```python
