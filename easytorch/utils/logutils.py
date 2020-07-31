@@ -46,21 +46,29 @@ def save_scores(cache, experiment_id='', file_keys=[]):
                     file.write(f'{line}\n')
 
 
-def find(fun, obj):
+def jsonable(obj):
+    try:
+        _json.dumps(obj)
+        return True
+    except:
+        return False
+
+
+def clean_recursive(obj):
     if not isinstance(obj, dict):
         return
     for k, v in obj.items():
-        if fun(v):
-            obj[k] = ''
-        elif isinstance(v, dict):
-            find(fun, v)
+        if isinstance(v, dict):
+            clean_recursive(v)
         elif isinstance(v, list):
             for i in v:
-                find(fun, i)
+                clean_recursive(i)
+        elif not jsonable(v):
+            obj[k] = f'{v}'
 
 
 def save_cache(cache, experiment_id=''):
     with open(cache['log_dir'] + _os.sep + f"{experiment_id}_log.json", 'w') as fp:
         log = _copy.deepcopy(cache)
-        find(callable, log)
+        clean_recursive(log)
         _json.dump(log, fp)

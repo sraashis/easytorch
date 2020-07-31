@@ -5,12 +5,6 @@ import random as _rd
 sep = os.sep
 
 
-def get_dataset_identifier(run, args, dataset_ix=0):
-    full = [s for s in run['data_dir'].split(sep) if s != '']
-    base = [s for s in args['dataset_dir'].split(sep) if s != '']
-    return full[len(base) + dataset_ix]
-
-
 def create_k_fold_splits(files, k=0, save_to_dir=None, shuffle_files=True):
     from itertools import chain
     import numpy as np

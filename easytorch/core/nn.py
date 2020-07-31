@@ -1,41 +1,42 @@
-import abc as _abc
 import json as _json
 import math as _math
 import os as _os
 
 import torch as _torch
+import torch.cuda.amp as amp
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 
 from easytorch.core import measurements as _measurements, utils as _utils
-from easytorch.utils import logutils as _log_utils, datautils as _data_utils
-import torch.cuda.amp as amp
+from easytorch.utils import logutils as _log_utils
 
 _sep = _os.sep
 
 
 class ETTrainer:
     def __init__(self, args):
-        self.args = _utils.FrozenDict()
-        self.args.update(**args)
+        self.args = _utils.FrozenDict(args)
         self.cache = {}
         self.nn = {}
+        self.optimizer = {}
 
     def init_nn(self):
-        self._init_nn()
+        self._init_nn_model()
 
         if self.args['debug']:
             for k, m in self.nn.items():
                 if isinstance(m, _torch.nn.Module):
-                    print(f' ### Total params in {k}: {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
+                    print(f' ### Total params in {k}:'
+                          f' {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
 
+        self._init_nn_weights()
         self._set_gpus()
         self._init_optimizer()
 
-    def init_nn_weights(self, random_init=True):
+    def _init_nn_weights(self):
         if self.args['pretrained_path'] is not None:
             self._load_checkpoint(self.args['pretrained_path'])
-        elif random_init:
+        elif self.args['phase'] == 'train':
             _torch.manual_seed(self.args['seed'])
             _utils.initialize_weights(self.nn['model'])
 
@@ -49,9 +50,8 @@ class ETTrainer:
         except:
             self.nn['model'].load_state_dict(chk)
 
-    @_abc.abstractmethod
-    def _init_nn(self):
-        return
+    def _init_nn_model(self):
+        raise NotImplementedError('Must be implemented in child class.')
 
     def _set_gpus(self):
         self.nn['device'] = _torch.device("cpu")
@@ -64,11 +64,10 @@ class ETTrainer:
         self.nn['model'] = self.nn['model'].to(self.nn['device'])
 
     def _init_optimizer(self):
-        self.nn['optimizer'] = _torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
+        self.optimizer['adam'] = _torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
 
-    @_abc.abstractmethod
     def new_metrics(self):
-        return _measurements.Avg()
+        raise NotImplementedError('Must be implemented in child class.')
 
     def check_previous_logs(self):
         if self.args['force']:
@@ -96,13 +95,11 @@ class ETTrainer:
 
         _torch.save(state_dict, self.cache['log_dir'] + _sep + self.cache['checkpoint'])
 
-    @_abc.abstractmethod
     def reset_dataset_cache(self):
-        return
+        raise NotImplementedError('Must be implemented in child class.')
 
-    @_abc.abstractmethod
     def reset_fold_cache(self):
-        return
+        raise NotImplementedError('Must be implemented in child class.')
 
     def save_if_better(self, epoch, score):
         sc = getattr(score, self.cache['monitor_metrics'])
@@ -120,20 +117,18 @@ class ETTrainer:
             if self.args['debug']:
                 print(f"##### Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}")
 
-    @_abc.abstractmethod
     def iteration(self, batch):
-        return {}
+        raise NotImplementedError('Must be implemented in child class.')
 
-    @_abc.abstractmethod
     def save_predictions(self, dataset, accumulator):
-        return
+        raise NotImplementedError('Must be implemented in child class.')
 
     def evaluation(self, split_key=None, save_pred=False, dataset_list=None):
         self.nn['model'].eval()
         if self.args['debug']:
             print(f'--- Running {split_key} ---')
 
-        running_loss = _measurements.Avg()
+        eval_loss = _measurements.Avg()
         eval_score = self.new_metrics()
         val_loaders = [ETDataLoader.new(shuffle=False, dataset=d, **self.args) for d in dataset_list]
         with _torch.no_grad():
@@ -143,8 +138,7 @@ class ETTrainer:
                 for i, batch in enumerate(loader):
                     it = self.iteration(batch)
                     score.accumulate(it['scores'])
-                    running_loss.accumulate(it['avg_loss'])
-
+                    eval_loss.accumulate(it['avg_loss'])
                     if save_pred:
                         accumulator.append([batch, it])
                     if self.args['debug'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
@@ -158,21 +152,32 @@ class ETTrainer:
 
         if self.args['debug']:
             print(f"{self.cache['experiment_id']} {split_key} scores: {eval_score.scores()}")
-        return running_loss, eval_score
+        return eval_loss, eval_score
 
     def training_iteration(self, batch, scaler=None):
-        self.nn['optimizer'].zero_grad()
+        self.optimizer['adam'].zero_grad()
         if scaler is not None:
             with amp.autocast():
                 it = self.iteration(batch)
             scaler.scale(it['loss']).backward()
-            scaler.step(self.nn['optimizer'])
+            scaler.step(self.optimizer['adam'])
             scaler.update()
         else:
             it = self.iteration(batch)
             it['loss'].backward()
-            self.nn['optimizer'].step()
+            self.optimizer['adam'].step()
         return it
+
+    def _on_epoch_end(self, ep, ep_loss, ep_score, val_dataset):
+        self.cache['training_log'].append([ep_loss.average, *ep_score.scores()])
+        val_loss, val_score = self.evaluation(split_key='validation', dataset_list=[val_dataset])
+        self.save_if_better(ep, val_score)
+        self.cache['validation_log'].append([val_loss.average, *val_score.scores()])
+        _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
+                                 plot_keys=['training_log', 'validation_log'])
+
+    def _adjust_learning_rate(self, ep, ep_loss, ep_score):
+        pass
 
     def train(self, dataset, val_dataset):
         train_loader = ETDataLoader.new(shuffle=True, dataset=dataset, **self.args)
@@ -183,36 +188,21 @@ class ETTrainer:
             self.nn['model'].train()
             _score = self.new_metrics()
             _loss = _measurements.Avg()
-
             ep_loss = _measurements.Avg()
             ep_score = self.new_metrics()
             for i, batch in enumerate(train_loader, 1):
                 it = self.training_iteration(batch, scaler)
-
-                """
-                Accumulate epoch loss and scores
-                """
                 ep_loss.accumulate(it['avg_loss'])
                 ep_score.accumulate(it['scores'])
-
-                """
-                Running loss, scores for logging purposes.
-                """
                 _loss.accumulate(it['avg_loss'])
                 _score.accumulate(it['scores'])
-
                 if self.args['debug'] and i % int(_math.log(i + 1) + 1) == 0:
                     print(f"Ep:{ep}/{self.args['epochs']},Itr:{i}/{len(train_loader)},"
                           f"{_loss.average},{_score.scores()}")
                     _score.reset()
                     _loss.reset()
-
-            self.cache['training_log'].append([ep_loss.average, *ep_score.scores()])
-            val_loss, val_score = self.evaluation(split_key='validation', dataset_list=[val_dataset])
-            self.cache['validation_log'].append([val_loss.average, *val_score.scores()])
-            self.save_if_better(ep, val_score)
-            _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                     plot_keys=['training_log', 'validation_log'])
+            self._on_epoch_end(ep, ep_loss, ep_score, val_dataset)
+            self._adjust_learning_rate(ep, ep_loss, ep_score)
 
 
 def safe_collate(batch):
@@ -244,23 +234,23 @@ class ETDataLoader(_DataLoader):
 
 
 class ETDataset(_Dataset):
-    def __init__(self, mode='init', limit=float('inf'), **kw):
+    def __init__(self, mode='init', limit=float('inf')):
         self.mode = mode
         self.limit = limit
+        self.dataspecs = {}
         self.indices = []
-        self.dmap = {}
 
-    def load_index(self, map_id, file):
-        self.indices.append([map_id, file])
+    def load_index(self, dname, file):
+        self.indices.append([dname, file])
 
-    def _load_indices(self, map_id, files, **kw):
+    def _load_indices(self, dname, files, **kw):
         for file in files:
             if len(self) >= self.limit:
                 break
-            self.load_index(map_id, file)
+            self.load_index(dname, file)
 
         if kw.get('debug', True):
-            print(f'{map_id}, {self.mode}, {len(self)} Indices Loaded')
+            print(f'{dname}, {self.mode}, {len(self)} Indices Loaded')
 
     def __getitem__(self, index):
         raise NotImplementedError('Must be implemented by child class.')
@@ -272,22 +262,14 @@ class ETDataset(_Dataset):
     def transforms(self):
         return None
 
-    def add(self, key, files, debug=True, **kw):
-        self.dmap[key] = kw
-        self._load_indices(map_id=key, files=files, debug=debug)
+    def add(self, files, debug=True, **kw):
+        self.dataspecs[kw['name']] = kw
+        self._load_indices(dname=kw['name'], files=files, debug=debug)
 
     @classmethod
-    def pool(cls, args, runs, split_key=None, load_sparse=False):
+    def pool(cls, args, dataspecs, split_key=None, load_sparse=False):
         all_d = [] if load_sparse else cls(mode=split_key, limit=args['load_limit'])
-        for r_ in runs:
-            """
-            Getting base dataset directory as args makes easier to work with google colab.
-            """
-            r = {**r_}
-            for k, v in r.items():
-                if 'dir' in k:
-                    r[k] = args['dataset_dir'] + _sep + r[k]
-            dataset_id = _data_utils.get_dataset_identifier(r, args, args.get('dataset_ix', 0))
+        for r in dataspecs:
             for split in _os.listdir(r['split_dir']):
                 split = _json.loads(open(r['split_dir'] + _sep + split).read())
                 if load_sparse:
@@ -295,12 +277,12 @@ class ETDataset(_Dataset):
                         if len(all_d) >= args['load_limit']:
                             break
                         d = cls(mode=split_key)
-                        d.add(key=dataset_id, files=[file], debug=False, **r)
+                        d.add(files=[file], debug=False, **r)
                         all_d.append(d)
                     if args['debug']:
                         print(f'{len(all_d)} sparse dataset loaded.')
                 else:
-                    all_d.add(key=dataset_id, files=split[split_key], debug=args['debug'], **r)
+                    all_d.add(files=split[split_key], debug=args['debug'], **r)
                 """
                 Pooling only works with 1 split at the moment.
                 """
