@@ -54,8 +54,7 @@ if __name__ == "__main__":
 * **-p/--phase** [Required]
     * Which phase to run. Possible values are 'train', and 'test'. Train runs all training., validation, and test phase. Whereas, test phase only runs test phase.
 * **-data/--dataset_dir** [dataset]
-    * base path of the dataset where data_dir, labels, masks, and splits are. Example, -data could be google_drive/folder/of/mine, or a local folder called dataset inside where we have:
-       - images, labels, mask, and splits directories
+    * base path of the dataset where data_dir, labels, masks, and splits are.
 * **-lim/--load-limit**
     * Specifies limit on dataset to load for debug purpose. Because sometimes we want to load, maybe 5 or 10, images to test the pipeline before we run full training.
 * **-log/--log_dir** [net_logs]
@@ -67,7 +66,7 @@ if __name__ == "__main__":
 * **-s/--seed** [random]
     * Custom seed to initialize model.
 * **-f/--force** [False]
-    * Overrides existing plots and results in true.
+    * Overrides existing plots and results if true.
 * **-r/--model_scale** [1]
     * Parameter to scale model breath.
 * **-sp/--load_sparse** [False]
