@@ -11,13 +11,13 @@ It consist of rich utilities useful for image manipulation as my research is foc
 ### Higlights
 * A convenient framework to easily setup neural network experiments.
 * Minimal configuration to setup a new experimenton new dataset:
-    * Use your choice of Neural Network architecture.
-    * Create a python dictionary pointing to data ,ground truth, and mask directory(dataspecs.py).
-    * Automatic k-fold cross validation.
-    * Automatic logging/plotting, and model checkpointing.
-    * Works on all sort of neural network related task.
-    * GPU enabled metrics like precision, recall, f1, overlap, and confusion matrix with maximum GPU utilization.
-    * Ability to automatically combine all the dataset with correct dataspecs and run on your favourite architecture.
+* Use your choice of Neural Network architecture.
+* Create a python dictionary pointing to data ,ground truth, and mask directory(dataspecs.py).
+* Automatic k-fold cross validation.
+* Automatic logging/plotting, and model checkpointing.
+* Works on all sort of neural network related task.
+* GPU enabled metrics like precision, recall, f1, overlap, and confusion matrix with maximum GPU utilization.
+* Ability to automatically combine multiple datasets without having to move the data from original location.
 
 Sample use case as follows:
 ```python
