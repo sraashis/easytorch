@@ -3,7 +3,7 @@ import math as _math
 import os as _os
 
 import torch as _torch
-import torch.cuda.amp as amp
+import torch.cuda.amp as _amp
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 
@@ -157,7 +157,7 @@ class ETTrainer:
     def training_iteration(self, batch, scaler=None):
         self.optimizer['adam'].zero_grad()
         if scaler is not None:
-            with amp.autocast():
+            with _amp.autocast():
                 it = self.iteration(batch)
             scaler.scale(it['loss']).backward()
             scaler.step(self.optimizer['adam'])
@@ -183,7 +183,7 @@ class ETTrainer:
         train_loader = ETDataLoader.new(shuffle=True, dataset=dataset, **self.args)
         scaler = None
         if _torch.cuda.is_available() and self.args.get('mixed_precision'):
-            scaler = amp.GradScaler()
+            scaler = _amp.GradScaler()
         for ep in range(1, self.args['epochs'] + 1):
             self.nn['model'].train()
             _score = self.new_metrics()
@@ -191,6 +191,7 @@ class ETTrainer:
             ep_loss = _measurements.Avg()
             ep_score = self.new_metrics()
             for i, batch in enumerate(train_loader, 1):
+
                 it = self.training_iteration(batch, scaler)
                 ep_loss.accumulate(it['avg_loss'])
                 ep_score.accumulate(it['scores'])
