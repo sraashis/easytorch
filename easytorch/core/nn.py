@@ -3,7 +3,6 @@ import math as _math
 import os as _os
 
 import torch as _torch
-import torch.cuda.amp as _amp
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 
@@ -154,18 +153,11 @@ class ETTrainer:
             print(f"{self.cache['experiment_id']} {split_key} scores: {eval_score.scores()}")
         return eval_loss, eval_score
 
-    def training_iteration(self, batch, scaler=None):
+    def training_iteration(self, batch):
         self.optimizer['adam'].zero_grad()
-        if scaler is not None:
-            with _amp.autocast():
-                it = self.iteration(batch)
-            scaler.scale(it['loss']).backward()
-            scaler.step(self.optimizer['adam'])
-            scaler.update()
-        else:
-            it = self.iteration(batch)
-            it['loss'].backward()
-            self.optimizer['adam'].step()
+        it = self.iteration(batch)
+        it['loss'].backward()
+        self.optimizer['adam'].step()
         return it
 
     def _on_epoch_end(self, ep, ep_loss, ep_score, val_dataset):
@@ -181,9 +173,6 @@ class ETTrainer:
 
     def train(self, dataset, val_dataset):
         train_loader = ETDataLoader.new(shuffle=True, dataset=dataset, **self.args)
-        scaler = None
-        if _torch.cuda.is_available() and self.args.get('mixed_precision'):
-            scaler = _amp.GradScaler()
         for ep in range(1, self.args['epochs'] + 1):
             self.nn['model'].train()
             _score = self.new_metrics()
@@ -192,7 +181,7 @@ class ETTrainer:
             ep_score = self.new_metrics()
             for i, batch in enumerate(train_loader, 1):
 
-                it = self.training_iteration(batch, scaler)
+                it = self.training_iteration(batch)
                 ep_loss.accumulate(it['avg_loss'])
                 ep_score.accumulate(it['scores'])
                 _loss.accumulate(it['avg_loss'])

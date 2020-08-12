@@ -71,8 +71,6 @@ if __name__ == "__main__":
     * Parameter to scale model breath.
 * **-sp/--load_sparse** [False]
     * Load all data from one image in single DataLoader so that it is easy to combine later to form a whole image.
-* **-mxp/--mixed_precision** [False]
-    * Enable pytorch automatic mixed precision for faster and low memory training.
     
     
 ##### **Training+Validation+Test**
