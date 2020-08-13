@@ -119,7 +119,7 @@ class ETTrainer:
     def iteration(self, batch):
         raise NotImplementedError('Must be implemented in child class.')
 
-    def save_predictions(self, dataset, accumulator):
+    def save_predictions(self, dataset, its):
         raise NotImplementedError('Must be implemented in child class.')
 
     def evaluation(self, split_key=None, save_pred=False, dataset_list=None):
@@ -132,14 +132,14 @@ class ETTrainer:
         val_loaders = [ETDataLoader.new(shuffle=False, dataset=d, **self.args) for d in dataset_list]
         with _torch.no_grad():
             for loader in val_loaders:
-                accumulator = []
+                its = []
                 score = self.new_metrics()
                 for i, batch in enumerate(loader):
                     it = self.iteration(batch)
                     score.accumulate(it['scores'])
                     eval_loss.accumulate(it['avg_loss'])
                     if save_pred:
-                        accumulator.append([batch, it])
+                        its.append([it])
                     if self.args['debug'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
                         print(f"Itr:{i}/{len(loader)}, {it['avg_loss'].average}, {it['scores'].scores()}")
 
@@ -147,7 +147,7 @@ class ETTrainer:
                 if self.args['debug'] and len(dataset_list) > 1:
                     print(f"{split_key}, {score.scores()}")
                 if save_pred:
-                    self.save_predictions(loader.dataset, accumulator)
+                    self.save_predictions(loader.dataset, its)
 
         if self.args['debug']:
             print(f"{self.cache['experiment_id']} {split_key} scores: {eval_score.scores()}")
@@ -160,15 +160,10 @@ class ETTrainer:
         self.optimizer['adam'].step()
         return it
 
-    def _on_epoch_end(self, ep, ep_loss, ep_score, val_dataset):
-        self.cache['training_log'].append([ep_loss.average, *ep_score.scores()])
-        val_loss, val_score = self.evaluation(split_key='validation', dataset_list=[val_dataset])
-        self.save_if_better(ep, val_score)
-        self.cache['validation_log'].append([val_loss.average, *val_score.scores()])
-        _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                 plot_keys=['training_log', 'validation_log'])
+    def _on_epoch_end(self, ep, ep_loss, ep_score):
+        pass
 
-    def _adjust_learning_rate(self, ep, ep_loss, ep_score):
+    def _on_iteration_end(self, i, it):
         pass
 
     def train(self, dataset, val_dataset):
@@ -191,8 +186,15 @@ class ETTrainer:
                           f"{_loss.average},{_score.scores()}")
                     _score.reset()
                     _loss.reset()
-            self._on_epoch_end(ep, ep_loss, ep_score, val_dataset)
-            self._adjust_learning_rate(ep, ep_loss, ep_score)
+                self._on_iteration_end(i, it)
+
+            self.cache['training_log'].append([ep_loss.average, *ep_score.scores()])
+            val_loss, val_score = self.evaluation(split_key='validation', dataset_list=[val_dataset])
+            self.save_if_better(ep, val_score)
+            self.cache['validation_log'].append([val_loss.average, *val_score.scores()])
+            _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
+                                     plot_keys=['training_log', 'validation_log'])
+            self._on_epoch_end(ep, ep_loss, ep_score)
 
 
 def safe_collate(batch):
