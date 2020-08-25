@@ -55,11 +55,11 @@ class ETTrainer:
     def _set_gpus(self):
         self.nn['device'] = _torch.device("cpu")
         if _torch.cuda.is_available():
-            if len(self.args['gpus']) > 0:
+            if len(self.args['gpus']) < 2:
+                self.nn['device'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
+            else:
                 self.nn['device'] = _torch.device("cuda:0")
                 self.nn['model'] = _torch.nn.DataParallel(self.nn['model'], self.args['gpus'])
-            elif len(self.args['gpus']) == 1:
-                self.nn['device'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
         self.nn['model'] = self.nn['model'].to(self.nn['device'])
 
     def _init_optimizer(self):
@@ -166,6 +166,11 @@ class ETTrainer:
     def _on_iteration_end(self, i, it):
         pass
 
+    def _early_stopping(self, ep, ep_loss, ep_score):
+        if ep - self.cache['best_epoch'] >= self.args.get('patience', 'epochs'):
+            return True
+        return False
+
     def train(self, dataset, val_dataset):
         train_loader = ETDataLoader.new(shuffle=True, dataset=dataset, **self.args)
         for ep in range(1, self.args['epochs'] + 1):
@@ -195,6 +200,9 @@ class ETTrainer:
             _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
                                      plot_keys=['training_log', 'validation_log'])
             self._on_epoch_end(ep, ep_loss, ep_score)
+
+            if self._early_stopping(ep, ep_loss, ep_score):
+                break
 
 
 def safe_collate(batch):
