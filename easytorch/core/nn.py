@@ -160,13 +160,13 @@ class ETTrainer:
         self.optimizer['adam'].step()
         return it
 
-    def _on_epoch_end(self, ep, ep_loss, ep_score):
+    def _on_epoch_end(self, ep, ep_loss, ep_score, val_loss, val_score):
         pass
 
     def _on_iteration_end(self, i, it):
         pass
 
-    def _early_stopping(self, ep, ep_loss, ep_score):
+    def _early_stopping(self, ep, ep_loss, ep_score, val_loss, val_score):
         if ep - self.cache['best_epoch'] >= self.args.get('patience', 'epochs'):
             return True
         return False
@@ -199,9 +199,9 @@ class ETTrainer:
             self.cache['validation_log'].append([val_loss.average, *val_score.scores()])
             _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
                                      plot_keys=['training_log', 'validation_log'])
-            self._on_epoch_end(ep, ep_loss, ep_score)
+            self._on_epoch_end(ep, ep_loss, ep_score, val_loss, val_score)
 
-            if self._early_stopping(ep, ep_loss, ep_score):
+            if self._early_stopping(ep, ep_loss, ep_score, val_loss, val_score):
                 break
 
 
