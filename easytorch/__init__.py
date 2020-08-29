@@ -46,14 +46,13 @@ class EasyTorch:
             if 'dir' in k:
                 dspec[k] = _os.path.join(self.args['dataset_dir'], dspec[k])
 
-        split_dir = log_dir + _sep + 'splits'
-        _os.makedirs(split_dir, exist_ok=True)
-
         if dspec.get('split_dir') and _os.path.exists(dspec.get('split_dir')) and len(list(
                 _os.listdir(dspec.get('split_dir')))) > 0:
-            _shu.rmtree(split_dir, ignore_errors=True)
-            _shu.copytree(dspec.get('split_dir'), split_dir, dirs_exist_ok=True)
-        else:
+            return
+
+        split_dir = log_dir + _sep + 'splits'
+        _os.makedirs(split_dir, exist_ok=True)
+        if not _os.path.exists(split_dir) or len(list(_os.listdir(split_dir))) <= 0:
             _create_splits(_os.listdir(dspec['data_dir']), k=self.args['num_folds'], save_to_dir=split_dir,
                            shuffle_files=True)
         dspec['split_dir'] = split_dir
