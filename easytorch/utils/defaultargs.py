@@ -2,6 +2,7 @@ import argparse as _ap
 
 import random
 
+
 def boolean_string(s):
     if s not in {'False', 'True'}:
         raise ValueError('Not a valid boolean string')
@@ -29,3 +30,4 @@ ap.add_argument('-f', '--force', default=False, type=boolean_string, help='Force
 ap.add_argument('-r', '--model_scale', default=1, type=int, help='Mode width scale')
 ap.add_argument('-pat', '--patience', default=31, type=int, help='Early Stopping patience.')
 ap.add_argument('-sp', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')
+ap.add_argument('-nf', '--num_folds', default=10, type=int, help='Number of folds.')
