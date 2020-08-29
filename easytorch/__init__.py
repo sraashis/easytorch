@@ -4,7 +4,6 @@ import os as _os
 from easytorch.core import utils as _utils
 from easytorch.utils import logutils as _logutils
 from easytorch.utils.datautils import create_k_fold_splits as _create_splits
-import shutil as _shu
 
 _sep = _os.sep
 
