@@ -71,6 +71,8 @@ if __name__ == "__main__":
     * Parameter to scale model breath.
 * **-sp/--load_sparse** [False]
     * Load all data from one image in single DataLoader so that it is easy to combine later to form a whole image.
+* **-nf/--num_folds** [10]
+    * Number of folds in k-fold cross validation.
     
     
 ##### **Training+Validation+Test**

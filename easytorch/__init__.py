@@ -3,6 +3,8 @@ import os as _os
 
 from easytorch.core import utils as _utils
 from easytorch.utils import logutils as _logutils
+from easytorch.utils.datautils import create_k_fold_splits as _create_splits
+import shutil as _shu
 
 _sep = _os.sep
 
@@ -10,10 +12,6 @@ _sep = _os.sep
 class EasyTorch:
     def __init__(self, args_parser, dataspecs):
         self.args = _utils.FrozenDict(vars(args_parser.parse_args()))
-        for dspec in dataspecs:
-            for k in dspec:
-                if 'dir' in k:
-                    dspec[k] = _os.path.join(self.args['dataset_dir'], dspec[k])
         self.dataspecs = dataspecs
 
     def _get_train_dataset(self, split, dspec, dataset_cls):
@@ -43,13 +41,34 @@ class EasyTorch:
             test_dataset_list.append(test_dataset)
         return test_dataset_list
 
+    def _init_dataset(self, dspec, log_dir):
+        for k in dspec:
+            if 'dir' in k:
+                dspec[k] = _os.path.join(self.args['dataset_dir'], dspec[k])
+
+        split_dir = log_dir + _sep + 'splits'
+        _os.makedirs(split_dir, exist_ok=True)
+
+        if dspec.get('split_dir') and _os.path.exists(dspec.get('split_dir')) and len(list(
+                _os.listdir(dspec.get('split_dir')))) > 0:
+            _shu.rmtree(split_dir, ignore_errors=True)
+            _shu.copytree(dspec.get('split_dir'), split_dir, dirs_exist_ok=True)
+        else:
+            _create_splits(_os.listdir(dspec['data_dir']), k=self.args['num_folds'], save_to_dir=split_dir,
+                           shuffle_files=True)
+        dspec['split_dir'] = split_dir
+
     def run(self, dataset_cls, trainer_cls):
         for dspec in self.dataspecs:
             trainer = trainer_cls(self.args)
             global_score = trainer.new_metrics()
+
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
-            trainer.reset_dataset_cache()
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
+
+            self._init_dataset(dspec, log_dir=trainer.cache['log_dir'])
+
+            trainer.reset_dataset_cache()
             for split_file in _os.listdir(dspec['split_dir']):
                 split = _json.loads(open(dspec['split_dir'] + _sep + split_file).read())
 

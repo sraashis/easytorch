@@ -6,7 +6,6 @@ sep = os.sep
 
 
 def create_k_fold_splits(files, k=0, save_to_dir=None, shuffle_files=True):
-    from itertools import chain
     import numpy as np
 
     if shuffle_files:
@@ -22,7 +21,6 @@ def create_k_fold_splits(files, k=0, save_to_dir=None, shuffle_files=True):
                   'validation': [files[ix] for ix in val_ix],
                   'test': [files[ix] for ix in test_ix]}
 
-        print('Valid:', set(files) - set(list(chain(*splits.values()))) == set([]))
         if save_to_dir:
             f = open(save_to_dir + sep + 'SPLIT_' + str(i) + '.json', "w")
             f.write(_json.dumps(splits))
