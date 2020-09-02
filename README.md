@@ -81,7 +81,7 @@ if __name__ == "__main__":
     * $python main.py -p test -nch 3 -e 3 -b 2 -sp True
 
 ## References
-**Please cite us if you use this framework(easytorch) as follows:**
+**Please cite us if you find it useful :) :**
 @misc{easytorch,
   author = {Khanal, Aashis},
   title = {Quick Neural Network Experimentation},
