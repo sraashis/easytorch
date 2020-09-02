@@ -8,6 +8,7 @@ from torch.utils.data._utils.collate import default_collate as _default_collate
 
 from easytorch.core import measurements as _measurements, utils as _utils
 from easytorch.utils import logutils as _log_utils
+from easytorch.utils.datautils import _init_kfolds
 
 _sep = _os.sep
 
@@ -270,6 +271,8 @@ class ETDataset(_Dataset):
     def pool(cls, args, dataspecs, split_key=None, load_sparse=False):
         all_d = [] if load_sparse else cls(mode=split_key, limit=args['load_limit'])
         for r in dataspecs:
+            _init_kfolds(log_dir=args['log_dir'] + _sep + r['name'],
+                         dspec=r, args=args)
             for split in _os.listdir(r['split_dir']):
                 split = _json.loads(open(r['split_dir'] + _sep + split).read())
                 if load_sparse:
