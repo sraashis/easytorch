@@ -140,7 +140,7 @@ class ETTrainer:
                     score.accumulate(it['scores'])
                     eval_loss.accumulate(it['avg_loss'])
                     if save_pred:
-                        its.append([it])
+                        its.append(it)
                     if self.args['debug'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
                         print(f"Itr:{i}/{len(loader)}, {it['avg_loss'].average}, {it['scores'].scores()}")
 
