@@ -44,7 +44,10 @@ class ETTrainer:
         self._load_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
 
     def _load_checkpoint(self, full_path):
-        chk = _torch.load(full_path)
+        try:
+            chk = _torch.load(full_path)
+        except:
+            chk = _torch.load(full_path, map_location='cpu')
         try:
             self.nn['model'].module.load_state_dict(chk)
         except:
