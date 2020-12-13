@@ -70,7 +70,7 @@ class MyTrainer(ETTrainer):
       pass
 
   def new_metrics(self):
-      ### Supply a class to compute scores.
+      ### Supply a class to compute scores(see below on section No. 3).
       # Example : Precision, Recall, F1, Accuracy give prediction, ground_truth
       return Prf1a()
 
@@ -79,10 +79,10 @@ class MyTrainer(ETTrainer):
       return ETAverages(num_averages=1)
 
   def reset_dataset_cache(self):
+      '''
+      Specifies fines what scores to monitor in validation set, and maximize/minimize it?
+      '''
       self.cache['global_test_score'] = []
-      '''
-      DeSpecifies fines what scores to monitor in validation set, and maximize/minimize it?
-      '''
       self.cache['monitor_metric'] = 'f1' # It must be a method in your class returned by new_metrics()
       self.cache['metric_direction'] = 'maximize'
 
