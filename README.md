@@ -9,7 +9,8 @@
 * GPU enabled metrics like precision, recall, f1, overlap, and confusion matrix with maximum GPU utilization.
 * Ability to automatically combine/pool multiple datasets without having to move the data from original location.
 * Reconstruction of the predicted image is very easy even if we train on patches of images like U-Net. Please check the example below.
-* Limit data loading for easy debugging...and many more.
+* Limit data loading for easy debugging
+* Save everything: the logs, seeds, models, plots...etc. Thus, easy to replicate experiments.
 
 #### Installation
 1. Install latest pytorch and torchvision from [Pytorch official website](https://pytorch.org/)
