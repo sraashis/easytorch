@@ -6,7 +6,9 @@ It consist of rich utilities useful for image manipulation as my research is foc
 1. Install latest pytorch and torchvision from [Pytorch official website](https://pytorch.org/)
 2. pip install easytorch
 
-### [Link to a full working example](https://github.com/sraashis/easytorchexample)
+### Examples
+- ### [Vessel segmentation with U-NET example](https://github.com/sraashis/easytorchexample)
+
 
 ### Higlights
 * A convenient framework to easily setup neural network experiments.
@@ -17,7 +19,7 @@ It consist of rich utilities useful for image manipulation as my research is foc
 * Automatic logging/plotting, and model checkpointing.
 * Works on all sort of neural network related task.
 * GPU enabled metrics like precision, recall, f1, overlap, and confusion matrix with maximum GPU utilization.
-* Ability to automatically combine multiple datasets without having to move the data from original location.
+* Ability to automatically combine/pool multiple datasets without having to move the data from original location.
 
 Sample use case as follows:
 ```python
