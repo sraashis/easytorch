@@ -1,4 +1,4 @@
-### ![DRIVE training log](assets/easytorch.png) 
+![DRIVE training log](assets/easytorch.png)
 ### A quick and easy way to start running pytorch experiments within few minutes.
 
 ## Installation
