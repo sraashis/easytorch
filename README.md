@@ -1,5 +1,5 @@
 ## EasyTorch ### 
-#### A quick and easy way to start running pytorch experiments in few minutes.
+#### A quick and easy way to start running pytorch experiments within few minutes.
 
 ## Installation
 1. Install latest pytorch and torchvision from [Pytorch official website](https://pytorch.org/)
