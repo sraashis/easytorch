@@ -1,4 +1,4 @@
-## EasyTorch ### 
+![DRIVE training log](assets/EasyTorch.png) EasyTorch
 #### A quick and easy way to start running pytorch experiments within few minutes.
 
 ## Installation
