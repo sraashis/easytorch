@@ -7,7 +7,7 @@ It consist of rich utilities useful for image manipulation as my research is foc
 2. pip install easytorch
 
 ### Examples
-- ### [Vessel segmentation with U-NET example](https://github.com/sraashis/easytorchexample)
+- ### [Vessel segmentation with U-NET example](https://github.com/sraashis/unet-vessel-segmentation-easytorch)
 
 
 ### Higlights
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
 ```
 
-### Default arguments (Can be extended to add your custom arguments. Please check the [example](https://github.com/sraashis/easytorchexample))
+### Default arguments (Can be extended to add your custom arguments. Please check the [example](https://github.com/sraashis/unet-vessel-segmentation-easytorch))
 * **-nch/--num_channel** [3]
     * Number of input channels
 * **-ncl/--num_class** [2]
