@@ -4,6 +4,10 @@ from easytorch.core.metrics import ETMetrics
 
 
 class Prf1a(ETMetrics):
+    r"""
+    A class that has GPU based computation of:
+        Precision, Recall, F1 Score, Accuracy, and Overlap(IOU).
+    """
     def __init__(self):
         super().__init__()
         self.tn, self.fp, self.fn, self.tp = 0, 0, 0, 0
@@ -76,7 +80,8 @@ class Prf1a(ETMetrics):
 
 class ConfusionMatrix(ETMetrics):
     """
-    x-axis is predicted. y-axis is true lable.
+    Confusion matrix  is used in multi class classification case.
+    x-axis is predicted. y-axis is true label.
     F1 score from average precision and recall is calculated
     """
 

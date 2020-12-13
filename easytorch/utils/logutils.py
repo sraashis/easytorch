@@ -11,6 +11,9 @@ _plt.rcParams["figure.figsize"] = [16, 9]
 
 
 def plot_progress(cache, experiment_id='', plot_keys=[], num_points=51):
+    r"""
+    Custom plotter to plot data from the cache by keys.
+    """
     scaler = _MinMaxScaler()
     for k in plot_keys:
         data = cache.get(k, [])
@@ -55,6 +58,9 @@ def jsonable(obj):
 
 
 def clean_recursive(obj):
+    r"""
+    Make everything in cache safe to save in json files.
+    """
     if not isinstance(obj, dict):
         return
     for k, v in obj.items():

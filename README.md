@@ -91,7 +91,7 @@ def save_predictions(self, dataset, its):
     '''
     pass
 ```
-### 2. Define dataset by extending easytorch.core.nn.ETDataset, or use any dataset class that extends torch's Dataset class.
+### 2. Define dataset by extending easytorch.core.nn.ETDataset, or use any dataset class that extends Dataset class in pytorch.
   - Define specification for your datasets:
 ```python
 import os
