@@ -22,6 +22,8 @@
 ```python
 from easytorch.core.metrics import ETAverages
 from easytorch.utils.measurements import Prf1a
+from easytorch.core.nn import ETTrainer
+
 class MyTrainer(ETTrainer):
   def __init__(self, args):
       super().__init__(args)
@@ -99,7 +101,7 @@ def save_predictions(self, dataset, its):
     '''
     pass
 ```
-## 2. Define your custom dataset, or use any dataset class that extends torch's Dataset class
+## 2. Define your custom dataset by extending easytorch.core.nn import ETDataset, or use any dataset class that extends torch's Dataset class
   - Define specification for your datasets:
 ```python
 import os
