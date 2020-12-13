@@ -78,7 +78,7 @@ class MyTrainer(ETTrainer):
 ````
 
 
-### `For advanced usages, extent the following as well.`
+### `For advanced usages, extent the following:`
 ```python
 def training_iteration(self, batch):
     '''
@@ -116,7 +116,7 @@ DRIVE = {
 ```
 ## 3. Keeping track of training/test/validation scores. 
   - For a Precision, Recall, F1, Accuracy, IOU... implementation, please check easytorch.utils.measurements.Prf1a() class.
-### `For advanced purpose, extend the following(example-easytorch.utils.measurements.Prf1a()):`
+### `For advanced purpose, extend the following:`
 ````python
 class ETMetrics:
     '''
