@@ -1,3 +1,7 @@
+r"""
+The main core of EasyTorch
+"""
+
 import json as _json
 import math as _math
 import os as _os
@@ -15,14 +19,28 @@ _sep = _os.sep
 
 class ETTrainer:
     def __init__(self, args):
+        r"""
+        args: receives the arguments passed by the ArgsParser.
+        cache: Initialize all immediate things here. Like scores, loss, accuracies...
+        nn:  Initialize our models here.
+        optimizer: Initialize our optimizers.
+        """
         self.args = _utils.FrozenDict(args)
         self.cache = {}
         self.nn = {}
         self.optimizer = {}
 
     def init_nn(self):
-        self._init_nn_model()
+        r"""
+        Call to user implementation of:
+            Initialize models.
+            Initialize random/pre-trained weights.
+            Initialize/Detect GPUS.
+            Initialize optimizer.
+        """
 
+        # Print number of parameters in all models.
+        self._init_nn_model()
         if self.args['debug']:
             for k, m in self.nn.items():
                 if isinstance(m, _torch.nn.Module):
@@ -34,6 +52,10 @@ class ETTrainer:
         self._init_optimizer()
 
     def _init_nn_weights(self):
+        r"""
+        By default, will initialize network with Kaimming initialization.
+        If path to pretrained weights are given, it will be used instead.
+        """
         if self.args['pretrained_path'] is not None:
             self._load_checkpoint(self.args['pretrained_path'])
         elif self.args['phase'] == 'train':
@@ -41,6 +63,7 @@ class ETTrainer:
             _utils.initialize_weights(self.nn['model'])
 
     def load_best_model(self):
+        r"""Load the best model which will be stored in cache['checkpoint']"""
         self._load_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
 
     def _load_checkpoint(self, full_path):
@@ -54,9 +77,17 @@ class ETTrainer:
             self.nn['model'].load_state_dict(chk)
 
     def _init_nn_model(self):
+        r"""
+        User cam override and initialize required models in self.nn dict.
+        """
         raise NotImplementedError('Must be implemented in child class.')
 
     def _set_gpus(self):
+        r"""
+        Initialize GPUs based on whats provided in args(Default [0])
+        Expects list of GPUS as [0, 1, 2, 3]., list of GPUS will make it use DataParallel.
+        If no GPU is present, CPU is used.
+        """
         self.nn['device'] = _torch.device("cpu")
         if _torch.cuda.is_available():
             if len(self.args['gpus']) < 2:
@@ -67,15 +98,33 @@ class ETTrainer:
         self.nn['model'] = self.nn['model'].to(self.nn['device'])
 
     def _init_optimizer(self):
+        r"""
+        Initialize required optimizers here. Default is Adam,
+        """
         self.optimizer['adam'] = _torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
 
     def new_metrics(self):
+        r"""
+        User must override to supply desired implemented of easytorch.core.metrics.ETMetrics().
+        Such implementation must return a list of scores like
+        accuracy, precision in the method named metrics() to be able to track and plot it.
+        Example: easytorch.utils.measurements.Pr11a() will work with precision, recall, F1, Accuracy, IOU scores.
+        """
         raise NotImplementedError('Must be implemented in child class.')
 
     def new_averages(self):
+        r""""
+        Should supply an implementation of easytorch.core.metrics.ETAverages() that can keep track of multiple averages.
+        For example, multiple loss, or any other values.
+        """
         raise NotImplementedError('Must be implemented in child class.')
 
     def check_previous_logs(self):
+        r"""
+        Checks if there already is a previous run and prompt[Y/N] so that
+        we avoid accidentally overriding previous runs and lose temper.
+        User can supply -f True flag to override by force.
+        """
         if self.args['force']:
             return
         i = 'y'
@@ -102,12 +151,50 @@ class ETTrainer:
         _torch.save(state_dict, self.cache['log_dir'] + _sep + self.cache['checkpoint'])
 
     def reset_dataset_cache(self):
+        r"""
+        We initialize/prepare cache to start recording details for one dataset as specified in dataspecs.
+        For Example:
+            # Place to store test scores as computerd by
+            # metrics() method in implementation of  easytorch.core.metrics.ETMetrics()
+            # (see easytorch.utils.measurements.Prf1a() for a concrete implementation)
+            self.cache['global_test_score'] = []
+
+            # Which score to keep track on validation set so that we can select best performing model on validations set.
+            # This must be a method in the implementation of easytorch.core.metrics.ETMetrics()
+            # (see easytorch.utils.measurements.Prf1a() for a concrete implementation)
+            self.cache['monitor_metric'] = 'f1'
+
+            # Maximize(eg. F1/Accuracy) OR Minimize(eg. MSE, RMSE, COSINE)
+            self.cache['metric_direction'] = 'maximize'
+        """
         raise NotImplementedError('Must be implemented in child class.')
 
     def reset_fold_cache(self):
+        r"""
+        Initialize/Prepare cache to start recording details of each fold(A dataset can have k-folds)
+        For each fold, we train one model. So for k-folds, we will have k-models, k-plots, k-weights.
+        However, there will be single test scores for each dataset-the test scores will be computed by accumulating all
+        True Positives, False Positives, False Negatives, and True Negatives.
+
+        These values will be concatenation of lists returned by
+            - averages() method of easytorch.core.metrics.ETAverages()
+            - and metrics() method of easytorch.core.metrics.ETMetrics().
+
+        For example:
+            By default easytorch.core.metrics.ETAverages() returns average of single loss.
+            easytorch.utils.measurements.Prf1a() will return Precision, Recall, F1, and Accuracy
+
+        We the initialize the headers for plots.
+        self.cache['training_log'] = ['Loss,Precision,Recall,F1,Accuracy']
+        self.cache['validation_log'] = ['Loss,Precision,Recall,F1,Accuracy']
+        self.cache['test_score'] = ['Split,Precision,Recall,F1,Accuracy']
+        """
         raise NotImplementedError('Must be implemented in child class.')
 
     def save_if_better(self, epoch, metrics):
+        r"""
+        Save the current model as best if it has better validation scores.
+        """
         sc = getattr(metrics, self.cache['monitor_metric'])
         if callable(sc):
             sc = sc()
@@ -124,12 +211,45 @@ class ETTrainer:
                 print(f"##### Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}")
 
     def iteration(self, batch):
+        r"""
+        Left for user to implement one mini-bath iteration:
+        Example:{
+                    inputs = batch['input'].to(self.nn['device']).float()
+                    labels = batch['label'].to(self.nn['device']).long()
+                    out = self.nn['model'](inputs)
+                    loss = F.cross_entropy(out, labels)
+                    out = F.softmax(out, 1)
+                    _, pred = torch.max(out, 1)
+                    sc = self.new_metrics()
+                    sc.add(pred, labels)
+                    avg = self.new_averages()
+                    avg.add(loss.item(), len(inputs))
+                    return {'loss': loss, 'averages': avg, 'output': out, 'metrics': sc, 'predictions': pred}
+                }
+        Note: loss, averages, and metrics are required whereas other are optional
+            -we will have to do backward on loss
+            -we need to keep track of loss
+            -we need to keep track of metrics
+        """
         raise NotImplementedError('Must be implemented in child class.')
 
     def save_predictions(self, dataset, its):
+        r"""
+        If one needs to save complex predictions result like predicted segmentations.
+         -Especially with U-Net architectures, we split images and train.
+        Once the argument --sp/-sparse-load is set to True,
+        its argument will receive all the patches of single image at a time.
+        From there, we can recreate the whole image.
+        """
         raise NotImplementedError('Must be implemented in child class.')
 
     def evaluation(self, split_key=None, save_pred=False, dataset_list=None):
+        r"""
+        Evaluation phase that handles validation/test phase
+        split-key: the key to list of files used in this particular evaluation.
+        The program will create k-splits(json files) as per specified in --nf -num_of_folds
+         argument with keys 'train', ''validation', and 'test'.
+        """
         self.nn['model'].eval()
         if self.args['debug']:
             print(f'--- Running {split_key} ---')
@@ -161,6 +281,10 @@ class ETTrainer:
         return eval_loss, eval_metrics
 
     def training_iteration(self, batch):
+        r"""
+        Learning step for one batch.
+        We decoupled it so that user could implement any complex/multi/alternate training strategies.
+        """
         self.optimizer['adam'].zero_grad()
         it = self.iteration(batch)
         it['loss'].backward()
@@ -168,17 +292,31 @@ class ETTrainer:
         return it
 
     def _on_epoch_end(self, ep, ep_loss, ep_metrics, val_loss, val_metrics):
+        r"""
+        Any logic to run after an epoch ends.
+        """
         pass
 
     def _on_iteration_end(self, i, it):
+        r"""
+        Any logic to run after an iteration ends.
+        """
         pass
 
     def _early_stopping(self, ep, ep_loss, ep_metrics, val_loss, val_metrics):
+        r"""
+        Stop the training based on some criteria.
+         For example: the implementation below will stop training if the validation
+         scores does not improve within a 'patience' number of epochs.
+        """
         if ep - self.cache['best_epoch'] >= self.args.get('patience', 'epochs'):
             return True
         return False
 
     def train(self, dataset, val_dataset):
+        r"""
+        Main training loop.
+        """
         train_loader = ETDataLoader.new(shuffle=True, dataset=dataset, **self.args)
         for ep in range(1, self.args['epochs'] + 1):
             self.nn['model'].train()
@@ -213,6 +351,9 @@ class ETTrainer:
 
 
 def safe_collate(batch):
+    r"""
+    Savely select batches/skip errors in file loading.
+    """
     return _default_collate([b for b in batch if b])
 
 
@@ -248,9 +389,17 @@ class ETDataset(_Dataset):
         self.indices = []
 
     def load_index(self, dataset_name, file):
+        r"""
+        Logic to load indices of a single file.
+        -Sometimes one image can have multiple indices like U-net where we have to get multiple patches of images.
+        """
         self.indices.append([dataset_name, file])
 
     def _load_indices(self, dataset_name, files, **kw):
+        r"""
+        We load the proper indices/names(whatever is called) of the files in order to prepare minibatches.
+        Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
+        """
         for file in files:
             if len(self) >= self.limit:
                 break
@@ -260,6 +409,10 @@ class ETDataset(_Dataset):
             print(f'{dataset_name}, {self.mode}, {len(self)} Indices Loaded')
 
     def __getitem__(self, index):
+        r"""
+        Logic to load one file and send to model. The mini-batch generation will be handled by Dataloader.
+        Here we just need to write logic to deal with single file.
+        """
         raise NotImplementedError('Must be implemented by child class.')
 
     def __len__(self):
@@ -270,11 +423,19 @@ class ETDataset(_Dataset):
         return None
 
     def add(self, files, debug=True, **kw):
+        r"""
+        An extra layer for added flexibility.
+        """
         self.dataspecs[kw['name']] = kw
         self._load_indices(dataset_name=kw['name'], files=files, debug=debug)
 
     @classmethod
     def pool(cls, args, dataspecs, split_key=None, load_sparse=False):
+        r"""
+        This method takes multiple dataspecs and pools the first splits of all the datasets.
+        So that we can train one single model on all the datasets. It will auytomatically refer correct data files,
+            no need to move files in single folder.
+        """
         all_d = [] if load_sparse else cls(mode=split_key, limit=args['load_limit'])
         for r in dataspecs:
             _init_kfolds(log_dir=args['log_dir'] + _sep + r['name'],

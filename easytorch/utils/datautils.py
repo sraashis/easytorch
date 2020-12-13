@@ -66,7 +66,11 @@ def make_weights_for_balanced_classes(images, nclasses):
 
 
 def _init_kfolds(log_dir, dspec, args):
-
+    r"""
+    Initialize k-folds for given dataspec.
+        If: custom splits path is given it will use the splits from tehre
+        else: will create new k-splits and run k-fold cross validation.
+    """
     if dspec.get('split_dir') and _os.path.exists(dspec.get('split_dir')) and len(list(
             _os.listdir(dspec.get('split_dir')))) > 0:
         return

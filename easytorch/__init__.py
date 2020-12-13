@@ -10,24 +10,43 @@ _sep = _os.sep
 
 class EasyTorch:
     def __init__(self, args_parser, dataspecs):
+        r"""
+        Takes arg parser and freeze it.
+        """
         self.args = _utils.FrozenDict(vars(args_parser.parse_args()))
         self.dataspecs = [{**dspec} for dspec in dataspecs]
+
+        """
+        Need to add -data(base folder for dataset) to all the directories in dataspecs. 
+        THis makes it flexible to access dataset from arbritrary location.
+        """
         for dspec in self.dataspecs:
             for k in dspec:
                 if 'dir' in k:
                     dspec[k] = _os.path.join(self.args['dataset_dir'], dspec[k])
 
     def _get_train_dataset(self, split, dspec, dataset_cls):
+        r"""
+        Load the train data from current fold/split.
+        """
         train_dataset = dataset_cls(mode='train', limit=self.args['load_limit'])
         train_dataset.add(files=split['train'], debug=self.args['debug'], **dspec)
         return train_dataset
 
     def _get_validation_dataset(self, split, dspec, dataset_cls):
+        r"""
+        Load the validation data from current fold/split.
+        """
         val_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'])
         val_dataset.add(files=split['validation'], debug=self.args['debug'], **dspec)
         return val_dataset
 
     def _get_test_dataset(self, split, dspec, dataset_cls):
+        r"""
+        Load the test data from current fold/split.
+        If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
+        So that we can correctly gather components of one image(components like output patches)
+        """
         test_dataset_list = []
         if self.args.get('load_sparse'):
             for f in split['test']:
@@ -45,6 +64,9 @@ class EasyTorch:
         return test_dataset_list
 
     def run(self, dataset_cls, trainer_cls):
+        r"""
+        Run for individual datasets
+        """
         for dspec in self.dataspecs:
             trainer = trainer_cls(self.args)
             global_score = trainer.new_metrics()
@@ -95,6 +117,9 @@ class EasyTorch:
             _logutils.save_scores(trainer.cache, file_keys=['global_test_score'])
 
     def run_pooled(self, dataset_cls, trainer_cls):
+        r"""
+        Run in pooled fashion.
+        """
         trainer = trainer_cls(self.args)
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + 'pooled'
         trainer.reset_dataset_cache()

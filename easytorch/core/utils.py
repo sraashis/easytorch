@@ -15,6 +15,9 @@ def initialize_weights(*models):
 
 
 def safe_concat(large, small):
+    r"""
+    Safely concat two slightly unequal tensors.
+    """
     diff = _np.array(large.shape) - _np.array(small.shape)
     diffa = _np.floor(diff / 2).astype(int)
     diffb = _np.ceil(diff / 2).astype(int)
