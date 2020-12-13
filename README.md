@@ -47,12 +47,13 @@
 
         return {'loss': loss, 'averages': avg, 'output': out, 'metrics': sc, 'predictions': pred}
     
-     '''
-    ### Optional
-    If you need complex/mixed training steps, it can be done here. 
-    If not, no need to extend this method 
-    '''
+    
     def training_iteration(self, batch):
+        '''
+        ### Optional
+        If you need complex/mixed training steps, it can be done here. 
+        If not, no need to extend this method 
+        '''
         self.optimizer['adam'].zero_grad()
         it = self.iteration(batch)
         it['loss'].backward()
