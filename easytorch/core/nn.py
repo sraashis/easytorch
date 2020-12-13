@@ -6,7 +6,7 @@ import torch as _torch
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 
-from easytorch.core import measurements as _measurements, utils as _utils
+from easytorch.core import utils as _utils
 from easytorch.utils import logutils as _log_utils
 from easytorch.utils.datautils import _init_kfolds
 
@@ -72,6 +72,9 @@ class ETTrainer:
     def new_metrics(self):
         raise NotImplementedError('Must be implemented in child class.')
 
+    def new_averages(self):
+        raise NotImplementedError('Must be implemented in child class.')
+
     def check_previous_logs(self):
         if self.args['force']:
             return
@@ -82,7 +85,7 @@ class ETTrainer:
                 i = input(f"*** {train_log} *** \n Exists. OVERRIDE [y/n]:")
 
         if self.args['phase'] == 'test':
-            test_log = f"{self.cache['log_dir']}{_sep}{self.cache['experiment_id']}_test_scores.vsc"
+            test_log = f"{self.cache['log_dir']}{_sep}{self.cache['experiment_id']}_test_scores.csv"
             if _os.path.exists(test_log):
                 if _os.path.exists(test_log):
                     i = input(f"*** {test_log} *** \n Exists. OVERRIDE [y/n]:")
@@ -104,13 +107,13 @@ class ETTrainer:
     def reset_fold_cache(self):
         raise NotImplementedError('Must be implemented in child class.')
 
-    def save_if_better(self, epoch, score):
-        sc = getattr(score, self.cache['monitor_metrics'])
+    def save_if_better(self, epoch, metrics):
+        sc = getattr(metrics, self.cache['monitor_metric'])
         if callable(sc):
             sc = sc()
 
-        if (self.cache['score_direction'] == 'maximize' and sc >= self.cache['best_score']) or (
-                self.cache['score_direction'] == 'minimize' and sc <= self.cache['best_score']):
+        if (self.cache['metric_direction'] == 'maximize' and sc >= self.cache['best_score']) or (
+                self.cache['metric_direction'] == 'minimize' and sc <= self.cache['best_score']):
             self.save_checkpoint()
             self.cache['best_score'] = sc
             self.cache['best_epoch'] = epoch
@@ -131,31 +134,31 @@ class ETTrainer:
         if self.args['debug']:
             print(f'--- Running {split_key} ---')
 
-        eval_loss = _measurements.Avg()
-        eval_score = self.new_metrics()
+        eval_loss = self.new_averages()
+        eval_metrics = self.new_metrics()
         val_loaders = [ETDataLoader.new(shuffle=False, dataset=d, **self.args) for d in dataset_list]
         with _torch.no_grad():
             for loader in val_loaders:
                 its = []
-                score = self.new_metrics()
+                metrics = self.new_metrics()
                 for i, batch in enumerate(loader):
                     it = self.iteration(batch)
-                    score.accumulate(it['scores'])
-                    eval_loss.accumulate(it['avg_loss'])
+                    metrics.accumulate(it['metrics'])
+                    eval_loss.accumulate(it['averages'])
                     if save_pred:
                         its.append(it)
                     if self.args['debug'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
-                        print(f"Itr:{i}/{len(loader)}, {it['avg_loss'].average}, {it['scores'].scores()}")
+                        print(f"Itr:{i}/{len(loader)}, {it['averages'].averages}, {it['metrics'].metrics()}")
 
-                eval_score.accumulate(score)
+                eval_metrics.accumulate(metrics)
                 if self.args['debug'] and len(dataset_list) > 1:
-                    print(f"{split_key}, {score.scores()}")
+                    print(f"{split_key}, {metrics.metrics()}")
                 if save_pred:
                     self.save_predictions(loader.dataset, its)
 
         if self.args['debug']:
-            print(f"{self.cache['experiment_id']} {split_key} scores: {eval_score.scores()}")
-        return eval_loss, eval_score
+            print(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.metrics()}")
+        return eval_loss, eval_metrics
 
     def training_iteration(self, batch):
         self.optimizer['adam'].zero_grad()
@@ -164,13 +167,13 @@ class ETTrainer:
         self.optimizer['adam'].step()
         return it
 
-    def _on_epoch_end(self, ep, ep_loss, ep_score, val_loss, val_score):
+    def _on_epoch_end(self, ep, ep_loss, ep_metrics, val_loss, val_metrics):
         pass
 
     def _on_iteration_end(self, i, it):
         pass
 
-    def _early_stopping(self, ep, ep_loss, ep_score, val_loss, val_score):
+    def _early_stopping(self, ep, ep_loss, ep_metrics, val_loss, val_metrics):
         if ep - self.cache['best_epoch'] >= self.args.get('patience', 'epochs'):
             return True
         return False
@@ -179,33 +182,33 @@ class ETTrainer:
         train_loader = ETDataLoader.new(shuffle=True, dataset=dataset, **self.args)
         for ep in range(1, self.args['epochs'] + 1):
             self.nn['model'].train()
-            _score = self.new_metrics()
-            _loss = _measurements.Avg()
-            ep_loss = _measurements.Avg()
-            ep_score = self.new_metrics()
+            _metrics = self.new_metrics()
+            _loss = self.new_averages()
+            ep_loss = self.new_averages()
+            ep_metrics = self.new_metrics()
             for i, batch in enumerate(train_loader, 1):
 
                 it = self.training_iteration(batch)
-                ep_loss.accumulate(it['avg_loss'])
-                ep_score.accumulate(it['scores'])
-                _loss.accumulate(it['avg_loss'])
-                _score.accumulate(it['scores'])
+                ep_loss.accumulate(it['averages'])
+                ep_metrics.accumulate(it['metrics'])
+                _loss.accumulate(it['averages'])
+                _metrics.accumulate(it['metrics'])
                 if self.args['debug'] and i % int(_math.log(i + 1) + 1) == 0:
                     print(f"Ep:{ep}/{self.args['epochs']},Itr:{i}/{len(train_loader)},"
-                          f"{_loss.average},{_score.scores()}")
-                    _score.reset()
+                          f"{_loss.averages},{_metrics.metrics()}")
+                    _metrics.reset()
                     _loss.reset()
                 self._on_iteration_end(i, it)
 
-            self.cache['training_log'].append([ep_loss.average, *ep_score.scores()])
-            val_loss, val_score = self.evaluation(split_key='validation', dataset_list=[val_dataset])
-            self.save_if_better(ep, val_score)
-            self.cache['validation_log'].append([val_loss.average, *val_score.scores()])
+            self.cache['training_log'].append([*ep_loss.averages, *ep_metrics.metrics()])
+            val_loss, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
+            self.save_if_better(ep, val_metric)
+            self.cache['validation_log'].append([val_loss.averages, *val_metric.metrics()])
             _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
                                      plot_keys=['training_log', 'validation_log'])
-            self._on_epoch_end(ep, ep_loss, ep_score, val_loss, val_score)
+            self._on_epoch_end(ep, ep_loss, ep_metrics, val_loss, val_metric)
 
-            if self._early_stopping(ep, ep_loss, ep_score, val_loss, val_score):
+            if self._early_stopping(ep, ep_loss, ep_metrics, val_loss, val_metric):
                 break
 
 
@@ -244,17 +247,17 @@ class ETDataset(_Dataset):
         self.dataspecs = {}
         self.indices = []
 
-    def load_index(self, dname, file):
-        self.indices.append([dname, file])
+    def load_index(self, dataset_name, file):
+        self.indices.append([dataset_name, file])
 
-    def _load_indices(self, dname, files, **kw):
+    def _load_indices(self, dataset_name, files, **kw):
         for file in files:
             if len(self) >= self.limit:
                 break
-            self.load_index(dname, file)
+            self.load_index(dataset_name, file)
 
         if kw.get('debug', True):
-            print(f'{dname}, {self.mode}, {len(self)} Indices Loaded')
+            print(f'{dataset_name}, {self.mode}, {len(self)} Indices Loaded')
 
     def __getitem__(self, index):
         raise NotImplementedError('Must be implemented by child class.')
@@ -268,7 +271,7 @@ class ETDataset(_Dataset):
 
     def add(self, files, debug=True, **kw):
         self.dataspecs[kw['name']] = kw
-        self._load_indices(dname=kw['name'], files=files, debug=debug)
+        self._load_indices(dataset_name=kw['name'], files=files, debug=debug)
 
     @classmethod
     def pool(cls, args, dataspecs, split_key=None, load_sparse=False):

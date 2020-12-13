@@ -61,7 +61,7 @@ class EasyTorch:
                 trainer.cache['experiment_id'] = split_file.split('.')[0]
                 trainer.cache['checkpoint'] = trainer.cache['experiment_id'] + '.pt'
                 trainer.cache.update(best_epoch=0, best_score=0.0)
-                if trainer.cache['score_direction'] == 'minimize':
+                if trainer.cache['metric_direction'] == 'minimize':
                     trainer.cache['best_score'] = 1e11
 
                 trainer.check_previous_logs()
@@ -85,13 +85,13 @@ class EasyTorch:
                 test_loss, test_score = trainer.evaluation(split_key='test', save_pred=True,
                                                            dataset_list=testset)
                 global_score.accumulate(test_score)
-                trainer.cache['test_score'].append([split_file] + test_score.scores())
-                trainer.cache['global_test_score'].append([split_file] + test_score.scores())
+                trainer.cache['test_score'].append([split_file] + test_score.metrics())
+                trainer.cache['global_test_score'].append([split_file] + test_score.metrics())
                 _logutils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
                                       file_keys=['test_score'])
                 """#######################################################"""
 
-            trainer.cache['global_test_score'].append(['Global'] + global_score.scores())
+            trainer.cache['global_test_score'].append(['Global'] + global_score.metrics())
             _logutils.save_scores(trainer.cache, file_keys=['global_test_score'])
 
     def run_pooled(self, dataset_cls, trainer_cls):
@@ -105,7 +105,7 @@ class EasyTorch:
 
         global_score = trainer.new_metrics()
         trainer.cache.update(best_epoch=0, best_score=0.0)
-        if trainer.cache['score_direction'] == 'minimize':
+        if trainer.cache['metric_direction'] == 'minimize':
             trainer.cache['best_score'] = 10e10
 
         trainer.check_previous_logs()
