@@ -203,7 +203,7 @@ class ETTrainer:
             self.cache['training_log'].append([*ep_loss.averages, *ep_metrics.metrics()])
             val_loss, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
             self.save_if_better(ep, val_metric)
-            self.cache['validation_log'].append([val_loss.averages, *val_metric.metrics()])
+            self.cache['validation_log'].append([*val_loss.averages, *val_metric.metrics()])
             _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
                                      plot_keys=['training_log', 'validation_log'])
             self._on_epoch_end(ep, ep_loss, ep_metrics, val_loss, val_metric)
