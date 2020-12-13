@@ -17,10 +17,10 @@ ap.add_argument('-ep', '--epochs', default=51, type=int, help='Number of epochs.
 ap.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
 ap.add_argument('-gpus', '--gpus', default=[0], nargs='*', type=int, help='How many gpus to use?')
 ap.add_argument('-pin', '--pin_memory', default=True, type=boolean_string, help='Pin Memory.')
-ap.add_argument('-nw', '--num_workers', default=2, type=int, help='Number of workers to work on data loading.')
+ap.add_argument('-nw', '--num_workers', default=4, type=int, help='Number of workers to work on data loading.')
 ap.add_argument('-p', '--phase', required=True, type=str, help='Phase of operation(train/test).')
 ap.add_argument('-data', '--dataset_dir', default='datasets', required=False, type=str, help='Root path to input Data.')
-ap.add_argument('-lim', '--load_limit', default=1e11, type=int, help='Data load limit')
+ap.add_argument('-lim', '--load_limit', default=10e11, type=int, help='Data load limit')
 ap.add_argument('-log', '--log_dir', default='net_logs', type=str, help='Logging directory.')
 ap.add_argument('-pt', '--pretrained_path', default=None, type=str, help='Full path to pretrained weights. It will be '
                                                                          'loaded before training.')

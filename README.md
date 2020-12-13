@@ -173,7 +173,7 @@ if __name__ == "__main__":
 ##### **Only Test**
     * $python main.py -p test -nch 3 -e 51 -b 16
 
-### Default arguments (Can be extended to add your custom arguments. Please check the [example](https://github.com/sraashis/unet-vessel-segmentation-easytorch))
+### Default arguments (Can be extended to add your custom arguments.[example](https://github.com/sraashis/unet-vessel-segmentation-easytorch)) [default-value]
 * **-nch/--num_channel** [3]
     * Number of input channels
 * **-ncl/--num_class** [2]
@@ -181,16 +181,16 @@ if __name__ == "__main__":
 * **-b/--batch_size** [32]
 * **-e/--epochs** [51]
 * **-lr/--learning_rate** [0.001]
-* -**gpus/--gpus** [0, 1]
+* -**gpus/--gpus** [0]
     * List of gpus to be used. Eg. [0], [1], [0, 1]
 * **-pin/--pin-memory** [True]
-* **-nw/--num_workers** [2]
+* **-nw/--num_workers** [4]
     * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
 * **-p/--phase** [Required]
     * Which phase to run. Possible values are 'train', and 'test'. Train runs all training., validation, and test phase. Whereas, test phase only runs test phase.
 * **-data/--dataset_dir** [dataset]
     * base path of the dataset where data_dir, labels, masks, and splits are.
-* **-lim/--load-limit**
+* **-lim/--load-limit**[inf]
     * Specifies limit on dataset to load for debug purpose. Because sometimes we want to load, maybe 5 or 10, images to test the pipeline before we run full training.
 * **-log/--log_dir** [net_logs]
     * Path where the results: plots, model checkpoint, etc are saved.
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     * Full path to a previously saved best model if one wishes to run test on any other model than the one in log_dir.
 * **-d/--debug** [True]
     * enable/disable debug.
-* **-s/--seed** [random]
+* **-s/--seed** [random()]
     * Custom seed to initialize model.
 * **-f/--force** [False]
     * Overrides existing plots and results if true.
