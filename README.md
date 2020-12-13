@@ -78,7 +78,7 @@ class MyTrainer(ETTrainer):
 ````
 
 
-### For advanced usages, extent the following as well.
+### <span style="color:yellow">For advanced usages, extent the following as well.</span>
 ```python
 def training_iteration(self, batch):
     '''
@@ -114,9 +114,10 @@ DRIVE = {
     'mask_getter': lambda file_name: file_name.split('_')[0] + '_mask.gif'
 }
 ```
-## 3. Extend ETMetrics class for what scores/metrices you want to keep track, or plot. 
+## 3. Keeping track of training/test/validation scores. 
   - For a Precision, Recall, F1, Accuracy, IOU... implementation, please check easytorch.utils.measurements.Prf1a() class.
 ````python
+### For advanced purpose, extend the following(example-easytorch.utils.measurements.Prf1a()):
 class ETMetrics:
     '''
     A metrics class signature. One can use any metrics extending this.
