@@ -1,42 +1,11 @@
 import numpy as _np
 import torch as _torch
-
-_EPS = 10e-5
-_PR = 4
+from easytorch.core.metrics import ETMetrics
 
 
-class Avg:
-    def __init__(self, eps=_EPS, pr=_PR):
-        self.value = 0.0
-        self.count = 0.0
-        self.eps = eps
-        self.pr = pr
-
-    def add(self, val, n=1):
-        self.value += val * n
-        self.count += n
-
-    @property
-    def average(self):
-        return round(self.value / max(self.count, self.eps), self.pr)
-
-    def reset(self):
-        self.value = 0.0
-        self.count = 0.0
-
-    def accumulate(self, other):
-        self.value += other.value
-        self.count += other.count
-
-    def scores(self):
-        return self.average
-
-
-class Prf1a:
-    def __init__(self, eps=_EPS, pr=_PR):
+class Prf1a(ETMetrics):
+    def __init__(self):
         super().__init__()
-        self.eps = eps
-        self.pr = pr
         self.tn, self.fp, self.fn, self.tp = 0, 0, 0, 0
 
     def update(self, tn=0, fp=0, fn=0, tp=0):
@@ -71,18 +40,18 @@ class Prf1a:
     @property
     def precision(self):
         p = self.tp / max(self.tp + self.fp, self.eps)
-        return round(p, self.pr)
+        return round(p, self.num_precision)
 
     @property
     def recall(self):
         r = self.tp / max(self.tp + self.fn, self.eps)
-        return round(r, self.pr)
+        return round(r, self.num_precision)
 
     @property
     def accuracy(self):
         a = (self.tp + self.tn) / \
             max(self.tp + self.fp + self.fn + self.tn, self.eps)
-        return round(a, self.pr)
+        return round(a, self.num_precision)
 
     @property
     def f1(self):
@@ -91,31 +60,30 @@ class Prf1a:
     def f_beta(self, beta=1):
         f_beta = (1 + beta ** 2) * self.precision * self.recall / \
                  max(((beta ** 2) * self.precision) + self.recall, self.eps)
-        return round(f_beta, self.pr)
+        return round(f_beta, self.num_precision)
 
     def prfa(self, beta=1):
         return [self.precision, self.recall, self.f_beta(beta=beta), self.accuracy]
 
-    def scores(self, beta=1):
+    def metrics(self, beta=1):
         return self.prfa(beta)
 
     @property
     def overlap(self):
         o = self.tp / max(self.tp + self.fp + self.fn, self.eps)
-        return round(o, self.pr)
+        return round(o, self.num_precision)
 
 
-class ConfusionMatrix:
+class ConfusionMatrix(ETMetrics):
     """
     x-axis is predicted. y-axis is true lable.
     F1 score from average precision and recall is calculated
     """
 
-    def __init__(self, num_classes=None, device='cpu', eps=_EPS):
+    def __init__(self, num_classes=None, device='cpu'):
         self.num_classes = num_classes
         self.matrix = _torch.zeros(num_classes, num_classes).float()
         self.device = device
-        self.eps = eps
 
     def reset(self):
         self.matrix = _torch.zeros(self.num_classes, self.num_classes).float()
@@ -165,5 +133,5 @@ class ConfusionMatrix:
     def prfa(self):
         return [self.precision(), self.recall(), self.f1(), self.accuracy()]
 
-    def scores(self):
+    def metrics(self):
         return self.prfa()
