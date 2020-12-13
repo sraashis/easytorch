@@ -1,24 +1,13 @@
-### EasyTorch is a quick and easy way to start running pytorch experiments
+## EasyTorch ### 
+#### A quick and easy way to start running pytorch experiments in few minutes.
 
-### Higlights
-* Minimal configuration to setup a new experiment.
-* Use your choice of Neural Network architecture.
-* Automatic k-fold cross validation.
-* Automatic logging/plotting, and model checkpointing.
-* Works on all sort of neural network related task.
-* GPU enabled metrics like precision, recall, f1, overlap, and confusion matrix with maximum GPU utilization.
-* Ability to automatically combine/pool multiple datasets without having to move the data from original location.
-* Reconstruction of the predicted image is very easy even if we train on patches of images like U-Net. Please check the example below.
-* Limit data loading for easy debugging
-* Save everything: the logs, seeds, models, plots...etc. Thus, easy to replicate experiments.
-
-#### Installation
+## Installation
 1. Install latest pytorch and torchvision from [Pytorch official website](https://pytorch.org/)
 2. pip install easytorch
 
-### 'How to use?' you ask!
+## `'How to use?' you ask!`
 
-## 1. Define your trainer
+### 1. Define your trainer
 
 ```python
 from easytorch.core.metrics import ETAverages
@@ -102,7 +91,7 @@ def save_predictions(self, dataset, its):
     '''
     pass
 ```
-## 2. Define your custom dataset by extending easytorch.core.nn import ETDataset, or use any dataset class that extends torch's Dataset class
+### 2. Define your custom dataset by extending easytorch.core.nn import ETDataset, or use any dataset class that extends torch's Dataset class
   - Define specification for your datasets:
 ```python
 import os
@@ -117,7 +106,7 @@ DRIVE = {
     'mask_getter': lambda file_name: file_name.split('_')[0] + '_mask.gif'
 }
 ```
-## 3. Keeping track of training/test/validation scores. 
+### 3. Keeping track of training/test/validation scores. 
   - For a Precision, Recall, F1, Accuracy, IOU... implementation, please check easytorch.utils.measurements.Prf1a() class.
 ### `For advanced purpose, extend the following:`
 ````python
@@ -146,7 +135,7 @@ class ETMetrics:
 
 
 ````
-## 4. Entry point
+### 4. Entry point
 ```python
 import argparse
 from easytorch.utils.defaultargs import ap
@@ -163,11 +152,23 @@ if __name__ == "__main__":
     runner.run(MyDataset, MyTrainer)
     runner.run_pooled(MyDataset, MyTrainer)
 ```
+### `Higlights`
+* Minimal configuration to setup a new experiment.
+* Use your choice of Neural Network architecture.
+* Automatic k-fold cross validation.
+* Automatic logging/plotting, and model checkpointing.
+* Works on all sort of neural network related task.
+* GPU enabled metrics like precision, recall, f1, overlap, and confusion matrix with maximum GPU utilization.
+* Ability to automatically combine/pool multiple datasets without having to move the data from original location.
+* Reconstruction of the predicted image is very easy even if we train on patches of images like U-Net. Please check the example below.
+* Limit data loading for easy debugging
+* Save everything: the logs, seeds, models, plots...etc. Thus, easy to replicate experiments.
 
-## 5. Complete Examples
+
+### 5. Complete Examples
 - ### [Vessel segmentation with U-NET example](https://github.com/sraashis/unet-vessel-segmentation-easytorch)
 
-## 6. Arguments Train/Validation/Test
+### 6. Arguments Train/Validation/Test
 
 ##### **Training+Validation+Test**
     * $python main.py -p train -nch 3 -e 51 -b 16
