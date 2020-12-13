@@ -80,7 +80,7 @@ class MyTrainer(ETTrainer):
 
   def reset_dataset_cache(self):
       '''
-      Specifies fines what scores to monitor in validation set, and maximize/minimize it?
+      Specifies what scores to monitor in validation set, and maximize/minimize it?
       '''
       self.cache['global_test_score'] = []
       self.cache['monitor_metric'] = 'f1' # It must be a method in your class returned by new_metrics()
