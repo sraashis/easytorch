@@ -169,7 +169,7 @@ if __name__ == "__main__":
 ## 6. Arguments Train/Validation/Test
 
 ##### **Training+Validation+Test**
-    * $python main.py -p train -nch 3 -e 51 -b 16e
+    * $python main.py -p train -nch 3 -e 51 -b 16
 ##### **Only Test**
     * $python main.py -p test -nch 3 -e 51 -b 16
 
