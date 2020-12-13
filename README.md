@@ -78,7 +78,7 @@ class MyTrainer(ETTrainer):
 ````
 
 
-### For advanced usage extent the following as well.
+### For advanced usages, extent the following as well.
 ```python
 def training_iteration(self, batch):
     '''
