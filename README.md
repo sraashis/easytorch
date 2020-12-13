@@ -84,7 +84,7 @@ if __name__ == "__main__":
 
 ## References
 ```Please cite us if you find it useful :) :**
--@misc{easytorch,
+@misc{easytorch,
   author = {Khanal, Aashis},
   title = {Easy Torch}
   year = {2020},
