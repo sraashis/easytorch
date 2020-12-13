@@ -20,78 +20,81 @@
 ## 1. Define your trainer
 
 ```python
- class MyTrainer(ETTrainer):
-    def __init__(self, args):
-        super().__init__(args)
+from easytorch.core.metrics import ETAverages
+from easytorch.utils.measurements import Prf1a
+class MyTrainer(ETTrainer):
+  def __init__(self, args):
+      super().__init__(args)
 
-    def _init_nn_model(self):
-        self.nn['model'] = UNet(self.args['num_channel'], self.args['num_class'], reduce_by=self.args['model_scale'])
-        
-    def _init_optimizer(self):
-        self.optimizer['adam'] = _torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
+  def _init_nn_model(self):
+      self.nn['model'] = UNet(self.args['num_channel'], self.args['num_class'], reduce_by=self.args['model_scale'])
+      
+  def _init_optimizer(self):
+      self.optimizer['adam'] = torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
 
-    def iteration(self, batch):
-        inputs = batch['input'].to(self.nn['device']).float()
-        labels = batch['label'].to(self.nn['device']).long()
+  def iteration(self, batch):
+      inputs = batch['input'].to(self.nn['device']).float()
+      labels = batch['label'].to(self.nn['device']).long()
 
-        out = self.nn['model'](inputs)
-        loss = F.cross_entropy(out, labels)
-        out = F.softmax(out, 1)
+      out = self.nn['model'](inputs)
+      loss = F.cross_entropy(out, labels)
+      out = F.softmax(out, 1)
 
-        _, pred = torch.max(out, 1)
-        sc = self.new_metrics()
-        sc.add(pred, labels)
+      _, pred = torch.max(out, 1)
+      sc = self.new_metrics()
+      sc.add(pred, labels)
 
-        avg = self.new_averages()
-        avg.add(loss.item(), len(inputs))
+      avg = self.new_averages()
+      avg.add(loss.item(), len(inputs))
 
-        return {'loss': loss, 'averages': avg, 'output': out, 'metrics': sc, 'predictions': pred}
-    
-    
-    def training_iteration(self, batch):
-        '''
-        ### Optional
-        If you need complex/mixed training steps, it can be done here. 
-        If not, no need to extend this method 
-        '''
-        self.optimizer['adam'].zero_grad()
-        it = self.iteration(batch)
-        it['loss'].backward()
-        self.optimizer['adam'].step()
-        return it
+      return {'loss': loss, 'averages': avg, 'output': out, 'metrics': sc, 'predictions': pred}
+  
+  
+  def training_iteration(self, batch):
+      '''
+      ### Optional
+      If you need complex/mixed training steps, it can be done here. 
+      If not, no need to extend this method 
+      '''
+      self.optimizer['adam'].zero_grad()
+      it = self.iteration(batch)
+      it['loss'].backward()
+      self.optimizer['adam'].step()
+      return it
 
 
-    def save_predictions(self, dataset, its):
-        '''
-        If one wants to save predictions(For example, segmentation result.)
-        '''
-        pass
+  def save_predictions(self, dataset, its):
+      '''
+      If one wants to save predictions(For example, segmentation result.)
+      '''
+      pass
 
-    def new_metrics(self):
-        ### A class to compute Precision, Recall, F1, Accuracy give prediction, ground_truth
-        return Prf1a()
+  def new_metrics(self):
+      ### Supply a class to compute scores.
+      # Example : Precision, Recall, F1, Accuracy give prediction, ground_truth
+      return Prf1a()
 
-    def new_averages(self):
-        ### Keep track of n number of averages. For example loss of Generator, and Discriminator
-        return ETAverages(num_averages=1)
+  def new_averages(self):
+      ### Keep track of n number of averages. For example, loss of Generator/Discriminator
+      return ETAverages(num_averages=1)
 
-    def reset_dataset_cache(self):
-        self.cache['global_test_score'] = []
-        '''
-        DeSpecifies fines what scores to monitor in validation set, and maximize/minimize it?
-        '''
-        self.cache['monitor_metric'] = 'f1' # It must be a method in your class returned by new_metrics()
-        self.cache['metric_direction'] = 'maximize'
+  def reset_dataset_cache(self):
+      self.cache['global_test_score'] = []
+      '''
+      DeSpecifies fines what scores to monitor in validation set, and maximize/minimize it?
+      '''
+      self.cache['monitor_metric'] = 'f1' # It must be a method in your class returned by new_metrics()
+      self.cache['metric_direction'] = 'maximize'
 
-    def reset_fold_cache(self):
-        '''
-        Headers for scores returned by the following methods for plotting purposes:
-            - averages(...) method in ETAverages class (For example average losses)
-            - metrics(...) method is implementation of ETMetrics class (For example Precision, Recall, F1, Accuracu)
-        '''
-        self.cache['training_log'] = ['Loss,Precision,Recall,F1,Accuracy']
-        self.cache['validation_log'] = ['Loss,Precision,Recall,F1,Accuracy']
-        self.cache['test_score'] = ['Split,Precision,Recall,F1,Accuracy']
+  def reset_fold_cache(self):
+      '''
+      Headers for scores returned by the following methods for plotting purposes:
+          - averages(...) method in ETAverages class (For example average losses)
+          - metrics(...) method is implementation of ETMetrics class (For example Precision, Recall, F1, Accuracu)
+      '''
+      self.cache['training_log'] = ['Loss,Precision,Recall,F1,Accuracy']
+      self.cache['validation_log'] = ['Loss,Precision,Recall,F1,Accuracy']
+      self.cache['test_score'] = ['Split,Precision,Recall,F1,Accuracy']
 ````
 ## 2. Define your custom dataset, or use any dataset class that extends torch's Dataset class
   - Define specification for your datasets:
