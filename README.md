@@ -70,7 +70,7 @@ class MyTrainer(ETTrainer):
 ````
 
 
-### `For advanced usages, extent the following:`
+### `For advanced usages, extend the following:`
 ```python
 def training_iteration(self, batch):
     '''
@@ -91,7 +91,7 @@ def save_predictions(self, dataset, its):
     '''
     pass
 ```
-### 2. Define your custom dataset by extending easytorch.core.nn import ETDataset, or use any dataset class that extends torch's Dataset class
+### 2. Define dataset by extending easytorch.core.nn.ETDataset, or use any dataset class that extends torch's Dataset class.
   - Define specification for your datasets:
 ```python
 import os
@@ -108,7 +108,7 @@ DRIVE = {
 ```
 ### 3. Keeping track of training/test/validation scores. 
   - For a Precision, Recall, F1, Accuracy, IOU... implementation, please check easytorch.utils.measurements.Prf1a() class.
-### `For advanced purpose, extend the following:`
+### `For advanced purpose, extend the following and supply in new_metrics() method in MyTrainer`
 ````python
 class ETMetrics:
     '''
@@ -150,7 +150,7 @@ runner = EasyTorch(ap, dataspecs)
 
 if __name__ == "__main__":
     runner.run(MyDataset, MyTrainer)
-    runner.run_pooled(MyDataset, MyTrainer)
+    # runner.run_pooled(MyDataset, MyTrainer) # Runs single model on all dataspecs.
 ```
 ### `Higlights`
 * Minimal configuration to setup a new experiment.
@@ -171,9 +171,9 @@ if __name__ == "__main__":
 ### 6. Arguments Train/Validation/Test
 
 ##### **Training+Validation+Test**
-    * $python main.py -p train -nch 3 -e 51 -b 16
+    * $python main.py -p train -e 51 -b 16
 ##### **Only Test**
-    * $python main.py -p test -nch 3 -e 51 -b 16
+    * $python main.py -p test -e 51 -b 16
 
 ### Default arguments (Can be extended to add your custom arguments.[example](https://github.com/sraashis/unet-vessel-segmentation-easytorch)) [default-value]
 * **-nch/--num_channel** [3]
