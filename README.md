@@ -48,26 +48,6 @@ class MyTrainer(ETTrainer):
       avg.add(loss.item(), len(inputs))
 
       return {'loss': loss, 'averages': avg, 'output': out, 'metrics': sc, 'predictions': pred}
-  
-  
-  def training_iteration(self, batch):
-      '''
-      ### Optional
-      If you need complex/mixed training steps, it can be done here. 
-      If not, no need to extend this method 
-      '''
-      self.optimizer['adam'].zero_grad()
-      it = self.iteration(batch)
-      it['loss'].backward()
-      self.optimizer['adam'].step()
-      return it
-
-
-  def save_predictions(self, dataset, its):
-      '''
-      If one wants to save predictions(For example, segmentation result.)
-      '''
-      pass
 
   def new_metrics(self):
       ### Supply a class to compute scores(see below on section No. 3).
@@ -96,6 +76,29 @@ class MyTrainer(ETTrainer):
       self.cache['validation_log'] = ['Loss,Precision,Recall,F1,Accuracy']
       self.cache['test_score'] = ['Split,Precision,Recall,F1,Accuracy']
 ````
+
+
+### For advanced usage extent the following as well.
+```python
+def training_iteration(self, batch):
+    '''
+    ### Optional
+    If you need complex/mixed training steps, it can be done here. 
+    If not, no need to extend this method 
+    '''
+    self.optimizer['adam'].zero_grad()
+    it = self.iteration(batch)
+    it['loss'].backward()
+    self.optimizer['adam'].step()
+    return it
+
+
+def save_predictions(self, dataset, its):
+    '''
+    If one wants to save predictions(For example, segmentation result.)
+    '''
+    pass
+```
 ## 2. Define your custom dataset, or use any dataset class that extends torch's Dataset class
   - Define specification for your datasets:
 ```python
@@ -202,7 +205,6 @@ if __name__ == "__main__":
     * Load all data from one image in single DataLoader so that it is easy to combine later to form a whole image.
 * **-nf/--num_folds** [10]
     * Number of folds in k-fold cross validation.
-
 ## References
 ```Please cite us if you find it useful :) :**
 @misc{easytorch,
