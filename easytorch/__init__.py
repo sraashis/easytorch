@@ -30,7 +30,7 @@ class EasyTorch:
         Load the train data from current fold/split.
         """
         train_dataset = dataset_cls(mode='train', limit=self.args['load_limit'])
-        train_dataset.add(files=split['train'], debug=self.args['debug'], **dspec)
+        train_dataset.add(files=split.get('train', []), debug=self.args['debug'], **dspec)
         return train_dataset
 
     def _get_validation_dataset(self, split, dspec, dataset_cls):
@@ -38,7 +38,7 @@ class EasyTorch:
         Load the validation data from current fold/split.
         """
         val_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'])
-        val_dataset.add(files=split['validation'], debug=self.args['debug'], **dspec)
+        val_dataset.add(files=split.get('validation', []), debug=self.args['debug'], **dspec)
         return val_dataset
 
     def _get_test_dataset(self, split, dspec, dataset_cls):
@@ -49,7 +49,7 @@ class EasyTorch:
         """
         test_dataset_list = []
         if self.args.get('load_sparse'):
-            for f in split['test']:
+            for f in split.get('test', []):
                 if len(test_dataset_list) >= self.args['load_limit']:
                     break
                 test_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'])
@@ -59,7 +59,7 @@ class EasyTorch:
                 print(f'{len(test_dataset_list)} sparse dataset loaded.')
         else:
             test_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'])
-            test_dataset.add(files=split['test'], debug=self.args['debug'], **dspec)
+            test_dataset.add(files=split.get('test', []), debug=self.args['debug'], **dspec)
             test_dataset_list.append(test_dataset)
         return test_dataset_list
 
@@ -107,13 +107,13 @@ class EasyTorch:
                 test_loss, test_score = trainer.evaluation(split_key='test', save_pred=True,
                                                            dataset_list=testset)
                 global_score.accumulate(test_score)
-                trainer.cache['test_score'].append([split_file] + test_score.metrics())
-                trainer.cache['global_test_score'].append([split_file] + test_score.metrics())
+                trainer.cache['test_score'].append([split_file] + test_score.get())
+                trainer.cache['global_test_score'].append([split_file] + test_score.get())
                 _logutils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
                                       file_keys=['test_score'])
                 """#######################################################"""
 
-            trainer.cache['global_test_score'].append(['Global'] + global_score.metrics())
+            trainer.cache['global_test_score'].append(['Global'] + global_score.get())
             _logutils.save_scores(trainer.cache, file_keys=['global_test_score'])
 
     def run_pooled(self, dataset_cls, trainer_cls):

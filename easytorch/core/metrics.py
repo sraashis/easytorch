@@ -47,8 +47,7 @@ class ETAverages:
         self.values = _np.array([0.0] * self.num_averages)
         self.counts = _np.array([0.0] * self.num_averages)
 
-    @property
-    def averages(self) -> _typing.List[float]:
+    def get(self) -> _typing.List[float]:
         r"""
         Computes/Returns self.num_averages number of averages in vectorized way.
         """
@@ -98,7 +97,7 @@ class ETMetrics:
         raise NotImplementedError('Must be implemented.')
 
     @_abc.abstractmethod
-    def metrics(self, *args, **kw) -> _typing.List[float]:
+    def get(self, *args, **kw) -> _typing.List[float]:
         r"""
         Computes/returns list of scores.
         Example easytorch.utils.measurements.Prf1a() returns

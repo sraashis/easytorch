@@ -25,8 +25,8 @@ class MyTrainer(ETTrainer):
       self.optimizer['adam'] = torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
 
   def iteration(self, batch):
-      inputs = batch['input'].to(self.nn['device']).float()
-      labels = batch['label'].to(self.nn['device']).long()
+      inputs = batch['input'].to(self.device['gpu']).float()
+      labels = batch['label'].to(self.device['gpu']).long()
 
       out = self.nn['model'](inputs)
       loss = F.cross_entropy(out, labels)
@@ -208,8 +208,10 @@ if __name__ == "__main__":
     * Parameter to scale model breath.
 * **-sp/--load_sparse** [False]
     * Load all data from one image in single DataLoader so that it is easy to combine later to form a whole image.
-* **-nf/--num_folds** [10]
+* **-nf/--num_folds** [None]
     * Number of folds in k-fold cross validation.
+* **-sr/--split_ratio** [(0.6, 0.2, 0.2)]
+    * Split ratio for Train, validation test if 3 given, Train, test if 2 given, All train if one give.
 ## References
 ```Please cite us if you find it useful :) :**
 @misc{easytorch,

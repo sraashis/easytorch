@@ -69,7 +69,7 @@ class Prf1a(ETMetrics):
     def prfa(self, beta=1):
         return [self.precision, self.recall, self.f_beta(beta=beta), self.accuracy]
 
-    def metrics(self, beta=1):
+    def get(self, beta=1):
         return self.prfa(beta)
 
     @property
@@ -138,5 +138,5 @@ class ConfusionMatrix(ETMetrics):
     def prfa(self):
         return [self.precision(), self.recall(), self.f1(), self.accuracy()]
 
-    def metrics(self):
+    def get(self):
         return self.prfa()

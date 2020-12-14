@@ -5,6 +5,7 @@ The main core of EasyTorch
 import json as _json
 import math as _math
 import os as _os
+from collections import OrderedDict as _ODict
 
 import torch as _torch
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
@@ -26,9 +27,10 @@ class ETTrainer:
         optimizer: Initialize our optimizers.
         """
         self.args = _utils.FrozenDict(args)
-        self.cache = {}
-        self.nn = {}
-        self.optimizer = {}
+        self.cache = _ODict()
+        self.nn = _ODict()
+        self.device = _ODict()
+        self.optimizer = _ODict()
 
     def init_nn(self):
         r"""
@@ -39,8 +41,8 @@ class ETTrainer:
             Initialize optimizer.
         """
 
-        # Print number of parameters in all models.
         self._init_nn_model()
+        # Print number of parameters in all models.
         if self.args['debug']:
             for k, m in self.nn.items():
                 if isinstance(m, _torch.nn.Module):
@@ -48,8 +50,8 @@ class ETTrainer:
                           f' {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
 
         self._init_nn_weights()
-        self._set_gpus()
         self._init_optimizer()
+        self._set_gpus()
 
     def _init_nn_weights(self):
         r"""
@@ -60,21 +62,36 @@ class ETTrainer:
             self._load_checkpoint(self.args['pretrained_path'])
         elif self.args['phase'] == 'train':
             _torch.manual_seed(self.args['seed'])
-            _utils.initialize_weights(self.nn['model'])
+            for mk in self.nn:
+                _utils.initialize_weights(self.nn[mk])
 
     def load_best_model(self):
-        r"""Load the best model which will be stored in cache['checkpoint']"""
+        r"""Load the best model']"""
         self._load_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
 
     def _load_checkpoint(self, full_path):
+        r"""
+        Load checkpoint from the given path:
+            If it is an easytorch checkpoint, try loading all the models.
+            If it is not, assume it's weights to a single model and laod to first model.
+        """
         try:
             chk = _torch.load(full_path)
         except:
             chk = _torch.load(full_path, map_location='cpu')
-        try:
-            self.nn['model'].module.load_state_dict(chk)
-        except:
-            self.nn['model'].load_state_dict(chk)
+
+        if chk.get('source', 'Unknown').lower() == 'easytorch':
+            for m in chk['nn']:
+                try:
+                    self.nn[m].module.load_state_dict(chk['nn'][m])
+                except:
+                    self.nn[m].load_state_dict(chk['nn'][m])
+        else:
+            mkey = list(self.nn.keys())[0]
+            try:
+                self.nn[mkey].module.load_state_dict(chk)
+            except:
+                self.nn[mkey].load_state_dict(chk)
 
     def _init_nn_model(self):
         r"""
@@ -88,20 +105,24 @@ class ETTrainer:
         Expects list of GPUS as [0, 1, 2, 3]., list of GPUS will make it use DataParallel.
         If no GPU is present, CPU is used.
         """
-        self.nn['device'] = _torch.device("cpu")
+        self.device['gpu'] = _torch.device("cpu")
         if _torch.cuda.is_available():
             if len(self.args['gpus']) < 2:
-                self.nn['device'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
+                self.device['gpu'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
             else:
-                self.nn['device'] = _torch.device("cuda:0")
-                self.nn['model'] = _torch.nn.DataParallel(self.nn['model'], self.args['gpus'])
-        self.nn['model'] = self.nn['model'].to(self.nn['device'])
+                self.device['gpu'] = _torch.device("cuda:0")
+                for model_key in self.nn:
+                    self.nn[model_key] = _torch.nn.DataParallel(self.nn[model_key], self.args['gpus'])
+        for model_key in self.nn:
+            self.nn[model_key] = self.nn[model_key].to(self.device['gpu'])
 
     def _init_optimizer(self):
         r"""
         Initialize required optimizers here. Default is Adam,
         """
-        self.optimizer['adam'] = _torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
+        mkey = list(self.nn.keys())[0]
+        self.optimizer['adam'] = _torch.optim.Adam(self.nn[mkey].parameters(),
+                                                   lr=self.args['learning_rate'])
 
     def new_metrics(self):
         r"""
@@ -143,12 +164,14 @@ class ETTrainer:
             raise FileExistsError(f' ##### {self.args["log_dir"]} directory is not empty. #####')
 
     def save_checkpoint(self):
-        try:
-            state_dict = self.nn['model'].module.state_dict()
-        except:
-            state_dict = self.nn['model'].state_dict()
-
-        _torch.save(state_dict, self.cache['log_dir'] + _sep + self.cache['checkpoint'])
+        checkpoint = {'source': "easytorch"}
+        for k in self.nn:
+            checkpoint['nn'] = {}
+            try:
+                checkpoint['nn'][k] = self.nn[k].module.state_dict()
+            except:
+                checkpoint['nn'][k] = self.nn[k].state_dict()
+        _torch.save(checkpoint, self.cache['log_dir'] + _sep + self.cache['checkpoint'])
 
     def reset_dataset_cache(self):
         r"""
@@ -214,8 +237,8 @@ class ETTrainer:
         r"""
         Left for user to implement one mini-bath iteration:
         Example:{
-                    inputs = batch['input'].to(self.nn['device']).float()
-                    labels = batch['label'].to(self.nn['device']).long()
+                    inputs = batch['input'].to(self.device['gpu']).float()
+                    labels = batch['label'].to(self.device['gpu']).long()
                     out = self.nn['model'](inputs)
                     loss = F.cross_entropy(out, labels)
                     out = F.softmax(out, 1)
@@ -250,7 +273,9 @@ class ETTrainer:
         The program will create k-splits(json files) as per specified in --nf -num_of_folds
          argument with keys 'train', ''validation', and 'test'.
         """
-        self.nn['model'].eval()
+        for k in self.nn:
+            self.nn[k].eval()
+
         if self.args['debug']:
             print(f'--- Running {split_key} ---')
 
@@ -268,16 +293,16 @@ class ETTrainer:
                     if save_pred:
                         its.append(it)
                     if self.args['debug'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
-                        print(f"Itr:{i}/{len(loader)}, {it['averages'].averages}, {it['metrics'].metrics()}")
+                        print(f"Itr:{i}/{len(loader)}, {it['averages'].get()}, {it['metrics'].get()}")
 
                 eval_metrics.accumulate(metrics)
                 if self.args['debug'] and len(dataset_list) > 1:
-                    print(f"{split_key}, {metrics.metrics()}")
+                    print(f"{split_key}, {metrics.get()}")
                 if save_pred:
                     self.save_predictions(loader.dataset, its)
 
         if self.args['debug']:
-            print(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.metrics()}")
+            print(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.get()}")
         return eval_loss, eval_metrics
 
     def training_iteration(self, batch):
@@ -319,7 +344,10 @@ class ETTrainer:
         """
         train_loader = ETDataLoader.new(shuffle=True, dataset=dataset, **self.args)
         for ep in range(1, self.args['epochs'] + 1):
-            self.nn['model'].train()
+
+            for k in self.nn:
+                self.nn[k].train()
+
             _metrics = self.new_metrics()
             _loss = self.new_averages()
             ep_loss = self.new_averages()
@@ -333,15 +361,15 @@ class ETTrainer:
                 _metrics.accumulate(it['metrics'])
                 if self.args['debug'] and i % int(_math.log(i + 1) + 1) == 0:
                     print(f"Ep:{ep}/{self.args['epochs']},Itr:{i}/{len(train_loader)},"
-                          f"{_loss.averages},{_metrics.metrics()}")
+                          f"{_loss.get()},{_metrics.get()}")
                     _metrics.reset()
                     _loss.reset()
                 self._on_iteration_end(i, it)
 
-            self.cache['training_log'].append([*ep_loss.averages, *ep_metrics.metrics()])
+            self.cache['training_log'].append([*ep_loss.get(), *ep_metrics.get()])
             val_loss, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
             self.save_if_better(ep, val_metric)
-            self.cache['validation_log'].append([*val_loss.averages, *val_metric.metrics()])
+            self.cache['validation_log'].append([*val_loss.get(), *val_metric.get()])
             _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
                                      plot_keys=['training_log', 'validation_log'])
             self._on_epoch_end(ep, ep_loss, ep_metrics, val_loss, val_metric)
