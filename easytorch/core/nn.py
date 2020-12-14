@@ -14,7 +14,8 @@ from torch.utils.data._utils.collate import default_collate as _default_collate
 from easytorch.core import utils as _utils
 from easytorch.utils import logutils as _log_utils
 from easytorch.utils.datautils import _init_kfolds
-
+from easytorch.core import metrics as _base_metrics
+import warnings as _warn
 _sep = _os.sep
 
 
@@ -43,7 +44,7 @@ class ETTrainer:
 
         self._init_nn_model()
         # Print number of parameters in all models.
-        if self.args['debug']:
+        if self.args['verbose']:
             for k, m in self.nn.items():
                 if isinstance(m, _torch.nn.Module):
                     print(f' ### Total params in {k}:'
@@ -131,14 +132,16 @@ class ETTrainer:
         accuracy, precision in the method named metrics() to be able to track and plot it.
         Example: easytorch.utils.measurements.Pr11a() will work with precision, recall, F1, Accuracy, IOU scores.
         """
-        raise NotImplementedError('Must be implemented in child class.')
+        _warn.warn('Base easytoch.core.metrics.ETMetrics() initialized. If it is on purpose, ignore this warning,')
+        return _base_metrics.ETMetrics()
 
     def new_averages(self):
         r""""
         Should supply an implementation of easytorch.core.metrics.ETAverages() that can keep track of multiple averages.
         For example, multiple loss, or any other values.
         """
-        raise NotImplementedError('Must be implemented in child class.')
+        _warn.warn('Base easytoch.core.metrics.ETAverages() initialized. If it is on purpose, ignore this warning,')
+        return _base_metrics.ETAverages(num_averages=1)
 
     def check_previous_logs(self):
         r"""
@@ -227,10 +230,10 @@ class ETTrainer:
             self.save_checkpoint()
             self.cache['best_score'] = sc
             self.cache['best_epoch'] = epoch
-            if self.args['debug']:
+            if self.args['verbose']:
                 print(f"##### BEST! Model *** Saved *** : {self.cache['best_score']}")
         else:
-            if self.args['debug']:
+            if self.args['verbose']:
                 print(f"##### Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}")
 
     def iteration(self, batch):
@@ -254,7 +257,8 @@ class ETTrainer:
             -we need to keep track of loss
             -we need to keep track of metrics
         """
-        raise NotImplementedError('Must be implemented in child class.')
+        _warn.warn('Base iteration initialized. If it is on purpose, ignore this warning.')
+        return {'metrics': _base_metrics.ETMetrics(), 'averages': _base_metrics.ETAverages(num_averages=1)}
 
     def save_predictions(self, dataset, its):
         r"""
@@ -276,7 +280,7 @@ class ETTrainer:
         for k in self.nn:
             self.nn[k].eval()
 
-        if self.args['debug']:
+        if self.args['verbose']:
             print(f'--- Running {split_key} ---')
 
         eval_loss = self.new_averages()
@@ -292,16 +296,16 @@ class ETTrainer:
                     eval_loss.accumulate(it['averages'])
                     if save_pred:
                         its.append(it)
-                    if self.args['debug'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
+                    if self.args['verbose'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
                         print(f"Itr:{i}/{len(loader)}, {it['averages'].get()}, {it['metrics'].get()}")
 
                 eval_metrics.accumulate(metrics)
-                if self.args['debug'] and len(dataset_list) > 1:
+                if self.args['verbose'] and len(dataset_list) > 1:
                     print(f"{split_key}, {metrics.get()}")
                 if save_pred:
                     self.save_predictions(loader.dataset, its)
 
-        if self.args['debug']:
+        if self.args['verbose']:
             print(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.get()}")
         return eval_loss, eval_metrics
 
@@ -359,7 +363,7 @@ class ETTrainer:
                 ep_metrics.accumulate(it['metrics'])
                 _loss.accumulate(it['averages'])
                 _metrics.accumulate(it['metrics'])
-                if self.args['debug'] and i % int(_math.log(i + 1) + 1) == 0:
+                if self.args['verbose'] and i % int(_math.log(i + 1) + 1) == 0:
                     print(f"Ep:{ep}/{self.args['epochs']},Itr:{i}/{len(train_loader)},"
                           f"{_loss.get()},{_metrics.get()}")
                     _metrics.reset()
@@ -433,7 +437,7 @@ class ETDataset(_Dataset):
                 break
             self.load_index(dataset_name, file)
 
-        if kw.get('debug', True):
+        if kw.get('verbose', True):
             print(f'{dataset_name}, {self.mode}, {len(self)} Indices Loaded')
 
     def __getitem__(self, index):
@@ -477,10 +481,10 @@ class ETDataset(_Dataset):
                         d = cls(mode=split_key)
                         d.add(files=[file], debug=False, **r)
                         all_d.append(d)
-                    if args['debug']:
+                    if args['verbose']:
                         print(f'{len(all_d)} sparse dataset loaded.')
                 else:
-                    all_d.add(files=split[split_key], debug=args['debug'], **r)
+                    all_d.add(files=split[split_key], debug=args['verbose'], **r)
                 """
                 Pooling only works with 1 split at the moment.
                 """

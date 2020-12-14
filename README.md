@@ -188,7 +188,7 @@ if __name__ == "__main__":
 * **-pin/--pin-memory** [True]
 * **-nw/--num_workers** [4]
     * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
-* **-p/--phase** [Required]
+* **-ph/--phase** [Required]
     * Which phase to run. Possible values are 'train', and 'test'. Train runs all training., validation, and test phase. Whereas, test phase only runs test phase.
 * **-data/--dataset_dir** [dataset]
     * base path of the dataset where data_dir, labels, masks, and splits are.
@@ -198,19 +198,21 @@ if __name__ == "__main__":
     * Path where the results: plots, model checkpoint, etc are saved.
 * **-pt/--pretrained_path** [None]
     * Full path to a previously saved best model if one wishes to run test on any other model than the one in log_dir.
-* **-d/--debug** [True]
+* **-v/--verbose** [True]
     * enable/disable debug.
 * **-s/--seed** [random()]
     * Custom seed to initialize model.
 * **-f/--force** [False]
     * Overrides existing plots and results if true.
-* **-r/--model_scale** [1]
-    * Parameter to scale model breath.
-* **-sp/--load_sparse** [False]
+* **-sz/--model_scale** [1]
+    * Parameter to scale model breadth.
+* **-pat/--patience** [31]
+    * Early stopping patience epochs by monitoring validation score.
+* **-lds/--load_sparse** [False]
     * Load all data from one image in single DataLoader so that it is easy to combine later to form a whole image.
 * **-nf/--num_folds** [None]
     * Number of folds in k-fold cross validation.
-* **-sr/--split_ratio** [(0.6, 0.2, 0.2)]
+* **-rt/--split_ratio** [(0.6, 0.2, 0.2)]
     * Split ratio for Train, validation test if 3 given, Train, test if 2 given, All train if one give.
 ## References
 ```Please cite us if you find it useful :) :**
