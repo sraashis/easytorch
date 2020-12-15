@@ -9,6 +9,7 @@ import numpy as _np
 
 _eps = 10e-5
 _num_precision = 5
+import time as _time
 
 
 class ETAverages:
@@ -47,8 +48,7 @@ class ETAverages:
         self.values = _np.array([0.0] * self.num_averages)
         self.counts = _np.array([0.0] * self.num_averages)
 
-    @property
-    def averages(self) -> _typing.List[float]:
+    def get(self) -> _typing.List[float]:
         r"""
         Computes/Returns self.num_averages number of averages in vectorized way.
         """
@@ -63,6 +63,10 @@ class ETAverages:
     @property
     def num_precision(self):
         return _num_precision
+
+    @property
+    def time(self):
+        return _time.time()
 
 
 class ETMetrics:
@@ -83,28 +87,25 @@ class ETMetrics:
         """
         raise NotImplementedError('Must be implemented.')
 
-    @_abc.abstractmethod
     def accumulate(self, other):
         r"""
         Add all the content from another ETMetrics object.
         """
-        raise NotImplementedError('Must be implemented.')
+        pass
 
-    @_abc.abstractmethod
     def reset(self):
         r"""
         Clear all the content of self.
         """
-        raise NotImplementedError('Must be implemented.')
+        pass
 
-    @_abc.abstractmethod
-    def metrics(self, *args, **kw) -> _typing.List[float]:
+    def get(self, *args, **kw) -> _typing.List[float]:
         r"""
         Computes/returns list of scores.
-        Example easytorch.utils.measurements.Prf1a() returns
-        Precision, Recall, F1, Accuracy from the collected TP, TN, FP, FN.
+            Example: easytorch.utils.measurements.Prf1a() returns
+            Precision, Recall, F1, Accuracy from the collected TP, TN, FP, FN.
         """
-        raise NotImplementedError('Must be implemented.')
+        return [0.0]
 
     @property
     def eps(self):
@@ -119,3 +120,7 @@ class ETMetrics:
         Numerical Precision(default 5) for nice looking numbers.
         """
         return _num_precision
+
+    @property
+    def time(self):
+        return _time.time()

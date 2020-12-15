@@ -1,21 +1,41 @@
 import json as _json
 import os as _os
 import random as _rd
+import numpy as _np
 
 _sep = _os.sep
 
 
-def create_k_fold_splits(files, k=0, save_to_dir=None, shuffle_files=True):
-    import numpy as np
+def create_ratio_split(images, save_to_dir=None, ratio: dict = (0.6, 0.2, 0.2), first_key='train'):
+    keys = [first_key]
+    if len(ratio) == 2:
+        keys.append('test')
+    elif len(ratio) == 3:
+        keys.append('validation')
+        keys.append('test')
 
+    _ratio = ratio[::-1]
+    locs = _np.array([sum(_ratio[0:i + 1]) for i in range(len(ratio) - 1)])
+    locs = (locs * len(images)).astype(int)
+    splits = _np.split(images[::-1], locs)[::-1]
+    splits = dict([(k, sp.tolist()[::-1]) for k, sp in zip(keys, splits)])
+    if save_to_dir:
+        f = open(save_to_dir + _sep + 'SPLIT.json', "w")
+        f.write(_json.dumps(splits))
+        f.close()
+    else:
+        return splits
+
+
+def create_k_fold_splits(files, k=0, save_to_dir=None, shuffle_files=True):
     if shuffle_files:
         _rd.shuffle(files)
 
-    ix_splits = np.array_split(np.arange(len(files)), k)
+    ix_splits = _np.array_split(_np.arange(len(files)), k)
     for i in range(len(ix_splits)):
         test_ix = ix_splits[i].tolist()
         val_ix = ix_splits[(i + 1) % len(ix_splits)].tolist()
-        train_ix = [ix for ix in np.arange(len(files)) if ix not in test_ix + val_ix]
+        train_ix = [ix for ix in _np.arange(len(files)) if ix not in test_ix + val_ix]
 
         splits = {'train': [files[ix] for ix in train_ix],
                   'validation': [files[ix] for ix in val_ix],
@@ -71,13 +91,21 @@ def _init_kfolds(log_dir, dspec, args):
         If: custom splits path is given it will use the splits from tehre
         else: will create new k-splits and run k-fold cross validation.
     """
+
     if dspec.get('split_dir') and _os.path.exists(dspec.get('split_dir')) and len(list(
             _os.listdir(dspec.get('split_dir')))) > 0:
         return
 
     split_dir = log_dir + _sep + 'splits'
+    if _os.path.exists(split_dir) and len(list(_os.listdir(split_dir))) > 0:
+        dspec['split_dir'] = split_dir
+        return
+
     _os.makedirs(split_dir, exist_ok=True)
-    if not _os.path.exists(split_dir) or len(list(_os.listdir(split_dir))) <= 0:
+    if args.get('num_fold'):
         create_k_fold_splits(_os.listdir(dspec['data_dir']), k=args['num_folds'], save_to_dir=split_dir,
                              shuffle_files=True)
+    else:
+        create_ratio_split(_os.listdir(dspec['data_dir']),
+                           save_to_dir=split_dir, ratio=args['split_ratio'])
     dspec['split_dir'] = split_dir
