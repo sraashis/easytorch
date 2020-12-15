@@ -41,6 +41,6 @@ ap.add_argument('-s', '--seed', default=_random.randint(0, int(1e11)), type=int,
 ap.add_argument('-f', '--force', default=False, type=boolean_string, help='Force')
 ap.add_argument('-sz', '--model_scale', default=1, type=int, help='Mode width scale')
 ap.add_argument('-pat', '--patience', default=31, type=int, help='Early Stopping patience epochs.')
-ap.add_argument('-lds', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')
+ap.add_argument('-lsp', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')
 ap.add_argument('-nf', '--num_folds', default=None, type=int, help='Number of folds.')
 ap.add_argument('-rt', '--split_ratio', default=[0.6, 0.2, 0.2], nargs='*', type=float, help='Split ratio.')

@@ -16,6 +16,7 @@ from easytorch.utils import logutils as _log_utils
 from easytorch.utils.datautils import _init_kfolds
 from easytorch.core import metrics as _base_metrics
 import warnings as _warn
+
 _sep = _os.sep
 
 
@@ -490,4 +491,4 @@ class ETDataset(_Dataset):
                 """
                 break
 
-        return all_d
+        return all_d if load_sparse else [all_d]
