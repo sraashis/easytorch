@@ -20,9 +20,6 @@ class MyTrainer(ETTrainer):
 
   def _init_nn_model(self):
       self.nn['model'] = UNet(self.args['num_channel'], self.args['num_class'], reduce_by=self.args['model_scale'])
-      
-  def _init_optimizer(self):
-      self.optimizer['adam'] = torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
 
   def iteration(self, batch):
       inputs = batch['input'].to(self.device['gpu']).float()
@@ -72,6 +69,12 @@ class MyTrainer(ETTrainer):
 
 ### `For advanced usages, extend the following:`
 ```python
+def _init_optimizer(self):
+    r"""
+    Initialize optimizers.
+    """
+    self.optimizer['adam'] = torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
+
 def training_iteration(self, batch):
     '''
     ### Optional
