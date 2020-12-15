@@ -122,8 +122,8 @@ class ETTrainer:
         r"""
         Initialize required optimizers here. Default is Adam,
         """
-        mkey = list(self.nn.keys())[0]
-        self.optimizer['adam'] = _torch.optim.Adam(self.nn[mkey].parameters(),
+        first_model = list(self.nn.keys())[0]
+        self.optimizer['adam'] = _torch.optim.Adam(self.nn[first_model].parameters(),
                                                    lr=self.args['learning_rate'])
 
     def new_metrics(self):
@@ -315,10 +315,11 @@ class ETTrainer:
         Learning step for one batch.
         We decoupled it so that user could implement any complex/multi/alternate training strategies.
         """
-        self.optimizer['adam'].zero_grad()
+        first_optim = list(self.optimizer.keys())[0]
+        self.optimizer[first_optim].zero_grad()
         it = self.iteration(batch)
         it['loss'].backward()
-        self.optimizer['adam'].step()
+        self.optimizer[first_optim].step()
         return it
 
     def _on_epoch_end(self, ep, ep_loss, ep_metrics, val_loss, val_metrics):
