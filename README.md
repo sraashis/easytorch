@@ -170,6 +170,7 @@ if __name__ == "__main__":
 
 ### 5. Complete Examples
 - ### [Vessel segmentation with U-NET example](https://github.com/sraashis/unet-vessel-segmentation-easytorch)
+- ### [Healthy/Pneumonia/Covid-19 chest x-ray (Multi-label/Binary)classification example](https://github.com/sraashis/covidxfactory)
 
 ### 6. Arguments Train/Validation/Test
 
