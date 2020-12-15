@@ -171,9 +171,9 @@ if __name__ == "__main__":
 ### 6. Arguments Train/Validation/Test
 
 ##### **Training+Validation+Test**
-    * $python main.py -p train -e 51 -b 16
+    * $python main.py -ph train -e 51 -b 16
 ##### **Only Test**
-    * $python main.py -p test -e 51 -b 16
+    * $python main.py -ph test -e 51 -b 16
 
 ### Default arguments (Can be extended to add your custom arguments.[example](https://github.com/sraashis/unet-vessel-segmentation-easytorch)) [default-value]
 * **-nch/--num_channel** [3]
