@@ -1,7 +1,5 @@
 ![Logo](assets/easytorch.png)
 ### A quick and easy way to start running pytorch experiments within few minutes.
-<hr/>
-
 [![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/build/badge.svg)](https://github.com/sraashis/easytorch/actions)
 ![versions](https://img.shields.io/pypi/pyversions/pybadges.svg)
 
