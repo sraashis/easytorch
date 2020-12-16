@@ -218,8 +218,10 @@ if __name__ == "__main__":
     * Number of folds in k-fold cross validation.
 * **-rt/--split_ratio** [(0.6, 0.2, 0.2)]
     * Split ratio for Train, validation test if 3 given, Train, test if 2 given, All train if one give.
-## References
-```Please cite us if you find it useful :) :**
+
+## All the best! for whatever you are working on. Cheers!
+#### Please star or cite if you find it useful.
+```
 @misc{easytorch,
   author = {Khanal, Aashis},
   title = {Easy Torch}
@@ -229,4 +231,3 @@ if __name__ == "__main__":
   url = {https://github.com/sraashis/easytorch}
 }
 ```
-    
