@@ -1,6 +1,10 @@
 ![DRIVE training log](assets/easytorch.png) 
 
-[![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/upeasy/badge.svg)](https://github.com/sraashis/easytorch/actions)
+[![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/easytorch/badge.svg)](https://github.com/sraashis/easytorch/actions)
+![pypi](https://img.shields.io/pypi/v/pybadges.svg)
+![versions](https://img.shields.io/pypi/pyversions/pybadges.svg)
+[![PyPI license](https://img.shields.io/pypi/l/ansicolortags.svg)](https://pypi.python.org/pypi/ansicolortags/)
+
 
 ### A quick and easy way to start running pytorch experiments within few minutes.
 
