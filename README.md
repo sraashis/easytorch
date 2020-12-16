@@ -1,12 +1,9 @@
-![DRIVE training log](assets/easytorch.png) 
-
-[![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/easytorch/badge.svg)](https://github.com/sraashis/easytorch/actions)
-![pypi](https://img.shields.io/pypi/v/pybadges.svg)
-![versions](https://img.shields.io/pypi/pyversions/pybadges.svg)
-[![PyPI license](https://img.shields.io/pypi/l/ansicolortags.svg)](https://pypi.python.org/pypi/ansicolortags/)
-
-
+![Logo](assets/easytorch.png)
 ### A quick and easy way to start running pytorch experiments within few minutes.
+[![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/build/badge.svg)](https://github.com/sraashis/easytorch/actions)
+![versions](https://img.shields.io/pypi/pyversions/pybadges.svg)
+
+<hr/>
 
 ## Installation
 1. Install latest pytorch and torchvision from [Pytorch official website](https://pytorch.org/)
