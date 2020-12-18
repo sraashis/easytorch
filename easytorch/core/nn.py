@@ -11,11 +11,10 @@ import torch as _torch
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 
+from easytorch.core import metrics as _base_metrics
 from easytorch.core import utils as _utils
 from easytorch.utils import logutils as _log_utils
 from easytorch.utils.datautils import _init_kfolds
-from easytorch.core import metrics as _base_metrics
-import warnings as _warn
 
 _sep = _os.sep
 
@@ -33,6 +32,22 @@ class ETTrainer:
         self.nn = _ODict()
         self.device = _ODict()
         self.optimizer = _ODict()
+
+        """
+        Default log holders for each of the k-fold. can override _reset_fold_cache to make it different.
+        """
+        self.cache['training_log'] = ['LOSS,Accuracy']
+        self.cache['validation_log'] = ['LOSS,Accuracy']
+        self.cache['test_score'] = ['LOSS,Accuracy']
+
+        """
+        Default global score holder for each datasets.
+        Save the latest time(maximize current time.). One can also maximize/minimize any other score from
+            easytorch.nn.metrics.ETMetrics() class by overriding _reset_dataset_cache.
+        """
+        self.cache['global_test_score'] = []
+        self.cache['monitor_metric'] = 'time'
+        self.cache['metric_direction'] = 'maximize'
 
     def init_nn(self):
         r"""
@@ -133,7 +148,6 @@ class ETTrainer:
         accuracy, precision in the method named metrics() to be able to track and plot it.
         Example: easytorch.utils.measurements.Pr11a() will work with precision, recall, F1, Accuracy, IOU scores.
         """
-        _warn.warn('Base easytoch.core.metrics.ETMetrics() initialized. If it is on purpose, ignore this warning,')
         return _base_metrics.ETMetrics()
 
     def new_averages(self):
@@ -141,7 +155,6 @@ class ETTrainer:
         Should supply an implementation of easytorch.core.metrics.ETAverages() that can keep track of multiple averages.
         For example, multiple loss, or any other values.
         """
-        _warn.warn('Base easytoch.core.metrics.ETAverages() initialized. If it is on purpose, ignore this warning,')
         return _base_metrics.ETAverages(num_averages=1)
 
     def check_previous_logs(self):
@@ -194,9 +207,7 @@ class ETTrainer:
             # Maximize(eg. F1/Accuracy) OR Minimize(eg. MSE, RMSE, COSINE)
             self.cache['metric_direction'] = 'maximize'
         """
-        self.cache['global_test_score'] = []
-        self.cache['monitor_metric'] = 'time'
-        self.cache['metric_direction'] = 'maximize'
+        pass
 
     def reset_fold_cache(self):
         r"""
@@ -218,9 +229,7 @@ class ETTrainer:
         self.cache['validation_log'] = ['Loss,Precision,Recall,F1,Accuracy']
         self.cache['test_score'] = ['Split,Precision,Recall,F1,Accuracy']
         """
-        self.cache['training_log'] = ['LOSS,Accuracy']
-        self.cache['validation_log'] = ['LOSS,Accuracy']
-        self.cache['test_score'] = ['LOSS,Accuracy']
+        pass
 
     def save_if_better(self, epoch, metrics):
         r"""
@@ -262,7 +271,6 @@ class ETTrainer:
             -we need to keep track of loss
             -we need to keep track of metrics
         """
-        _warn.warn('Base iteration initialized. If it is on purpose, ignore this warning.')
         return {'metrics': _base_metrics.ETMetrics(), 'averages': _base_metrics.ETAverages(num_averages=1)}
 
     def save_predictions(self, dataset, its):
@@ -387,9 +395,7 @@ class ETTrainer:
 
             val_loss, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
             self.save_if_better(ep, val_metric)
-
-            if self.cache.get('validation_log'):
-                self.cache['validation_log'].append([*val_loss.get(), *val_metric.get()])
+            self.cache['validation_log'].append([*val_loss.get(), *val_metric.get()])
 
             _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
                                      plot_keys=['training_log', 'validation_log'])
