@@ -1,8 +1,7 @@
 ### Advanced usage of easytorch for:
-#### - Initialize multiple optimizer/neural networks.
-#### - Implement complex training and backprop. steps with them.
-#### - Easily save predictions for any prediction task(Like segmentation results).
-
+* #### Initialize multiple optimizer/neural networks.
+* #### Implement complex training and backprop. steps with them.
+* #### Easily save predictions for any prediction task(Like segmentation results).
 
 ```python
 def _init_optimizer(self):
