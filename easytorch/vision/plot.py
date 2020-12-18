@@ -13,7 +13,7 @@ _plt.rcParams["figure.figsize"] = [16, 9]
 
 def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31):
     r"""
-    Custom plotter to plot data from the cache by keys.
+    Custom plot to plot data from the cache by keys.
     """
     scaler = _MinMaxScaler()
     for k in plot_keys:
@@ -22,8 +22,8 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31):
         if len(data) == 0:
             continue
 
-        header = data[0].split(',')
-        data = _np.array(data[1:])
+        header = cache['log_header'].split(',')
+        data = _np.array(data)
 
         n_cols = len(header)
         data = data[:, :n_cols]
@@ -51,6 +51,7 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31):
 def save_scores(cache, experiment_id='', file_keys=[]):
     for fk in file_keys:
         with open(cache['log_dir'] + _os.sep + f'{experiment_id}_{fk}.csv', 'w') as file:
+            header = cache.get('log_header', '')
             for line in cache[fk] if any(isinstance(ln, list) for ln in cache[fk]) else [cache[fk]]:
                 if isinstance(line, list):
                     file.write(','.join([str(s) for s in line]) + '\n')
