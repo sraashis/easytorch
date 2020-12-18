@@ -117,21 +117,15 @@ if __name__ == "__main__":
 
 <hr />
 
-### `Higlights`
-* Minimal configuration to setup a new experiment.
-* Use your choice of Neural Network architecture.
-* Automatic k-fold cross validation.
-* Automatic logging/plotting, and model checkpointing.
-* Works on all sort of neural network related task.
-* GPU enabled metrics like precision, recall, f1, overlap, and confusion matrix with maximum GPU utilization.
-* Ability to automatically combine/pool multiple datasets without having to move the data from original location.
-* Reconstruction of the predicted image is very easy even if we train on patches of images like U-Net. Please check the example below.
-* Limit data loading for easy debugging
-* Save everything: the logs, seeds, models, plots...etc. Thus, easy to replicate experiments.
-
+### `Feature Higlights`
 * **For advanced training with multiple networks, and complex training steps click [here](assets/AdvancedTraining.md):**
 * **Implement custom metrics as [here](assets/CustomMetric.md).**
 * **To track multiple averages(e.g. multiple losses) use easytorch.metrics.ETAverages(num_averages=...)**
+* Minimal configuration to setup a new experiment.
+* Use your choice of Neural Network architecture.
+* Automatic k-fold cross validation/Auto dataset split.
+* Automatic logging/plotting, and model checkpointing.
+[..more features](assets/Features.md)
 
 
 ### Complete Examples
@@ -157,8 +151,7 @@ if __name__ == "__main__":
 * **-data/--dataset_dir** [dataset]
     * base path of the dataset where data_dir, labels, masks, and splits are.
 * **-lim/--load-limit**[inf]
-    * Specifies limit on dataset to load for debug purpose. Because sometimes we want to load, maybe 5 or 10, images to test the pipeline before we run full training. 
-* [...see more](assets/DefaultArgs.md) [...add custom arguments.](assets/DefaultArgs.md)
+    * Specifies limit on dataset to load for debug purpose. Because sometimes we want to load, maybe 5 or 10, images to test the pipeline before we run full training.[...see more](assets/DefaultArgs.md) [...add custom arguments.](assets/DefaultArgs.md)
 ## All the best! for whatever you are working on. Cheers!
 #### Please star or cite if you find it useful.
 ```
