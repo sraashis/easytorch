@@ -3,6 +3,7 @@ import json as _json
 import os as _os
 
 import matplotlib.pyplot as _plt
+import numpy as _np
 import pandas as _pd
 from sklearn.preprocessing import MinMaxScaler as _MinMaxScaler
 
@@ -10,7 +11,7 @@ _plt.switch_backend('agg')
 _plt.rcParams["figure.figsize"] = [16, 9]
 
 
-def plot_progress(cache, experiment_id='', plot_keys=[], num_points=51):
+def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31):
     r"""
     Custom plotter to plot data from the cache by keys.
     """
@@ -21,7 +22,15 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=51):
         if len(data) == 0:
             continue
 
-        df = _pd.DataFrame(data[1:], columns=data[0].split(','))
+        header = data[0].split(',')
+        data = _np.array(data[1:])
+
+        n_cols = len(header)
+        data = data[:, :n_cols]
+        if _np.sum(data) <= 0:
+            continue
+
+        df = _pd.DataFrame(data, columns=header)
 
         if len(df) == 0:
             continue
