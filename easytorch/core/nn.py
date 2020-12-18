@@ -296,7 +296,11 @@ class ETTrainer:
                 its = []
                 metrics = self.new_metrics()
                 for i, batch in enumerate(loader):
+
                     it = self.iteration(batch)
+                    if not it.get('metrics'):
+                        it['metrics'] = _base_metrics.ETMetrics()
+
                     metrics.accumulate(it['metrics'])
                     eval_loss.accumulate(it['averages'])
                     if save_pred:
@@ -332,7 +336,7 @@ class ETTrainer:
         """
         pass
 
-    def _on_iteration_end(self, i, it):
+    def _on_iteration_end(self, i, ep, it):
         r"""
         Any logic to run after an iteration ends.
         """
@@ -365,6 +369,9 @@ class ETTrainer:
             for i, batch in enumerate(train_loader, 1):
 
                 it = self.training_iteration(batch)
+                if not it.get('metrics'):
+                    it['metrics'] = _base_metrics.ETMetrics()
+
                 ep_loss.accumulate(it['averages'])
                 ep_metrics.accumulate(it['metrics'])
                 _loss.accumulate(it['averages'])
@@ -374,7 +381,7 @@ class ETTrainer:
                           f"{_loss.get()},{_metrics.get()}")
                     _metrics.reset()
                     _loss.reset()
-                self._on_iteration_end(i, it)
+                self._on_iteration_end(i, ep, it)
 
             self.cache['training_log'].append([*ep_loss.get(), *ep_metrics.get()])
             val_loss, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
