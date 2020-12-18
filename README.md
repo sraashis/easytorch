@@ -45,7 +45,7 @@ class MyTrainer(ETTrainer):
 ````
 
 
-### 2. Use custom or pytorch based Datasets class. See the example below(Bullet no. 4 below).
+### 2. Use custom or pytorch based Datasets class.
  ***Define specification for your datasets:***
 ```python
 import os
