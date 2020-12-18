@@ -194,7 +194,9 @@ class ETTrainer:
             # Maximize(eg. F1/Accuracy) OR Minimize(eg. MSE, RMSE, COSINE)
             self.cache['metric_direction'] = 'maximize'
         """
-        raise NotImplementedError('Must be implemented in child class.')
+        self.cache['global_test_score'] = []
+        self.cache['monitor_metric'] = 'time'
+        self.cache['metric_direction'] = 'maximize'
 
     def reset_fold_cache(self):
         r"""
@@ -216,7 +218,9 @@ class ETTrainer:
         self.cache['validation_log'] = ['Loss,Precision,Recall,F1,Accuracy']
         self.cache['test_score'] = ['Split,Precision,Recall,F1,Accuracy']
         """
-        raise NotImplementedError('Must be implemented in child class.')
+        self.cache['training_log'] = ['LOSS,Accuracy']
+        self.cache['validation_log'] = ['LOSS,Accuracy']
+        self.cache['test_score'] = ['LOSS,Accuracy']
 
     def save_if_better(self, epoch, metrics):
         r"""
