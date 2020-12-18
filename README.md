@@ -117,6 +117,11 @@ if __name__ == "__main__":
 
 <hr />
 
+### Complete Examples
+* **[Vessel segmentation with U-NET example.](https://github.com/sraashis/unet-vessel-segmentation-easytorch)**
+* **[Healthy/Pneumonia/Covid-19 chest x-ray (Multi-label/Binary)classification example.](https://github.com/sraashis/covidxfactory)**
+* **[GAN Example coming soon.]()**
+
 ### `Feature Higlights`
 * **For advanced training with multiple networks, and complex training steps click [here](assets/AdvancedTraining.md):**
 * **Implement custom metrics as [here](assets/CustomMetric.md).**
@@ -127,13 +132,7 @@ if __name__ == "__main__":
 * Automatic logging/plotting, and model checkpointing.
 [..more features](assets/Features.md)
 
-
-### Complete Examples
-* **[Vessel segmentation with U-NET example.](https://github.com/sraashis/unet-vessel-segmentation-easytorch)**
-* **[Healthy/Pneumonia/Covid-19 chest x-ray (Multi-label/Binary)classification example.](https://github.com/sraashis/covidxfactory)**
-* **[GAN Example coming soon.]()**
-
-### Default arguments[default-value].
+### Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)
 * **-nch/--num_channel** [3]
     * Number of input channels
 * **-ncl/--num_class** [2]
@@ -147,11 +146,12 @@ if __name__ == "__main__":
 * **-nw/--num_workers** [4]
     * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
 * **-ph/--phase** [Required]
-    * Which phase to run. Possible values are 'train', and 'test'. Train runs all training., validation, and test phase. Whereas, test phase only runs test phase.
+    * Which phase to run. Possible values are 'train', and 'test'.
 * **-data/--dataset_dir** [dataset]
     * base path of the dataset where data_dir, labels, masks, and splits are.
 * **-lim/--load-limit**[inf]
-    * Specifies limit on dataset to load for debug purpose. Because sometimes we want to load, maybe 5 or 10, images to test the pipeline before we run full training.[...see more](assets/DefaultArgs.md) [...add custom arguments.](assets/DefaultArgs.md)
+    * Specifies limit on dataset to load for debug purpose for pipeline debugging. 
+* [...see more](assets/DefaultArgs.md)
 ## All the best! for whatever you are working on. Cheers!
 #### Please star or cite if you find it useful.
 ```
