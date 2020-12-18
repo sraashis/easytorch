@@ -11,7 +11,7 @@ README = (HERE / "README.md").read_text()
 # This call to setup() does all the work
 setup(
     name="easytorch",
-    version="1.5.7",
+    version="1.6.0",
     description="Easy Neural Network Experiments with pytorch",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -24,7 +24,7 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
-    packages=['easytorch', 'easytorch.utils', 'easytorch.core'],
+    packages=['easytorch', 'easytorch.data', 'easytorch.metrics', 'easytorch.utils', 'easytorch.vision'],
     include_package_data=True,
     install_requires=['numpy', 'scipy', 'scikit-learn', 'scikit-image',
                       'pillow', 'matplotlib', 'opencv-python', 'pandas', 'seaborn']
