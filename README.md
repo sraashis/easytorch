@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
 ### `Feature Higlights`
 * **For advanced training with multiple networks, and complex training steps click [here](assets/AdvancedTraining.md):**
-* **Implement custom metrics as [here](assets/CustomMetric.md).**
+* **Implement custom metrics as [here](assets/CustomMetrics.md).**
 * **To track multiple averages(e.g. multiple losses) use easytorch.metrics.ETAverages(num_averages=...)**
 * Minimal configuration to setup a new experiment.
 * Use your choice of Neural Network architecture.
