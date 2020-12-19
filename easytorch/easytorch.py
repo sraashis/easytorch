@@ -199,6 +199,8 @@ class EasyTorch:
         easytorch.core.metrics.ETMetrics() class by overriding _reset_dataset_cache.
         """
         trainer.cache['global_test_score'] = []
+        global_score = trainer.new_metrics()
+        global_averages = trainer.new_averages()
 
         """
         The easytorch.metrics.Prf1a() has Precision,Recall,F1,Accuracy,and Overlap implemented.
@@ -219,9 +221,6 @@ class EasyTorch:
 
         trainer.cache['experiment_id'] = 'pooled'
         trainer.cache['checkpoint'] = trainer.cache['experiment_id'] + '.pt'
-
-        global_score = trainer.new_metrics()
-        global_averages = trainer.new_averages()
 
         trainer.cache.update(best_epoch=0, best_score=0.0)
         if trainer.cache['metric_direction'] == 'minimize':
