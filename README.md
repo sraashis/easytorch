@@ -96,14 +96,12 @@ class MyDataset(ETDataset):
 ```python
 from easytorch.etargs import ap
 from easytorch import EasyTorch
-from classification import MyTrainer, MyDataset
 dataspecs = [MYDATA, MYOTHERDATA]
 runner = EasyTorch(dataspecs, ap)
 
 if __name__ == "__main__":
     # Run for each datasets.
     runner.run(MyDataset, MyTrainer)
-    
     ## Automatically combine the data of all dataspecs and run.
     runner.run_pooled(MyDataset, MyTrainer)
 ```
