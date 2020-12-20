@@ -118,7 +118,7 @@ if __name__ == "__main__":
 ### Complete Examples
 * **[Vessel segmentation with U-NET example.](https://github.com/sraashis/unet-vessel-segmentation-easytorch)**
 * **[Healthy/Pneumonia/Covid-19 chest x-ray (Multi-label/Binary)classification example.](https://github.com/sraashis/covidxfactory)**
-* **[GAN Example coming soon.]()**
+* **[DCGAN Example.](https://github.com/sraashis/gan-easytorch-celeb-faces)**
 
 ### `Feature Higlights`
 * **For advanced training with multiple networks, and complex training steps click [here](assets/AdvancedTraining.md):**
