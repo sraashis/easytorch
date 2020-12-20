@@ -11,12 +11,14 @@ _plt.switch_backend('agg')
 _plt.rcParams["figure.figsize"] = [16, 9]
 
 
-def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31):
+def plot_progress(cache, experiment_id='', plot_keys=[], num_points=11, epoch=None):
     r"""
     Custom plot to plot data from the cache by keys.
     """
     scaler = _MinMaxScaler()
     for k in plot_keys:
+        _plt.clf()
+
         data = cache.get(k, [])
 
         if len(data) == 0:
@@ -44,6 +46,15 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31):
         ax = df.plot(x_compat=True, alpha=0.2, legend=0)
         rolling.plot(ax=ax, title=k.upper())
 
+        if epoch and epoch != df.shape[0]:
+            """
+            Set correct epoch as x-tick-labels.
+            """
+            xticks = list(range(0, df.shape[0], df.shape[0] // epoch)) + [df.shape[0]-1]
+            ax.set_xticks(xticks)
+            ax.set_xticklabels(list(range(len(xticks))))
+
+        _plt.xlabel('Epochs')
         _plt.savefig(cache['log_dir'] + _os.sep + f"{experiment_id}_{k}.png")
         _plt.close('all')
 
@@ -51,8 +62,8 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31):
 def save_scores(cache, experiment_id='', file_keys=[]):
     for fk in file_keys:
         with open(cache['log_dir'] + _os.sep + f'{experiment_id}_{fk}.csv', 'w') as file:
-            header = cache.get('log_header', '')
-            for line in cache[fk] if any(isinstance(ln, list) for ln in cache[fk]) else [cache[fk]]:
+            header = 'Scores,' + cache.get('log_header', '')
+            for line in [header] + cache[fk] if any(isinstance(ln, list) for ln in cache[fk]) else [cache[fk]]:
                 if isinstance(line, list):
                     file.write(','.join([str(s) for s in line]) + '\n')
                 else:

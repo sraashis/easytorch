@@ -170,7 +170,7 @@ class EasyTorch:
             """
             Finally, save the global score to a file
             """
-            trainer.cache['global_test_score'].append(['Global'] + global_score.get())
+            trainer.cache['global_test_score'].append(['Global', *global_averages.get(), *global_score.get()])
             _logutils.save_scores(trainer.cache, file_keys=['global_test_score'])
 
     def run_pooled(self, dataset_cls, trainer_cls):
