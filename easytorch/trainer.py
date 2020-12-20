@@ -311,7 +311,7 @@ class ETTrainer:
         Any logic to run after an epoch ends.
         """
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                 plot_keys=['training_log', 'validation_log'])
+                                 plot_keys=['training_log', 'validation_log'], epoch=ep)
 
     def _on_iteration_end(self, i, ep, it):
         r"""
@@ -351,19 +351,24 @@ class ETTrainer:
 
                 ep_loss.accumulate(it['averages'])
                 ep_metrics.accumulate(it['metrics'])
+
+                """
+                Running loss/metrics
+                """
                 _loss.accumulate(it['averages'])
                 _metrics.accumulate(it['metrics'])
                 if self.args['verbose'] and i % int(_math.log(i + 1) + 1) == 0:
                     print(f"Ep:{ep}/{self.args['epochs']},Itr:{i}/{len(train_loader)},"
                           f"{_loss.get()},{_metrics.get()}")
+
+                    self.cache['training_log'].append([*_loss.get(), *_metrics.get()])
                     _metrics.reset()
                     _loss.reset()
+
                 self._on_iteration_end(i, ep, it)
 
             self.cache['training_log'].append([*ep_loss.get(), *ep_metrics.get()])
-
             val_loss, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
-
             self.save_if_better(ep, val_metric)
             self.cache['validation_log'].append([*val_loss.get(), *val_metric.get()])
 
