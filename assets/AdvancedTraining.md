@@ -68,4 +68,4 @@ def new_averages(self):
 ```
 
 ### Examples:
-- #### [GAN Example coming soon]()
+#### * **[DCGAN Example.](https://github.com/sraashis/gan-easytorch-celeb-faces)**
