@@ -73,7 +73,6 @@ class ETDataset(_Dataset):
     def __len__(self):
         return len(self.indices)
 
-    @property
     def transforms(self, **kw):
         return None
 
