@@ -22,7 +22,7 @@ class ETTrainer:
         r"""
         args: receives the arguments passed by the ArgsParser.
         cache: Initialize all immediate things here. Like scores, loss, accuracies...
-        core:  Initialize our models here.
+        nn:  Initialize our models here.
         optimizer: Initialize our optimizers.
         """
         self.args = _etutils.FrozenDict(args)
@@ -80,11 +80,11 @@ class ETTrainer:
             chk = _torch.load(full_path, map_location='cpu')
 
         if chk.get('source', 'Unknown').lower() == 'easytorch':
-            for m in chk['core']:
+            for m in chk['models']:
                 try:
-                    self.nn[m].module.load_state_dict(chk['core'][m])
+                    self.nn[m].module.load_state_dict(chk['models'][m])
                 except:
-                    self.nn[m].load_state_dict(chk['core'][m])
+                    self.nn[m].load_state_dict(chk['models'][m])
         else:
             mkey = list(self.nn.keys())[0]
             try:
@@ -94,7 +94,7 @@ class ETTrainer:
 
     def _init_nn_model(self):
         r"""
-        User cam override and initialize required models in self.core dict.
+        User cam override and initialize required models in self.nn dict.
         """
         raise NotImplementedError('Must be implemented in child class.')
 
@@ -125,14 +125,14 @@ class ETTrainer:
 
     def new_metrics(self):
         r"""
-        User can override to supply desired implementation of easytorch.core.metrics.ETMetrics().
-            Example: easytorch.core.metrics.Pr11a() will work with precision, recall, F1, Accuracy, IOU scores.
+        User can override to supply desired implementation of easytorch.metrics.ETMetrics().
+            Example: easytorch.metrics.Pr11a() will work with precision, recall, F1, Accuracy, IOU scores.
         """
         return _base_metrics.Prf1a()
 
     def new_averages(self):
         r""""
-        Should supply an implementation of easytorch.core.metrics.ETAverages() that can keep track of multiple averages.
+        Should supply an implementation of easytorch.metrics.ETAverages() that can keep track of multiple averages.
             Example: multiple loss, or any other values.
         """
         return _base_metrics.ETAverages(num_averages=1)
@@ -163,11 +163,11 @@ class ETTrainer:
     def save_checkpoint(self):
         checkpoint = {'source': "easytorch"}
         for k in self.nn:
-            checkpoint['core'] = {}
+            checkpoint['models'] = {}
             try:
-                checkpoint['core'][k] = self.nn[k].module.state_dict()
+                checkpoint['models'][k] = self.nn[k].module.state_dict()
             except:
-                checkpoint['core'][k] = self.nn[k].state_dict()
+                checkpoint['models'][k] = self.nn[k].state_dict()
         _torch.save(checkpoint, self.cache['log_dir'] + _sep + self.cache['checkpoint'])
 
     def reset_dataset_cache(self):
@@ -224,7 +224,7 @@ class ETTrainer:
         Example:{
                     inputs = batch['input'].to(self.device['gpu']).float()
                     labels = batch['label'].to(self.device['gpu']).long()
-                    out = self.core['model'](inputs)
+                    out = self.nn['model'](inputs)
                     loss = F.cross_entropy(out, labels)
                     out = F.softmax(out, 1)
                     _, pred = torch.max(out, 1)

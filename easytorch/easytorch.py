@@ -196,7 +196,7 @@ class EasyTorch:
         """
         Default global score holder for each datasets.
         Save the latest time(maximize current time.). One can also maximize/minimize any other score from
-        easytorch.core.metrics.ETMetrics() class by overriding _reset_dataset_cache.
+        easytorch.metrics.ETMetrics() class by overriding _reset_dataset_cache.
         """
         trainer.cache['global_test_score'] = []
         global_score = trainer.new_metrics()
