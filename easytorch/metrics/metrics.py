@@ -4,12 +4,11 @@ added in the ETAverages, ETMetrics respectively.
 """
 
 import abc as _abc
+import time as _time
 import typing as _typing
 
 import numpy as _np
 import torch as _torch
-import time as _time
-
 
 _eps = 10e-5
 _num_precision = 5
@@ -56,8 +55,14 @@ class ETAverages:
         Computes/Returns self.num_averages number of averages in vectorized way.
         """
         counts = self.counts.copy()
-        counts[counts == 0] = self.eps
+        counts[counts == 0] = _np.inf
         return _np.round(self.values / counts, self.num_precision)
+
+    def average(self, reduce_mean=True):
+        avgs = self.get()
+        if reduce_mean:
+            return round(sum(avgs) / len(avgs), self.num_precision)
+        return avgs
 
     @property
     def eps(self):
