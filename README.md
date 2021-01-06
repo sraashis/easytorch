@@ -14,8 +14,7 @@
 ### 1. Define your trainer
 
 ```python
-from easytorch.core import Prf1a
-from easytorch.core import ETTrainer
+from easytorch import ETTrainer
 
 
 class MyTrainer(ETTrainer):
@@ -23,7 +22,7 @@ class MyTrainer(ETTrainer):
     super().__init__(args)
 
   def _init_nn_model(self):
-    self.nn['model'] = UNet(self.args['num_channel'], self.args['num_class'], reduce_by=self.args['model_scale'])
+    self.nn['model'] = NeuralNetModel(self.args['num_channel'], self.args['num_class'])
 
   def iteration(self, batch):
     inputs = batch['input'].to(self.device['gpu']).float()

@@ -74,7 +74,7 @@ class ETDataset(_Dataset):
         return len(self.indices)
 
     @property
-    def transforms(self):
+    def transforms(self, **kw):
         return None
 
     def add(self, files, debug=True, **kw):
