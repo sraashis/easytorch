@@ -97,8 +97,8 @@ class MyDataset(ETDataset):
 ```python
 from easytorch import EasyTorch
 runner = EasyTorch([MYDATA, MyOTHERDATA],
-                   phase="train", 
-                   batch_size=4, epochs=21, num_channel=1, num_class=2)
+                   phase="train", batch_size=4, epochs=21,
+                   num_channel=1, num_class=2)
 
 if __name__ == "__main__":
     runner.run(MyDataset, MyTrainer)
@@ -114,7 +114,7 @@ if __name__ == "__main__":
 * **[DCGAN Example.](https://github.com/sraashis/gan-easytorch-celeb-faces)**
 
 ### `Feature Higlights`
-* **For advanced training with multiple networks, and complex training steps click [here](assets/AdvancedTraining.md):**
+* **For advanced training with multiple networks, and complex training steps, click [here](assets/AdvancedTraining.md):**
 * **Implement custom metrics as [here](assets/CustomMetrics.md).**
 * **To track multiple averages(e.g. multiple losses) use easytorch.metrics.ETAverages(num_averages=...)**
 * Minimal configuration to setup a new experiment.
@@ -124,24 +124,22 @@ if __name__ == "__main__":
 [..more features](assets/Features.md)
 
 ### Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)
-* **-nch/--num_channel** [3]
-    * Number of input channels
-* **-ncl/--num_class** [2]
-    * Number of output classes
+* **-ph/--phase** [Required]
+    * Which phase to run. Possible values are 'train' (runs all train, validation, test steps), and 'test' (runs only test step).
 * **-b/--batch_size** [32]
-* **-e/--epochs** [51]
+* **-ep/--epochs** [51]
 * **-lr/--learning_rate** [0.001]
 * -**gpus/--gpus** [0]
     * List of gpus to be used. Eg. [0], [1], [0, 1]
-* **-pin/--pin-memory** [True]
 * **-nw/--num_workers** [4]
     * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
-* **-ph/--phase** [Required]
-    * Which phase to run. Possible values are 'train', and 'test'.
-* **-data/--dataset_dir** [dataset]
     * base path of the dataset where data_dir, labels, masks, and splits are.
 * **-lim/--load-limit**[inf]
-    * Specifies limit on dataset to load for debug purpose for pipeline debugging. 
+    * Specifies limit on images/files to load for debug purpose for pipeline debugging.
+* **-nf/--num_folds** [None]
+    * Number of folds in k-fold cross validation(Integer value like 5, 10).
+* **-rt/--split_ratio** [0.6 0.2 0.2]
+    * Split ratio for Train, validation test if 3 given, Train, test if 2 given, All train if one give.
 * [...see more](assets/DefaultArgs.md)
 ## All the best! for whatever you are working on. Cheers!
 #### Please star or cite if you find it useful.

@@ -67,17 +67,17 @@ class EasyTorch:
         self.args = _etutils.FrozenDict(self.args)
 
         assert (self.args['phase'] in self._MODES_), \
-            'argument *** phase *** is required must be passed to either' \
+            'argument *** phase *** is required and must be passed to either' \
             '\n1). EasyTorch(..,phase=<value>,..)' \
             '\n2). runtime arguments 2). python main.py -ph <value> | ' \
             f'\nPossible values are:{self._MODES_}' \
-            '\n\t- train (runs train, validation , and test)' \
-            '\n\t- test (only runs test phase; either by picking best saved model, ' \
+            '\n\t- train (runs all train, validation, and test steps)' \
+            '\n\t- test (only runs test step; either by picking best saved model, ' \
             '\n\tor loading provided weights in pretrained_path argument) '
 
         """
         Need to add -data(base folder for dataset) to all the directories in dataspecs. 
-        THis makes it flexible to access dataset from arbritrary location.
+        THis makes it flexible to access dataset from arbitrary location.
         """
         self.dataspecs = [{**dspec} for dspec in dataspecs]
         for dspec in self.dataspecs:

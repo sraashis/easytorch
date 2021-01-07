@@ -11,7 +11,7 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
 
 ### Default arguments[default-value].
 * **-ph/--phase** [Required]
-    * Which phase to run. Possible values are 'train', and 'test'. Train runs all training., validation, and test phase. Whereas, test phase only runs test phase.
+    * Which phase to run. Possible values are 'train', and 'test'. Train runs all training., validation, and test phase, whereas test phase only runs test phase.
 * **-b/--batch_size** [32]
 * **-ep/--epochs** [51]
 * **-lr/--learning_rate** [0.001]
