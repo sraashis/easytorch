@@ -51,21 +51,23 @@ import os
 sep = os.sep
 MYDATA = {
     'name': 'mydata',
-    'data_dir': 'OTHERDATA' + sep + 'images',
-    'label_dir': 'MYDATA' + sep + 'manual',
+    'data_dir': 'MYDATA' + sep + 'images',
+    'label_dir': 'MYDATA' + sep + 'labels',
     'label_getter': lambda file_name: file_name.split('_')[0] + 'label.csv'
 }
 
 MyOTHERDATA = {
     'name': 'otherdata',
     'data_dir': 'OTHERDATA' + sep + 'images',
-    'label_dir': 'OTHERDATA' + sep + 'manual',
+    'label_dir': 'OTHERDATA' + sep + 'labels',
     'label_getter': lambda file_name: file_name.split('_')[0] + 'label.csv'
 }
 ```
 
 ***Define how to load each data item***
 ```python
+from easytorch import ETDataset
+import torchvision
 class MyDataset(ETDataset):
     def __init__(self, **kw):
         super().__init__(**kw)
@@ -93,24 +95,16 @@ class MyDataset(ETDataset):
 ### 3. Entry point
 
 ```python
-from easytorch.etargs import ap
 from easytorch import EasyTorch
-dataspecs = [MYDATA, MYOTHERDATA]
-runner = EasyTorch(dataspecs, ap)
+runner = EasyTorch([MYDATA, MyOTHERDATA],
+                   phase="train", 
+                   batch_size=4, epochs=21, num_channel=1, num_class=2)
 
 if __name__ == "__main__":
-    # Run for each datasets.
     runner.run(MyDataset, MyTrainer)
-    ## Automatically combine the data of all dataspecs and run.
     runner.run_pooled(MyDataset, MyTrainer)
 ```
 
-### 4. Run
-
-##### **Training+Validation+Test**
-    * python main.py -ph train -e 51 -b 16
-##### **Only Test**
-    * python main.py -ph test -e 51 -b 16
 
 <hr />
 
