@@ -99,7 +99,7 @@ def create_splits_(log_dir, dspec):
     return True
 
 
-def _init_kfolds(dspec, args):
+def init_kfolds_(dspec, args):
     r"""
     Initialize k-folds for given dataspec.
         If: custom splits path is given it will use the splits from there

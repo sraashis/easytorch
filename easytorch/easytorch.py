@@ -5,10 +5,9 @@ from argparse import ArgumentParser as _AP
 from typing import List as _List, Union as _Union, Callable as _Callable
 
 import easytorch.utils as _etutils
-from easytorch.data.datautils import _init_kfolds, create_splits_
+from easytorch.data import datautils as _du
 from easytorch.vision import plot as _logutils
 from .etargs import default_args as _ap
-
 _sep = _os.sep
 
 
@@ -124,7 +123,7 @@ class EasyTorch:
         return test_dataset_list
 
     def run(self, dataset_cls, trainer_cls,
-            data_splitter: _Callable = _init_kfolds):
+            data_splitter: _Callable = _du.init_kfolds_):
         r"""
         Run for individual datasets
         """
@@ -132,7 +131,7 @@ class EasyTorch:
             trainer = trainer_cls(self.args)
 
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
-            if create_splits_(trainer.cache['log_dir'], dspec):
+            if _du.create_splits_(trainer.cache['log_dir'], dspec):
                 data_splitter(dspec=dspec, args=self.args)
 
             """
@@ -228,7 +227,7 @@ class EasyTorch:
             _logutils.save_scores(trainer.cache, file_keys=['global_test_score'])
 
     def run_pooled(self, dataset_cls, trainer_cls,
-                   data_splitter: _Callable = _init_kfolds):
+                   data_splitter: _Callable = _du.init_kfolds_):
         r"""
         Run in pooled fashion.
         """
@@ -239,7 +238,7 @@ class EasyTorch:
         """
         for dspec in self.dataspecs:
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
-            if create_splits_(trainer.cache['log_dir'], dspec):
+            if _du.create_splits_(trainer.cache['log_dir'], dspec):
                 data_splitter(dspec=dspec, args=self.args)
 
         """
