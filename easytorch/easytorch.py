@@ -2,31 +2,84 @@ import json as _json
 import os as _os
 from argparse import ArgumentParser as _AP
 
+from typing import List as _List, Union as _Union, Callable as _Callable
+
 import easytorch.utils as _etutils
 from easytorch.data.datautils import _init_kfolds, create_splits_
 from easytorch.vision import plot as _logutils
+from .etargs import default_args as _ap
 
 _sep = _os.sep
 
 
 class EasyTorch:
-    def __init__(self, dataspecs, args, data_splitter=_init_kfolds):
-        r"""
-        data-splitted takes each dataspec, args and split the data. Default is init_k_folds.
-        Takes kwargs and freezes it.
-        """
-        if isinstance(args, _AP):
-            self.args = _etutils.FrozenDict(vars(args.parse_args()))
-        else:
-            self.args = _etutils.FrozenDict(args)
+    _MODES_ = ['test', 'train']
 
-        self.dataspecs = [{**dspec} for dspec in dataspecs]
-        self.split_data = data_splitter
+    def __init__(self, dataspecs: _List[dict],
+                 args: _Union[dict, _AP] = _ap,
+                 phase: str = None,
+                 batch_size: int = None,
+                 epochs: int = None,
+                 learning_rate: float = None,
+                 gpus: _List[int] = None,
+                 pin_memory: bool = None,
+                 num_workers: int = None,
+                 dataset_dir: str = None,
+                 load_limit: int = None,
+                 log_dir: str = None,
+                 pretrained_path: str = None,
+                 verbose: bool = None,
+                 seed: int = None,
+                 force: bool = None,
+                 patience: int = None,
+                 load_sparse: bool = None,
+                 num_folds: int = None,
+                 split_ratio: _List[float] = None,
+                 **kw):
+
+        if isinstance(args, _AP):
+            self.args = vars(args.parse_args())
+        elif isinstance(args, dict):
+            self.args = {**args}
+        else:
+            raise ValueError('2nd Argument of EasyTorch could be only one of :ArgumentParser, dict')
+
+        if phase: self.args.update(phase=phase)
+        if batch_size: self.args.update(batch_size=batch_size)
+        if epochs: self.args.update(epochs=epochs)
+        if learning_rate: self.args.update(learning_rate=learning_rate)
+        if gpus: self.args.update(gpus=gpus)
+        if pin_memory: self.args.update(pin_memory=pin_memory)
+        if num_workers: self.args.update(num_workers=num_workers)
+        if dataset_dir: self.args.update(dataset_dir=dataset_dir)
+        if load_limit: self.args.update(load_limit=load_limit)
+        if log_dir: self.args.update(log_dir=log_dir)
+        if pretrained_path: self.args.update(pretrained_path=pretrained_path)
+        if verbose: self.args.update(verbose=verbose)
+        if seed: self.args.update(seed=seed)
+        if force: self.args.update(force=force)
+        if patience: self.args.update(patience=patience)
+        if load_sparse: self.args.update(load_sparse=load_sparse)
+        if num_folds: self.args.update(num_folds=num_folds)
+        if split_ratio: self.args.update(split_ratio=split_ratio)
+
+        self.args.update(**kw)
+        self.args = _etutils.FrozenDict(self.args)
+
+        assert (self.args['phase'] in self._MODES_), \
+            'argument *** phase *** is required must be passed to either' \
+            '\n1). EasyTorch(..,phase=<value>,..)' \
+            '\n2). runtime arguments 2). python main.py -ph <value> | ' \
+            f'\nPossible values are:{self._MODES_}' \
+            '\n\t- train (runs train, validation , and test)' \
+            '\n\t- test (only runs test phase; either by picking best saved model, ' \
+            '\n\tor loading provided weights in pretrained_path argument) '
 
         """
         Need to add -data(base folder for dataset) to all the directories in dataspecs. 
         THis makes it flexible to access dataset from arbritrary location.
         """
+        self.dataspecs = [{**dspec} for dspec in dataspecs]
         for dspec in self.dataspecs:
             for k in dspec:
                 if 'dir' in k:
@@ -70,7 +123,8 @@ class EasyTorch:
             test_dataset_list.append(test_dataset)
         return test_dataset_list
 
-    def run(self, dataset_cls, trainer_cls):
+    def run(self, dataset_cls, trainer_cls,
+            data_splitter: _Callable = _init_kfolds):
         r"""
         Run for individual datasets
         """
@@ -79,7 +133,7 @@ class EasyTorch:
 
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
             if create_splits_(trainer.cache['log_dir'], dspec):
-                self.split_data(dspec=dspec, args=self.args)
+                data_splitter(dspec=dspec, args=self.args)
 
             """
             We will save the global scores of all folds if any.
@@ -173,7 +227,8 @@ class EasyTorch:
             trainer.cache['global_test_score'].append(['Global', *global_averages.get(), *global_score.get()])
             _logutils.save_scores(trainer.cache, file_keys=['global_test_score'])
 
-    def run_pooled(self, dataset_cls, trainer_cls):
+    def run_pooled(self, dataset_cls, trainer_cls,
+                   data_splitter: _Callable = _init_kfolds):
         r"""
         Run in pooled fashion.
         """
@@ -185,7 +240,7 @@ class EasyTorch:
         for dspec in self.dataspecs:
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
             if create_splits_(trainer.cache['log_dir'], dspec):
-                self.split_data(dspec=dspec, args=self.args)
+                data_splitter(dspec=dspec, args=self.args)
 
         """
         Create log-dir by concatenating all the involved dataset names.
