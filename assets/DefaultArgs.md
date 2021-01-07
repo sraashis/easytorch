@@ -11,7 +11,7 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
 
 ### Default arguments[default-value].
 * **-ph/--phase** [Required]
-    * Which phase to run. Possible values are 'train', and 'test'. Train runs all training., validation, and test phase, whereas test phase only runs test phase.
+    * Which phase to run? 'train' (runs all train, validation, test steps) OR 'test' (runs only test step).
 * **-b/--batch_size** [32]
 * **-ep/--epochs** [51]
 * **-lr/--learning_rate** [0.001]
@@ -23,7 +23,7 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
 * **-data/--dataset_dir** [dataset]
     * base path of the dataset where data_dir, labels, masks, and splits are.
 * **-lim/--load-limit**[inf]
-    * Specifies limit on dataset to load for debug purpose. Because sometimes we want to load, maybe 5 or 10, images to test the pipeline before we run full training.
+    * Specifies a limit on images/files to load for debug purpose.
 * **-log/--log_dir** [net_logs]
     * Path where the results: plots, model checkpoint, etc are saved.
 * **-pt/--pretrained_path** [None]
@@ -39,6 +39,6 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
 * **-lsp/--load_sparse** [False]
     * Load all data from one image in single DataLoader so that it is easy to combine later to form a whole image.
 * **-nf/--num_folds** [None]
-    * Number of folds in k-fold cross validation.
-* **-rt/--split_ratio** [(0.6, 0.2, 0.2)]
-    * Split ratio for Train, validation test if 3 given, Train, test if 2 given, All train if one give.
+    * Number of folds in k-fold cross validation(Integer value like 5, 10).
+* **-rt/--split_ratio** [0.6 0.2 0.2]
+    * Split ratio for train, validation, test set if 3 given| train, test if 2 given| train only if one give.

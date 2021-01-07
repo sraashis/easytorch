@@ -5,7 +5,7 @@ class ETMetrics:
     def add(self, *args, **kw):
         r"""
         Add two tensor to collect scores.
-        Example implementation easytorch.utils.measurements.Prf1a().
+        Example implementation easytorch.metrics.Prf1a().
         Calculate/store all True Positives, False Positives, True Negatives, False Negatives:
            out = F.softmax(core(x), 1)
            _, pred = torch.max(out, 1)
@@ -29,7 +29,7 @@ class ETMetrics:
     def get(self, *args, **kw) -> _typing.List[float]:
         r"""
         Computes/returns list of scores.
-            Example: easytorch.utils.measurements.Prf1a() returns
+            Example: easytorch.metrics.Prf1a() returns
             Precision, Recall, F1, Accuracy from the collected TP, TN, FP, FN.
         """
         return [0.0]

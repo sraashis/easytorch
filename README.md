@@ -116,7 +116,6 @@ if __name__ == "__main__":
 ### `Feature Higlights`
 * **For advanced training with multiple networks, and complex training steps, click [here](assets/AdvancedTraining.md):**
 * **Implement custom metrics as [here](assets/CustomMetrics.md).**
-* **To track multiple averages(e.g. multiple losses) use easytorch.metrics.ETAverages(num_averages=...)**
 * Minimal configuration to setup a new experiment.
 * Use your choice of Neural Network architecture.
 * Automatic k-fold cross validation/Auto dataset split.
@@ -125,7 +124,7 @@ if __name__ == "__main__":
 
 ### Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)
 * **-ph/--phase** [Required]
-    * Which phase to run. Possible values are 'train' (runs all train, validation, test steps), and 'test' (runs only test step).
+    * Which phase to run? 'train' (runs all train, validation, test steps) OR 'test' (runs only test step).
 * **-b/--batch_size** [32]
 * **-ep/--epochs** [51]
 * **-lr/--learning_rate** [0.001]
@@ -133,13 +132,12 @@ if __name__ == "__main__":
     * List of gpus to be used. Eg. [0], [1], [0, 1]
 * **-nw/--num_workers** [4]
     * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
-    * base path of the dataset where data_dir, labels, masks, and splits are.
 * **-lim/--load-limit**[inf]
-    * Specifies limit on images/files to load for debug purpose for pipeline debugging.
+    * Specifies a limit on images/files to load for debug purpose for pipeline debugging.
 * **-nf/--num_folds** [None]
     * Number of folds in k-fold cross validation(Integer value like 5, 10).
 * **-rt/--split_ratio** [0.6 0.2 0.2]
-    * Split ratio for Train, validation test if 3 given, Train, test if 2 given, All train if one give.
+    * Split ratio for train, validation, test set if two items given| train, test if three items given| train only if one item given.
 * [...see more](assets/DefaultArgs.md)
 ## All the best! for whatever you are working on. Cheers!
 #### Please star or cite if you find it useful.
