@@ -14,35 +14,41 @@ Very useful image related utilities
 
 
 class Image:
-    def __init__(self):
+    def __init__(self, dtype=_np.uint8):
         self.dir = None
         self.file = None
         self.array = None
         self.mask = None
         self.ground_truth = None
         self.extras = {}
+        self.dtype = dtype
 
     def load(self, dir, file):
         try:
             self.dir = dir
             self.file = file
-            self.array = _np.array(_IMG.open(self.path), dtype=_np.uint8)
+            self.array = _np.array(_IMG.open(self.path), dtype=self.dtype)
         except Exception as e:
             print('### Error Loading file: ' + self.file + ': ' + str(e))
 
     def load_mask(self, mask_dir=None, fget_mask=lambda x: x):
         try:
             mask_file = fget_mask(self.file)
-            self.mask = _np.array(_IMG.open(_os.path.join(mask_dir, mask_file)), dtype=_np.uint8)
+            self.mask = _np.array(_IMG.open(_os.path.join(mask_dir, mask_file)), dtype=self.dtype)
         except Exception as e:
             print('### Fail to load mask: ' + str(e))
 
     def load_ground_truth(self, gt_dir=None, fget_ground_truth=lambda x: x):
         try:
             gt_file = fget_ground_truth(self.file)
-            self.ground_truth = _np.array(_IMG.open(_os.path.join(gt_dir, gt_file)), dtype=_np.uint8)
+            self.ground_truth = _np.array(_IMG.open(_os.path.join(gt_dir, gt_file)), dtype=self.dtype)
         except Exception as e:
             print('### Fail to load ground truth: ' + str(e))
+
+    def get_array(self, dir='', getter=lambda x: x, file=None):
+        if not file: file = self.file
+        arr = _np.array(_IMG.open(_os.path.join(dir, getter(file))), dtype=self.dtype)
+        return arr
 
     def apply_mask(self):
         if self.mask is not None:
@@ -66,6 +72,7 @@ class Image:
         copy_obj.mask = _copy.copy(self.mask)
         copy_obj.ground_truth = _copy.copy(self.ground_truth)
         copy_obj.extras = _copy.deepcopy(self.extras)
+        copy_obj.dtype = _copy.deepcopy(self.dtype)
         return copy_obj
 
     @property
