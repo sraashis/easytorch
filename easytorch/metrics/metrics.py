@@ -268,7 +268,8 @@ class ConfusionMatrix(ETMetrics):
         return self.matrix.trace().item() / max(self.matrix.sum().item(), self.eps)
 
     def prfa(self):
-        return [self.precision(), self.recall(), self.f1(), self.accuracy()]
+        return [round(self.precision(), self.num_precision), round(self.recall(), self.num_precision),
+                round(self.f1(), self.num_precision), round(self.accuracy(), self.num_precision)]
 
     def get(self):
         return self.prfa()
