@@ -8,11 +8,13 @@ from collections import OrderedDict as _ODict
 
 import torch as _torch
 
+import easytorch.config as _config
 import easytorch.data as _etdata
 import easytorch.utils as _etutils
 from easytorch.metrics import metrics as _base_metrics
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
-from .vision import plot as _log_utils
+from .vision import plotter as _log_utils
+
 _sep = _os.sep
 
 
@@ -104,11 +106,9 @@ class ETTrainer:
         If no GPU is present, CPU is used.
         """
         self.device['gpu'] = _torch.device("cpu")
-        if _torch.cuda.is_available():
-            if len(self.args['gpus']) < 2:
-                self.device['gpu'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
-            else:
-                self.device['gpu'] = _torch.device("cuda:0")
+        if _config.cuda_available and len(self.args['gpus']) >= 1:
+            self.device['gpu'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
+            if len(self.args['gpus']) >= 2:
                 for model_key in self.nn:
                     self.nn[model_key] = _torch.nn.DataParallel(self.nn[model_key], self.args['gpus'])
         for model_key in self.nn:
@@ -374,5 +374,3 @@ class ETTrainer:
             self._on_epoch_end(ep, ep_loss, ep_metrics, val_loss, val_metric)
             if self._early_stopping(ep, ep_loss, ep_metrics, val_loss, val_metric):
                 break
-
-

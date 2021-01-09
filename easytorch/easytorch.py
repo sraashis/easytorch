@@ -4,18 +4,28 @@ from argparse import ArgumentParser as _AP
 
 from typing import List as _List, Union as _Union, Callable as _Callable
 
-import easytorch.utils as _etutils
+import warnings as _warn
+
+import easytorch.utils as _utils
 from easytorch.data import datautils as _du
-from easytorch.vision import plot as _logutils
-from .etargs import default_args as _ap
+import easytorch.config as _conf
+
 _sep = _os.sep
 
 
 class EasyTorch:
     _MODES_ = ['test', 'train']
+    _MODE_ERR_ = \
+        'argument *** phase *** is required and must be passed to either' \
+        '\n1). EasyTorch(..,phase=<value>,..)' \
+        '\n2). runtime arguments 2). python main.py -ph <value> | ' \
+        f'\nPossible values are:{_MODES_}' \
+        '\n\t- train (runs all train, validation, and test steps)' \
+        '\n\t- test (only runs test step; either by picking best saved model, ' \
+        '\n\tor loading provided weights in pretrained_path argument) '
 
     def __init__(self, dataspecs: _List[dict],
-                 args: _Union[dict, _AP] = _ap,
+                 args: _Union[dict, _AP] = _conf.default_args,
                  phase: str = None,
                  batch_size: int = None,
                  epochs: int = None,
@@ -36,13 +46,7 @@ class EasyTorch:
                  split_ratio: _List[float] = None,
                  **kw):
 
-        if isinstance(args, _AP):
-            self.args = vars(args.parse_args())
-        elif isinstance(args, dict):
-            self.args = {**args}
-        else:
-            raise ValueError('2nd Argument of EasyTorch could be only one of :ArgumentParser, dict')
-
+        self._init_args_(args)
         if phase: self.args.update(phase=phase)
         if batch_size: self.args.update(batch_size=batch_size)
         if epochs: self.args.update(epochs=epochs)
@@ -61,21 +65,31 @@ class EasyTorch:
         if load_sparse: self.args.update(load_sparse=load_sparse)
         if num_folds: self.args.update(num_folds=num_folds)
         if split_ratio: self.args.update(split_ratio=split_ratio)
-
         self.args.update(**kw)
-        self.args = _etutils.FrozenDict(self.args)
+        self._init_dataspecs_(dataspecs)
 
-        assert (self.args['phase'] in self._MODES_), \
-            'argument *** phase *** is required and must be passed to either' \
-            '\n1). EasyTorch(..,phase=<value>,..)' \
-            '\n2). runtime arguments 2). python main.py -ph <value> | ' \
-            f'\nPossible values are:{self._MODES_}' \
-            '\n\t- train (runs all train, validation, and test steps)' \
-            '\n\t- test (only runs test step; either by picking best saved model, ' \
-            '\n\tor loading provided weights in pretrained_path argument) '
+        assert (self.args.get('phase') in self._MODES_), self._MODE_ERR_
 
+        self.args.update(verbose=self.args.get('verbose', True))
+        self.args.update(gpus=self.args.get('gpus', []))
+
+        if self.args['verbose'] and len(self.args['gpus']) > _conf.num_gpus:
+            _warn.warn(f"{len(self.args['gpus'])} GPUs requested "
+                       f"but {_conf.num_gpus if _conf.cuda_available else 'GPU not'} detected. "
+                       f"Using {_conf.num_gpus + ' GPU(s)' if _conf.cuda_available else 'CPU(Much slower)'}.\n")
+            self.args['gpus'] = list(range(_conf.num_gpus))
+
+    def _init_args_(self, args):
+        if isinstance(args, _AP):
+            self.args = vars(args.parse_args())
+        elif isinstance(args, dict):
+            self.args = {**args}
+        else:
+            raise ValueError('2nd Argument of EasyTorch could be only one of :ArgumentParser, dict')
+
+    def _init_dataspecs_(self, dataspecs):
         """
-        Need to add -data(base folder for dataset) to all the directories in dataspecs. 
+        Need to add -data(base folder for dataset) to all the directories in dataspecs.
         THis makes it flexible to access dataset from arbitrary location.
         """
         self.dataspecs = [{**dspec} for dspec in dataspecs]
@@ -192,7 +206,7 @@ class EasyTorch:
                     valset = self._get_validation_dataset(split, dspec, dataset_cls)
                     trainer.train(trainset, valset)
                     cache = {**self.args, **trainer.cache, **dspec, **trainer.nn, **trainer.optimizer}
-                    _logutils.save_cache(cache, experiment_id=trainer.cache['experiment_id'])
+                    _utils.save_cache(cache, experiment_id=trainer.cache['experiment_id'])
                 """#########################################################"""
 
                 if self.args['phase'] == 'train' or self.args['pretrained_path'] is None:
@@ -217,14 +231,14 @@ class EasyTorch:
                 """
                 trainer.cache['test_score'].append([*test_averages.get(), *test_score.get()])
                 trainer.cache['global_test_score'].append([split_file, *test_averages.get(), *test_score.get()])
-                _logutils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
-                                      file_keys=['test_score'])
+                _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
+                                   file_keys=['test_score'])
 
             """
             Finally, save the global score to a file
             """
             trainer.cache['global_test_score'].append(['Global', *global_averages.get(), *global_score.get()])
-            _logutils.save_scores(trainer.cache, file_keys=['global_test_score'])
+            _utils.save_scores(trainer.cache, file_keys=['global_test_score'])
 
     def run_pooled(self, dataset_cls, trainer_cls,
                    data_splitter: _Callable = _du.init_kfolds_):
@@ -300,7 +314,7 @@ class EasyTorch:
                                            load_sparse=False)[0]
             trainer.train(train_dataset, val_dataset)
             cache = {**self.args, **trainer.cache, 'dataspecs': self.dataspecs}
-            _logutils.save_cache(cache, experiment_id=cache['experiment_id'])
+            _utils.save_cache(cache, experiment_id=cache['experiment_id'])
 
         if self.args['phase'] == 'train' or self.args['pretrained_path'] is None:
             """
@@ -315,4 +329,4 @@ class EasyTorch:
         global_averages.accumulate(test_averages)
         global_score.accumulate(test_score)
         trainer.cache['test_score'].append(['Global', *global_averages.get(), *global_score.get()])
-        _logutils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'], file_keys=['test_score'])
+        _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'], file_keys=['test_score'])
