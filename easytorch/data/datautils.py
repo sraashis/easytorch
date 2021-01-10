@@ -7,7 +7,7 @@ import numpy as _np
 _sep = _os.sep
 
 
-def create_ratio_split(images, save_to_dir=None, ratio: dict = (0.6, 0.2, 0.2), first_key='train', name='SPLIT'):
+def create_ratio_split(files, save_to_dir=None, ratio: dict = (0.6, 0.2, 0.2), first_key='train', name='SPLIT'):
     keys = [first_key]
     if len(ratio) == 2:
         keys.append('test')
@@ -17,8 +17,8 @@ def create_ratio_split(images, save_to_dir=None, ratio: dict = (0.6, 0.2, 0.2), 
 
     _ratio = ratio[::-1]
     locs = _np.array([sum(_ratio[0:i + 1]) for i in range(len(ratio) - 1)])
-    locs = (locs * len(images)).astype(int)
-    splits = _np.split(images[::-1], locs)[::-1]
+    locs = (locs * len(files)).astype(int)
+    splits = _np.split(files[::-1], locs)[::-1]
     splits = dict([(k, sp.tolist()[::-1]) for k, sp in zip(keys, splits)])
     if save_to_dir:
         f = open(save_to_dir + _sep + f'{name}.json', "w")
