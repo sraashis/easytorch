@@ -49,11 +49,11 @@ class ETTrainer:
                     print(f' ### Total params in {k}:'
                           f' {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
 
-        self._init_nn_weights()
+        self._init_nn_weights(**kw)
         self._init_optimizer()
         self._set_gpus()
 
-    def _init_nn_weights(self):
+    def _init_nn_weights(self, **kw):
         r"""
         By default, will initialize network with Kaimming initialization.
         If path to pretrained weights are given, it will be used instead.
@@ -65,9 +65,8 @@ class ETTrainer:
             for mk in self.nn:
                 _init_weights(self.nn[mk])
 
-    def load_best_model(self):
-        r"""Load the best model']"""
-        self.load_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
+    def load_checkpoint_from_key(self, key='checkpoint'):
+        self.load_checkpoint(self.cache['log_dir'] + _sep + self.cache[key])
 
     def load_checkpoint(self, full_path):
         r"""
@@ -181,7 +180,7 @@ class ETTrainer:
                 checkpoint['optimizers'][k] = self.optimizer[k].state_dict()
         _torch.save(checkpoint, self.cache['log_dir'] + _sep + file_name)
 
-    def reset_dataset_cache(self, **kw):
+    def reset_dataset_cache(self):
         r"""
         An extra layer to reset cache for each dataspec. For example:
         1. Set a new score to monitor:
@@ -204,7 +203,7 @@ class ETTrainer:
         """
         pass
 
-    def reset_fold_cache(self, **kw):
+    def reset_fold_cache(self):
         """Nothing specific to do here.
         Just keeping in case we need to intervene with each of the k-folds just like each datasets above.
         """
@@ -277,7 +276,7 @@ class ETTrainer:
 
         eval_avg = self.new_averages()
         eval_metrics = self.new_metrics()
-        val_loaders = [_etdata.ETDataLoader.new(shuffle=False, dataset=d, **self.args) for d in dataset_list]
+        val_loaders = [_etdata.ETDataLoader.new(mode='eval', shuffle=False, dataset=d, **self.args) for d in dataset_list]
         with _torch.no_grad():
             for loader in val_loaders:
                 its = []
@@ -346,7 +345,7 @@ class ETTrainer:
         r"""
         Main training loop.
         """
-        train_loader = _etdata.ETDataLoader.new(shuffle=True, dataset=dataset, **self.args)
+        train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
         for ep in range(1, self.args['epochs'] + 1):
 
             for k in self.nn:

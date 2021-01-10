@@ -1,7 +1,8 @@
-import torch as _torch
 import argparse as _ap
 import random as _random
 from collections import OrderedDict as _ODict
+
+import torch as _torch
 
 cuda_available = _torch.cuda.is_available()
 num_gpus = _torch.cuda.device_count()
@@ -51,3 +52,5 @@ default_args.add_argument('-lsp', '--load_sparse', default=False, type=boolean_s
 default_args.add_argument('-nf', '--num_folds', default=None, type=int, help='Number of folds.')
 default_args.add_argument('-rt', '--split_ratio', default=[0.6, 0.2, 0.2], nargs='*', type=float,
                           help='Split ratio. Eg: 0.6 0.2 0.2 or 0.8 0.2')
+
+args = vars(default_args.parse_args())

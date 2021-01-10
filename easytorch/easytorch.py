@@ -70,8 +70,9 @@ class EasyTorch:
 
         assert (self.args.get('phase') in self._MODES_), self._MODE_ERR_
 
-        self.args.update(verbose=self.args.get('verbose', True))
-        self.args.update(gpus=self.args.get('gpus', []))
+        for k in _conf.args:
+            if self.args.get(k) is None:
+                self.args[k] = _conf.args.get(k)
 
         if self.args['verbose'] and len(self.args['gpus']) > _conf.num_gpus:
             _warn.warn(f"{len(self.args['gpus'])} GPUs requested "
@@ -213,7 +214,7 @@ class EasyTorch:
                     """
                     Best model will be split_name.pt in training phase, and if no pretrained path is supplied.
                     """
-                    trainer.load_best_model()
+                    trainer.load_checkpoint_from_key(key='checkpoint')
 
                 """########## Run test phase. ##############################"""
                 testset = self._get_test_dataset(split, dspec, dataset_cls)
@@ -320,7 +321,7 @@ class EasyTorch:
             """
             Best model will be split_name.pt in training phase, and if no pretrained path is supplied.
             """
-            trainer.load_best_model()
+            trainer.load_checkpoint_from_key(key='checkpoint')
 
         test_dataset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
                                              load_sparse=self.args['load_sparse'])
