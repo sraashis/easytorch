@@ -32,7 +32,7 @@ class ETTrainer:
         self.device = _ODict()
         self.optimizer = _ODict()
 
-    def init_nn(self):
+    def init_nn(self, **kw):
         r"""
         Call to user implementation of:
             Initialize models.
@@ -59,7 +59,7 @@ class ETTrainer:
         If path to pretrained weights are given, it will be used instead.
         """
         if self.args['pretrained_path'] is not None:
-            self._load_checkpoint(self.args['pretrained_path'])
+            self.load_checkpoint(self.args['pretrained_path'])
         elif self.args['phase'] == 'train':
             _torch.manual_seed(self.args['seed'])
             for mk in self.nn:
@@ -67,9 +67,9 @@ class ETTrainer:
 
     def load_best_model(self):
         r"""Load the best model']"""
-        self._load_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
+        self.load_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
 
-    def _load_checkpoint(self, full_path):
+    def load_checkpoint(self, full_path):
         r"""
         Load checkpoint from the given path:
             If it is an easytorch checkpoint, try loading all the models.
@@ -86,6 +86,12 @@ class ETTrainer:
                     self.nn[m].module.load_state_dict(chk['models'][m])
                 except:
                     self.nn[m].load_state_dict(chk['models'][m])
+
+            for m in chk['optimizers']:
+                try:
+                    self.optimizer[m].module.load_state_dict(chk['optimizers'][m])
+                except:
+                    self.optimizer[m].load_state_dict(chk['optimizers'][m])
         else:
             mkey = list(self.nn.keys())[0]
             try:
@@ -159,17 +165,23 @@ class ETTrainer:
         if i.lower() == 'n':
             raise FileExistsError(f' ##### {self.args["log_dir"]} directory is not empty. #####')
 
-    def save_checkpoint(self):
-        checkpoint = {'source': "easytorch"}
+    def save_checkpoint(self, file_name, src='easytorch'):
+        checkpoint = {'source': src}
         for k in self.nn:
             checkpoint['models'] = {}
             try:
                 checkpoint['models'][k] = self.nn[k].module.state_dict()
             except:
                 checkpoint['models'][k] = self.nn[k].state_dict()
-        _torch.save(checkpoint, self.cache['log_dir'] + _sep + self.cache['checkpoint'])
+        for k in self.optimizer:
+            checkpoint['optimizers'] = {}
+            try:
+                checkpoint['optimizers'][k] = self.optimizer[k].module.state_dict()
+            except:
+                checkpoint['optimizers'][k] = self.optimizer[k].state_dict()
+        _torch.save(checkpoint, self.cache['log_dir'] + _sep + file_name)
 
-    def reset_dataset_cache(self):
+    def reset_dataset_cache(self, **kw):
         r"""
         An extra layer to reset cache for each dataspec. For example:
         1. Set a new score to monitor:
@@ -192,7 +204,7 @@ class ETTrainer:
         """
         pass
 
-    def reset_fold_cache(self):
+    def reset_fold_cache(self, **kw):
         """Nothing specific to do here.
         Just keeping in case we need to intervene with each of the k-folds just like each datasets above.
         """
@@ -208,7 +220,7 @@ class ETTrainer:
 
         if (self.cache['metric_direction'] == 'maximize' and sc >= self.cache['best_score']) or (
                 self.cache['metric_direction'] == 'minimize' and sc <= self.cache['best_score']):
-            self.save_checkpoint()
+            self.save_checkpoint(self.cache['checkpoint'])
             self.cache['best_score'] = sc
             self.cache['best_epoch'] = epoch
             if self.args['verbose']:
@@ -263,13 +275,14 @@ class ETTrainer:
         if self.args['verbose']:
             print(f'--- Running {split_key} ---')
 
-        eval_loss = self.new_averages()
+        eval_avg = self.new_averages()
         eval_metrics = self.new_metrics()
         val_loaders = [_etdata.ETDataLoader.new(shuffle=False, dataset=d, **self.args) for d in dataset_list]
         with _torch.no_grad():
             for loader in val_loaders:
                 its = []
                 metrics = self.new_metrics()
+                avg = self.new_averages()
                 for i, batch in enumerate(loader):
 
                     it = self.iteration(batch)
@@ -277,21 +290,22 @@ class ETTrainer:
                         it['metrics'] = _base_metrics.ETMetrics()
 
                     metrics.accumulate(it['metrics'])
-                    eval_loss.accumulate(it['averages'])
+                    avg.accumulate(it['averages'])
                     if save_pred:
                         its.append(it)
                     if self.args['verbose'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
                         print(f"Itr:{i}/{len(loader)}, {it['averages'].get()}, {it['metrics'].get()}")
 
                 eval_metrics.accumulate(metrics)
+                eval_avg.accumulate(avg)
                 if self.args['verbose'] and len(dataset_list) > 1:
-                    print(f"{split_key}, {metrics.get()}")
+                    print(f"{split_key}, {avg.get()}, {metrics.get()}")
                 if save_pred:
                     self.save_predictions(loader.dataset, its)
 
         if self.args['verbose']:
             print(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.get()}")
-        return eval_loss, eval_metrics
+        return eval_avg, eval_metrics
 
     def training_iteration(self, batch):
         r"""
