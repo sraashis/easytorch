@@ -43,7 +43,7 @@ def create_k_fold_splits(files, k=0, save_to_dir=None, shuffle_files=True, name=
                   'test': [files[ix] for ix in test_ix]}
 
         if save_to_dir:
-            f = open(save_to_dir + _sep + name + str(i) + '.json', "w")
+            f = open(save_to_dir + _sep + f"{name}_{i}.json", "w")
             f.write(_json.dumps(splits))
             f.close()
         else:
@@ -105,7 +105,7 @@ def init_kfolds_(dspec, args):
         If: custom splits path is given it will use the splits from there
         else: will create new k-splits and run k-fold cross validation.
     """
-    if args.get('num_fold'):
+    if args.get('num_folds'):
         create_k_fold_splits(_os.listdir(dspec['data_dir']), k=args['num_folds'],
                              save_to_dir=dspec['split_dir'], shuffle_files=True, name=dspec['name'])
     else:
