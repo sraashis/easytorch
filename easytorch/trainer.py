@@ -51,7 +51,7 @@ class ETTrainer:
 
         self._init_nn_weights(**kw)
         self._init_optimizer()
-        self._set_gpus()
+        self._set_device()
 
     def _init_nn_weights(self, **kw):
         r"""
@@ -104,7 +104,7 @@ class ETTrainer:
         """
         raise NotImplementedError('Must be implemented in child class.')
 
-    def _set_gpus(self):
+    def _set_device(self):
         r"""
         Initialize GPUs based on whats provided in args(Default [0])
         Expects list of GPUS as [0, 1, 2, 3]., list of GPUS will make it use DataParallel.
