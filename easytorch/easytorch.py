@@ -45,6 +45,10 @@ class EasyTorch:
                  split_ratio: _List[float] = None,
                  **kw):
         """
+        Order of precedence of arguments is(Higher will override the lower):
+            1. Default args as in easytorch.conf.default_args
+            2. Listed args in __init__ method
+            3. kwargs in **kw
         @param dataspecs: List of dict with which dataset details like data_files path, ground truth path...
                 Example: [{'data_dir':'images', 'labels_dir':'manuals', 'splits_dir':'splits'}]
                 Each key with _dir in it will be appended before the value provided in 'dataset_dir' argument.
