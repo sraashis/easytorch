@@ -1,14 +1,13 @@
 import json as _json
 import os as _os
+import pprint as _pp
+import warnings as _warn
 from argparse import ArgumentParser as _AP
-
 from typing import List as _List, Union as _Union, Callable as _Callable
 
-import warnings as _warn
-
+import easytorch.config as _conf
 import easytorch.utils as _utils
 from easytorch.data import datautils as _du
-import easytorch.config as _conf
 
 _sep = _os.sep
 
@@ -79,6 +78,11 @@ class EasyTorch:
                        f"but {_conf.num_gpus if _conf.cuda_available else 'GPU not'} detected. "
                        f"Using {_conf.num_gpus + ' GPU(s)' if _conf.cuda_available else 'CPU(Much slower)'}.\n")
             self.args['gpus'] = list(range(_conf.num_gpus))
+
+        if self.args['verbose']:
+            print('***** Starting with the the following arguments: ******')
+            _pp.pprint(self.args)
+            print('(Defaults are loaded from easytorch.config.default_args)\n')
 
     def _init_args_(self, args):
         if isinstance(args, _AP):
