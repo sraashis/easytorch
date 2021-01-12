@@ -32,7 +32,7 @@ default_args = _ap.ArgumentParser()
 default_args.add_argument('-ph', '--phase', default=None, choices=['train', 'test'], type=str,
                           help='Can be train/test.')
 default_args.add_argument("-b", "--batch_size", default=32, type=int, help="Mini-batch size.")
-default_args.add_argument('-ep', '--epochs', default=51, type=int, help='Number of epochs.')
+default_args.add_argument('-ep', '--epochs', default=21, type=int, help='Number of epochs.')
 default_args.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
 default_args.add_argument('-gpus', '--gpus', default=[0], nargs='*', type=int, help='How many gpus to use?')
 default_args.add_argument('-pin', '--pin_memory', default=cuda_available, type=boolean_string, help='Pin Memory.')
@@ -47,7 +47,7 @@ default_args.add_argument('-v', '--verbose', default=True, type=boolean_string,
                           help='Prints information on different steps.')
 default_args.add_argument('-s', '--seed', default=_random.randint(0, int(1e11)), type=int, help='Seed')
 default_args.add_argument('-f', '--force', default=False, type=boolean_string, help='Force')
-default_args.add_argument('-pat', '--patience', default=31, type=int, help='Early Stopping patience epochs.')
+default_args.add_argument('-pat', '--patience', default=11, type=int, help='Early Stopping patience epochs.')
 default_args.add_argument('-lsp', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')
 default_args.add_argument('-nf', '--num_folds', default=None, type=int, help='Number of folds.')
 default_args.add_argument('-rt', '--split_ratio', default=[0.6, 0.2, 0.2], nargs='*', type=float,

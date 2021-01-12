@@ -13,6 +13,10 @@ Very useful image related utilities
 """
 
 
+def _same_file(x):
+    return x
+
+
 class Image:
     def __init__(self, dtype=_np.uint8):
         self.dir = None
@@ -31,21 +35,21 @@ class Image:
         except Exception as e:
             print('### Error Loading file: ' + self.file + ': ' + str(e))
 
-    def load_mask(self, mask_dir=None, fget_mask=lambda x: x):
+    def load_mask(self, mask_dir=None, fget_mask=_same_file):
         try:
             mask_file = fget_mask(self.file)
             self.mask = _np.array(_IMG.open(_os.path.join(mask_dir, mask_file)), dtype=self.dtype)
         except Exception as e:
             print('### Fail to load mask: ' + str(e))
 
-    def load_ground_truth(self, gt_dir=None, fget_ground_truth=lambda x: x):
+    def load_ground_truth(self, gt_dir=None, fget_ground_truth=_same_file):
         try:
             gt_file = fget_ground_truth(self.file)
             self.ground_truth = _np.array(_IMG.open(_os.path.join(gt_dir, gt_file)), dtype=self.dtype)
         except Exception as e:
             print('### Fail to load ground truth: ' + str(e))
 
-    def get_array(self, dir='', getter=lambda x: x, file=None):
+    def get_array(self, dir='', getter=_same_file, file=None):
         if not file: file = self.file
         arr = _np.array(_IMG.open(_os.path.join(dir, getter(file))), dtype=self.dtype)
         return arr

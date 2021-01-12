@@ -24,7 +24,7 @@ class EasyTorch:
         '\n\tor loading provided weights in pretrained_path argument) '
 
     def __init__(self, dataspecs: _List[dict],
-                 args: _Union[dict, _AP] = _conf.default_args,
+                 args: _Union[dict, _AP] = _conf.args,
                  phase: str = None,
                  batch_size: int = None,
                  epochs: int = None,
@@ -44,45 +44,77 @@ class EasyTorch:
                  num_folds: int = None,
                  split_ratio: _List[float] = None,
                  **kw):
-
+        """
+        @param dataspecs: List of dict with which dataset details like data_files path, ground truth path...
+                Example: [{'data_dir':'images', 'labels_dir':'manuals', 'splits_dir':'splits'}]
+                Each key with _dir in it will be appended before the value provided in 'dataset_dir' argument.
+        @param args: An argument parser, or, dict. (Defaults are loaded from easytorch.conf.default_args.)
+                    Note: values in args will be overridden by the listed args below if provided.
+        @param phase: phase of operation; train/test. (Default: None)
+                    train phase will run all train, validation, and test step.
+        @param batch_size: Default is 32
+        @param epochs: Default is 21
+        @param learning_rate: Default is 0.001
+        @param gpus: Default [0]. But set to [](or cpu) if no gpus found.
+        @param pin_memory: Default is True if cuda found.
+        @param num_workers: Default is 4.
+        @param dataset_dir: Default is ''. Path to some dataset folder.
+        @param load_limit: Load limit for data items for debugging pipeline with few data sample. Default is 1e11
+        @param log_dir: Directory path to place all saved models, plots.... Default is net_logs/
+        @param pretrained_path: Path to load pretrained model. Default is None
+        @param verbose: Show logs? Default is True
+        @param seed: What seed to use for reproducibility. Default is randomly initiated.
+        @param force: Force to clear previous logs in log_dir(if any).
+        @param patience: Set patience epochs to stop training. Uses validation scores. Default is 11.
+        @param load_sparse: Loads test dataset in single data loader to recreate data(eg images) from prediction. Default is False.
+        @param num_folds: Number of k-folds to split the data(eg folder with images) into. Default is None.
+                        However, if a custom json split(s) are provided with keys train, validation,
+                        test is provided in split_dir folder as specified in dataspecs, it will be loaded.
+        @param split_ratio: Ratio to split files as specified in data_dir in dataspecs into. Default is 0.6, 0.2. 0.2.
+                        However, if a custom json split(s) are provided with keys train, validation,
+                        test is provided in split_dir folder as specified in dataspecs, it will be loaded.
+        @param kw: Extra kwargs.
+        """
         self._init_args_(args)
-        if phase: self.args.update(phase=phase)
-        if batch_size: self.args.update(batch_size=batch_size)
-        if epochs: self.args.update(epochs=epochs)
-        if learning_rate: self.args.update(learning_rate=learning_rate)
-        if gpus: self.args.update(gpus=gpus)
-        if pin_memory: self.args.update(pin_memory=pin_memory)
-        if num_workers: self.args.update(num_workers=num_workers)
-        if dataset_dir: self.args.update(dataset_dir=dataset_dir)
-        if load_limit: self.args.update(load_limit=load_limit)
-        if log_dir: self.args.update(log_dir=log_dir)
-        if pretrained_path: self.args.update(pretrained_path=pretrained_path)
-        if verbose: self.args.update(verbose=verbose)
-        if seed: self.args.update(seed=seed)
-        if force: self.args.update(force=force)
-        if patience: self.args.update(patience=patience)
-        if load_sparse: self.args.update(load_sparse=load_sparse)
-        if num_folds: self.args.update(num_folds=num_folds)
-        if split_ratio: self.args.update(split_ratio=split_ratio)
-        self.args.update(**kw)
-        self._init_dataspecs_(dataspecs)
 
+        if phase is not None:self.args.update(phase=phase)
+        if batch_size is not None: self.args.update(batch_size=batch_size)
+        if epochs is not None: self.args.update(epochs=epochs)
+        if learning_rate is not None: self.args.update(learning_rate=learning_rate)
+        if gpus is not None: self.args.update(gpus=gpus)
+        if pin_memory is not None: self.args.update(pin_memory=pin_memory)
+        if num_workers is not None: self.args.update(num_workers=num_workers)
+        if dataset_dir is not None: self.args.update(dataset_dir=dataset_dir)
+        if load_limit is not None: self.args.update(load_limit=load_limit)
+        if log_dir is not None: self.args.update(log_dir=log_dir)
+        if pretrained_path is not None: self.args.update(pretrained_path=pretrained_path)
+        if verbose is not None: self.args.update(verbose=verbose)
+        if seed is not None: self.args.update(seed=seed)
+        if force is not None: self.args.update(force=force)
+        if patience is not None: self.args.update(patience=patience)
+        if load_sparse is not None: self.args.update(load_sparse=load_sparse)
+        if num_folds is not None: self.args.update(num_folds=num_folds)
+        if split_ratio is not None: self.args.update(split_ratio=split_ratio)
+        self.args.update(**kw)
         assert (self.args.get('phase') in self._MODES_), self._MODE_ERR_
 
-        for k in _conf.args:
-            if self.args.get(k) is None:
-                self.args[k] = _conf.args.get(k)
+        self._init_dataspecs_(dataspecs)
 
+        self._device_check_()
+        self._show_args()
+
+    def _device_check_(self):
         if self.args['verbose'] and len(self.args['gpus']) > _conf.num_gpus:
             _warn.warn(f"{len(self.args['gpus'])} GPUs requested "
                        f"but {_conf.num_gpus if _conf.cuda_available else 'GPU not'} detected. "
                        f"Using {_conf.num_gpus + ' GPU(s)' if _conf.cuda_available else 'CPU(Much slower)'}.\n")
             self.args['gpus'] = list(range(_conf.num_gpus))
 
+    def _show_args(self):
         if self.args['verbose']:
-            print('***** Starting with the the following arguments: ******')
+            print('***   Starting with the following parameters:   ***\n')
             _pp.pprint(self.args)
-            print('(Defaults are loaded from easytorch.config.default_args)\n')
+            print('\nNote: Defaults args are loaded from easytorch.config.default_args.\n')
 
     def _init_args_(self, args):
         if isinstance(args, _AP):
@@ -91,6 +123,9 @@ class EasyTorch:
             self.args = {**args}
         else:
             raise ValueError('2nd Argument of EasyTorch could be only one of :ArgumentParser, dict')
+        for k in _conf.args:
+            if self.args.get(k) is None:
+                self.args[k] = _conf.args.get(k)
 
     def _init_dataspecs_(self, dataspecs):
         """
@@ -100,7 +135,7 @@ class EasyTorch:
         self.dataspecs = [{**dspec} for dspec in dataspecs]
         for dspec in self.dataspecs:
             for k in dspec:
-                if 'dir' in k:
+                if '_dir' in k:
                     dspec[k] = _os.path.join(self.args['dataset_dir'], dspec[k])
 
     def _get_train_dataset(self, split, dspec, dataset_cls):
