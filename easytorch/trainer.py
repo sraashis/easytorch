@@ -276,7 +276,8 @@ class ETTrainer:
 
         eval_avg = self.new_averages()
         eval_metrics = self.new_metrics()
-        val_loaders = [_etdata.ETDataLoader.new(mode='eval', shuffle=False, dataset=d, **self.args) for d in dataset_list]
+        val_loaders = [_etdata.ETDataLoader.new(mode='eval', shuffle=False, dataset=d, **self.args) for d in
+                       dataset_list]
         with _torch.no_grad():
             for loader in val_loaders:
                 its = []
@@ -313,12 +314,34 @@ class ETTrainer:
         """
         first_optim = list(self.optimizer.keys())[0]
         self.optimizer[first_optim].zero_grad()
-        it = self.iteration(batch)
-        it['loss'].backward()
+        its = []
+        for i in range(self.cache.get('num_iteration', 1)):
+            """Accumulate gradients"""
+            it = self.iteration(batch)
+            it['loss'].backward()
+            its.append(it)
         self.optimizer[first_optim].step()
-        return it
+        return self._reduce_iteration(its)
 
-    def _on_epoch_end(self, ep, ep_loss, ep_metrics, val_loss, val_metrics):
+    def _reduce_iteration(self, its):
+        reduced = {}.fromkeys(its[0].keys(), None)
+        for k in reduced:
+            if isinstance(its[0][k], _base_metrics.ETAverages):
+                reduced[k] = self.new_averages()
+                [reduced[k].accumulate(ik[k]) for ik in its]
+
+            elif isinstance(its[0][k], _base_metrics.ETMetrics):
+                reduced[k] = self.new_metrics()
+                [reduced[k].accumulate(ik[k]) for ik in its]
+
+            elif isinstance(its[0][k], _torch.Tensor) and not its[0][k].requires_grad and its[0][k].is_leaf:
+                reduced[k] = _torch.cat([ik[k] for ik in its])
+
+            else:
+                reduced[k] = [ik[k] for ik in its]
+        return reduced
+
+    def _on_epoch_end(self, ep, ep_averages, ep_metrics, val_averages, val_metrics):
         r"""
         Any logic to run after an epoch ends.
         """
@@ -331,7 +354,7 @@ class ETTrainer:
         """
         pass
 
-    def _early_stopping(self, ep, ep_loss, ep_metrics, val_loss, val_metrics):
+    def _early_stopping(self, ep, ep_averages, ep_metrics, val_averages, val_metrics):
         r"""
         Stop the training based on some criteria.
          For example: the implementation below will stop training if the validation
@@ -352,8 +375,8 @@ class ETTrainer:
                 self.nn[k].train()
 
             _metrics = self.new_metrics()
-            _loss = self.new_averages()
-            ep_loss = self.new_averages()
+            _avg = self.new_averages()
+            ep_avg = self.new_averages()
             ep_metrics = self.new_metrics()
             for i, batch in enumerate(train_loader, 1):
 
@@ -361,29 +384,29 @@ class ETTrainer:
                 if not it.get('metrics'):
                     it['metrics'] = _base_metrics.ETMetrics()
 
-                ep_loss.accumulate(it['averages'])
+                ep_avg.accumulate(it['averages'])
                 ep_metrics.accumulate(it['metrics'])
 
                 """
                 Running loss/metrics
                 """
-                _loss.accumulate(it['averages'])
+                _avg.accumulate(it['averages'])
                 _metrics.accumulate(it['metrics'])
                 if self.args['verbose'] and i % int(_math.log(i + 1) + 1) == 0:
                     print(f"Ep:{ep}/{self.args['epochs']},Itr:{i}/{len(train_loader)},"
-                          f"{_loss.get()},{_metrics.get()}")
+                          f"{_avg.get()},{_metrics.get()}")
 
-                    self.cache['training_log'].append([*_loss.get(), *_metrics.get()])
+                    self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
                     _metrics.reset()
-                    _loss.reset()
+                    _avg.reset()
 
                 self._on_iteration_end(i, ep, it)
 
-            self.cache['training_log'].append([*ep_loss.get(), *ep_metrics.get()])
+            self.cache['training_log'].append([*ep_avg.get(), *ep_metrics.get()])
             val_loss, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
             self.save_if_better(ep, val_metric)
             self.cache['validation_log'].append([*val_loss.get(), *val_metric.get()])
 
-            self._on_epoch_end(ep, ep_loss, ep_metrics, val_loss, val_metric)
-            if self._early_stopping(ep, ep_loss, ep_metrics, val_loss, val_metric):
+            self._on_epoch_end(ep, ep_avg, ep_metrics, val_loss, val_metric)
+            if self._early_stopping(ep, ep_avg, ep_metrics, val_loss, val_metric):
                 break
