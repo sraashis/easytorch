@@ -33,6 +33,7 @@ default_args.add_argument('-ph', '--phase', default=None, choices=['train', 'tes
                           help='Can be train/test.')
 default_args.add_argument("-b", "--batch_size", default=32, type=int, help="Mini-batch size.")
 default_args.add_argument('-ep', '--epochs', default=21, type=int, help='Number of epochs.')
+default_args.add_argument('-ni', '--num_iteration', default=1, type=int, help='Number of iterations for gradient accumulation.')
 default_args.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
 default_args.add_argument('-gpus', '--gpus', default=[0], nargs='*', type=int, help='How many gpus to use?')
 default_args.add_argument('-pin', '--pin_memory', default=cuda_available, type=boolean_string, help='Pin Memory.')

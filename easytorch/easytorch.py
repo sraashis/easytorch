@@ -81,7 +81,7 @@ class EasyTorch:
         """
         self._init_args_(args)
 
-        if phase is not None:self.args.update(phase=phase)
+        if phase is not None: self.args.update(phase=phase)
         if batch_size is not None: self.args.update(batch_size=batch_size)
         if epochs is not None: self.args.update(epochs=epochs)
         if learning_rate is not None: self.args.update(learning_rate=learning_rate)

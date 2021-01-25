@@ -276,7 +276,8 @@ class ETTrainer:
 
         eval_avg = self.new_averages()
         eval_metrics = self.new_metrics()
-        val_loaders = [_etdata.ETDataLoader.new(mode='eval', shuffle=False, dataset=d, **self.args) for d in dataset_list]
+        val_loaders = [_etdata.ETDataLoader.new(mode='eval', shuffle=False, dataset=d, **self.args) for d in
+                       dataset_list]
         with _torch.no_grad():
             for loader in val_loaders:
                 its = []
@@ -313,10 +314,32 @@ class ETTrainer:
         """
         first_optim = list(self.optimizer.keys())[0]
         self.optimizer[first_optim].zero_grad()
-        it = self.iteration(batch)
-        it['loss'].backward()
+        its = []
+        for i in range(self.cache.get('num_iteration', 1)):
+            """Accumulate gradients"""
+            it = self.iteration(batch)
+            it['loss'].backward()
+            its.append(it)
         self.optimizer[first_optim].step()
-        return it
+        return self._reduce_iteration(its)
+
+    def _reduce_iteration(self, its):
+        reduced = {}.fromkeys(its[0].keys(), None)
+        for k in reduced:
+            if isinstance(its[0][k], _base_metrics.ETAverages):
+                reduced[k] = self.new_averages()
+                [reduced[k].accumulate(ik[k]) for ik in its]
+
+            elif isinstance(its[0][k], _base_metrics.ETMetrics):
+                reduced[k] = self.new_metrics()
+                [reduced[k].accumulate(ik[k]) for ik in its]
+
+            elif isinstance(its[0][k], _torch.Tensor) and not its[0][k].requires_grad and its[0][k].is_leaf:
+                reduced[k] = _torch.cat([ik[k] for ik in its])
+
+            else:
+                reduced[k] = [ik[k] for ik in its]
+        return reduced
 
     def _on_epoch_end(self, ep, ep_loss, ep_metrics, val_loss, val_metrics):
         r"""
