@@ -8,7 +8,7 @@ def dice_loss_binary(outputs=None, target=None, beta=1, weights=None):
     """
     from torch import min as tmin
     smooth = 1.0
-    if weights:
+    if weights is not None:
         w = weights.contiguous().float().view(-1)
         if tmin(w).item() == 0:
             w += smooth
