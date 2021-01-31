@@ -324,6 +324,8 @@ class ETTrainer:
         return self._reduce_iteration(its)
 
     def _reduce_iteration(self, its):
+        if len(its) == 1:
+            return its[0]
         reduced = {}.fromkeys(its[0].keys(), None)
         for k in reduced:
             if isinstance(its[0][k], _base_metrics.ETAverages):
