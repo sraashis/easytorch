@@ -52,6 +52,7 @@ default_args.add_argument('-pat', '--patience', default=11, type=int, help='Earl
 default_args.add_argument('-lsp', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')
 default_args.add_argument('-nf', '--num_folds', default=None, type=int, help='Number of folds.')
 default_args.add_argument('-rt', '--split_ratio', default=[0.6, 0.2, 0.2], nargs='*', type=float,
-                          help='Split ratio. Eg: 0.6 0.2 0.2 or 0.8 0.2')
+                          help='Split ratio. Eg: 0.6 0.2 0.2 or 0.8 0.2. Exclusive to num_fold.')
 
-args = vars(default_args.parse_args())
+_known, _unknown = default_args.parse_known_args()
+args = vars(_known)
