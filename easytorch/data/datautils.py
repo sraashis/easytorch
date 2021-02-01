@@ -3,11 +3,12 @@ import os as _os
 import random as _rd
 
 import numpy as _np
+from easytorch import config as _conf
 
 _sep = _os.sep
 
 
-def create_ratio_split(files, save_to_dir=None, ratio: dict = (0.6, 0.2, 0.2), first_key='train', name='SPLIT'):
+def create_ratio_split(files, save_to_dir=None, ratio: dict = None, first_key='train', name='SPLIT'):
     keys = [first_key]
     if len(ratio) == 2:
         keys.append('test')
@@ -109,5 +110,9 @@ def init_kfolds_(dspec, args):
         create_k_fold_splits(_os.listdir(dspec['data_dir']), k=args['num_folds'],
                              save_to_dir=dspec['split_dir'], shuffle_files=True, name=dspec['name'])
     else:
+        if args['split_ratio'] is None or len(args['split_ratio']) == 0:
+            args['split_ratio'] = _conf.data_split_ratio
         create_ratio_split(_os.listdir(dspec['data_dir']),
-                           save_to_dir=dspec['split_dir'], ratio=args['split_ratio'], name=dspec['name'])
+                           save_to_dir=dspec['split_dir'],
+                           ratio=args['split_ratio'],
+                           name=dspec['name'])

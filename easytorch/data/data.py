@@ -1,9 +1,12 @@
 import json as _json
 import os as _os
+import numpy as _np
 
+import torch as _torch
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 import easytorch.config as _conf
+from easytorch.utils.logger import *
 
 
 def safe_collate(batch):
@@ -11,6 +14,11 @@ def safe_collate(batch):
     Savely select batches/skip errors in file loading.
     """
     return _default_collate([b for b in batch if b])
+
+
+def seed_worker(worker_id):
+    worker_seed = _torch.initial_seed() % 2 ** 32
+    _np.random.seed(worker_seed)
 
 
 class ETDataLoader(_DataLoader):
@@ -30,7 +38,7 @@ class ETDataLoader(_DataLoader):
             'pin_memory': False,
             'drop_last': False,
             'timeout': 0,
-            'worker_init_fn': None
+            'worker_init_fn': seed_worker if kw.get('seed_all') else None
         }
         for k in _kw.keys():
             _kw[k] = kw.get(k, _kw.get(k))
@@ -62,7 +70,7 @@ class ETDataset(_Dataset):
             self.load_index(dataset_name, file)
 
         if kw.get('verbose', True):
-            print(f'{dataset_name}, {self.mode}, {len(self)} Indices Loaded')
+            success(f'{dataset_name}, {self.mode}, {len(self)} Indices Loaded')
 
     def __getitem__(self, index):
         r"""
@@ -103,7 +111,7 @@ class ETDataset(_Dataset):
                         d.add(files=[file], debug=False, **dspec)
                         all_d.append(d)
                     if args['verbose']:
-                        print(f'{len(all_d)} sparse dataset loaded.')
+                        success(f'{len(all_d)} sparse dataset loaded.')
                 else:
                     if len(all_d) <= 0:
                         all_d.append(cls(mode=split_key, limit=args['load_limit']))

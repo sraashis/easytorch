@@ -5,6 +5,7 @@ import os as _os
 import cv2 as _cv2
 import numpy as _np
 from PIL import Image as _IMG
+from easytorch.utils.logger import *
 
 """
 ##################################################################################################
@@ -33,21 +34,21 @@ class Image:
             self.file = file
             self.array = _np.array(_IMG.open(self.path), dtype=self.dtype)
         except Exception as e:
-            print('### Error Loading file: ' + self.file + ': ' + str(e))
+            error('Fail to load file: ' + self.file + ': ' + str(e))
 
     def load_mask(self, mask_dir=None, fget_mask=_same_file):
         try:
             mask_file = fget_mask(self.file)
             self.mask = _np.array(_IMG.open(_os.path.join(mask_dir, mask_file)), dtype=self.dtype)
         except Exception as e:
-            print('### Fail to load mask: ' + str(e))
+            error('Fail to load mask: ' + str(e))
 
     def load_ground_truth(self, gt_dir=None, fget_ground_truth=_same_file):
         try:
             gt_file = fget_ground_truth(self.file)
             self.ground_truth = _np.array(_IMG.open(_os.path.join(gt_dir, gt_file)), dtype=self.dtype)
         except Exception as e:
-            print('### Fail to load ground truth: ' + str(e))
+            error('Fail to load ground truth: ' + str(e))
 
     def get_array(self, dir='', getter=_same_file, file=None):
         if not file: file = self.file
@@ -67,7 +68,7 @@ class Image:
             self.array[:, :, 1] = enhancer.apply(self.array[:, :, 1])
             self.array[:, :, 2] = enhancer.apply(self.array[:, :, 2])
         else:
-            print('### More than three channels')
+            error('More than three channels')
 
     def __copy__(self):
         copy_obj = Image()
