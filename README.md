@@ -125,18 +125,18 @@ if __name__ == "__main__":
 ### Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)
 * **-ph/--phase** [Required]
     * Which phase to run? 'train' (runs all train, validation, test steps) OR 'test' (runs only test step).
-* **-b/--batch_size** [32]
+* **-b/--batch_size** [4]
 * **-ep/--epochs** [51]
 * **-lr/--learning_rate** [0.001]
 * -**gpus/--gpus** [0]
     * List of gpus to be used. Eg. [0], [1], [0, 1]
 * **-nw/--num_workers** [4]
     * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
-* **-lim/--load-limit**[inf]
+* **-lim/--load-limit**[max]
     * Specifies a limit on images/files to load for debug purpose for pipeline debugging.
 * **-nf/--num_folds** [None]
     * Number of folds in k-fold cross validation(Integer value like 5, 10).
-* **-rt/--split_ratio** [0.6 0.2 0.2]
+* **-spl/--split_ratio** [0.6 0.2 0.2]
     * Split ratio for train, validation, test set if two items given| train, test if three items given| train only if one item given.
 * [...see more](assets/DefaultArgs.md)
 ## All the best! for whatever you are working on. Cheers!
