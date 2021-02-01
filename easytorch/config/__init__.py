@@ -1,6 +1,7 @@
 import argparse as _ap
 import random as _random
 from collections import OrderedDict as _ODict
+import sys as _sys
 
 import torch as _torch
 
@@ -9,6 +10,8 @@ num_gpus = _torch.cuda.device_count()
 
 metrics_eps = 10e-5
 metrics_num_precision = 5
+
+data_load_limit = _sys.maxsize
 
 
 def boolean_string(s):
@@ -40,7 +43,7 @@ default_args.add_argument('-pin', '--pin_memory', default=cuda_available, type=b
 default_args.add_argument('-nw', '--num_workers', default=4, type=int,
                           help='Number of workers to work on data loading.')
 default_args.add_argument('-data', '--dataset_dir', default='', type=str, help='Root path to Datasets.')
-default_args.add_argument('-lim', '--load_limit', default=1e11, type=int, help='Data load limit')
+default_args.add_argument('-lim', '--load_limit', default=data_load_limit, type=int, help='Data load limit')
 default_args.add_argument('-log', '--log_dir', default='net_logs', type=str, help='Logging directory.')
 default_args.add_argument('-pt', '--pretrained_path', default=None, type=str,
                           help='Full path to pretrained weights(It will be loaded before training.)')
