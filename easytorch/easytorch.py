@@ -70,7 +70,7 @@ class EasyTorch:
         @param log_dir: Directory path to place all saved models, plots.... Default is net_logs/
         @param pretrained_path: Path to load pretrained model. Default is None
         @param verbose: Show logs? Default is True
-        @param seed: What seed to use for reproducibility. Default is randomly initiated.
+        @param seed: If seeds to use for reproducibility. Default is False.
         @param force: Force to clear previous logs in log_dir(if any).
         @param patience: Set patience epochs to stop training. Uses validation scores. Default is 11.
         @param load_sparse: Loads test dataset in single data loader to recreate data(eg images) from prediction. Default is False.
@@ -111,7 +111,7 @@ class EasyTorch:
         self._make_reproducible()
 
     def _device_check_(self):
-        self.args['gpus'] = self.args.get('gpus', [])
+        self.args['gpus'] = self.args['gpus'] if self.args.get('gpus') is not None else []
         if self.args['verbose'] and len(self.args['gpus']) > _conf.num_gpus:
             warn(f"{len(self.args['gpus'])} GPU(s) requested "
                  f"but {_conf.num_gpus if _conf.cuda_available else 'GPU(s) not'} detected. "
@@ -267,6 +267,7 @@ class EasyTorch:
                 if self.args['phase'] == 'train':
                     trainset = self._get_train_dataset(split, dspec, dataset_cls)
                     valset = self._get_validation_dataset(split, dspec, dataset_cls)
+                    info('')
                     trainer.train(trainset, valset)
                     cache = {**self.args, **trainer.cache, **dspec, **trainer.nn, **trainer.optimizer}
                     _utils.save_cache(cache, experiment_id=trainer.cache['experiment_id'])
