@@ -57,7 +57,7 @@ default_args.add_argument('-f', '--force', default=False, type=boolean_string, h
 default_args.add_argument('-pat', '--patience', default=11, type=int, help='Early Stopping patience epochs.')
 default_args.add_argument('-lsp', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')
 default_args.add_argument('-nf', '--num_folds', default=None, type=int, help='Number of folds.')
-default_args.add_argument('-spr', '--split_ratio', default=None, nargs='*', type=float,
+default_args.add_argument('-spl', '--split_ratio', default=None, nargs='*', type=float,
                           help='Split ratio. Eg: 0.6 0.2 0.2 or 0.8 0.2. Exclusive to num_fold.')
 
 _known, _unknown = default_args.parse_known_args()
