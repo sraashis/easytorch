@@ -225,7 +225,7 @@ class ETTrainer:
             self.cache['best_score'] = sc
             self.cache['best_epoch'] = epoch
             if self.args['verbose']:
-                success(f"BEST! Model *** Saved *** : {self.cache['best_score']}")
+                success(f"Best Model Saved!!! : {self.cache['best_score']}")
         else:
             if self.args['verbose']:
                 warn(f"Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}")
@@ -274,8 +274,7 @@ class ETTrainer:
             self.nn[k].eval()
 
         if self.args['verbose']:
-            info('')
-            info(f'Running {split_key}')
+            info(f'---Running {split_key}---')
 
         eval_avg = self.new_averages()
         eval_metrics = self.new_metrics()
@@ -372,9 +371,6 @@ class ETTrainer:
     def train(self, dataset, val_dataset):
         train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
         for epoch in range(1, self.args['epochs'] + 1):
-            if self.args['verbose']:
-                info('')
-
             for k in self.nn:
                 self.nn[k].train()
 
