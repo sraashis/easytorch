@@ -1,13 +1,16 @@
 import json as _json
 import os as _os
 import pprint as _pp
-import warnings as _warn
 from argparse import ArgumentParser as _AP
 from typing import List as _List, Union as _Union, Callable as _Callable
 
 import easytorch.config as _conf
 import easytorch.utils as _utils
 from easytorch.data import datautils as _du
+import torch as _torch
+import numpy as _np
+import random as _random
+from easytorch.utils.logger import *
 
 _sep = _os.sep
 
@@ -105,20 +108,21 @@ class EasyTorch:
         self._init_dataspecs_(dataspecs)
 
         self._device_check_()
-        self._show_args()
+        self._make_reproducible()
 
     def _device_check_(self):
+        self.args['gpus'] = self.args.get('gpus', [])
         if self.args['verbose'] and len(self.args['gpus']) > _conf.num_gpus:
-            _warn.warn(f"{len(self.args['gpus'])} GPUs requested "
-                       f"but {_conf.num_gpus if _conf.cuda_available else 'GPU not'} detected. "
-                       f"Using {_conf.num_gpus + ' GPU(s)' if _conf.cuda_available else 'CPU(Much slower)'}.\n")
+            warn(f"{len(self.args['gpus'])} GPU(s) requested "
+                 f"but {_conf.num_gpus if _conf.cuda_available else 'GPU(s) not'} detected. "
+                 f"Using {_conf.num_gpus + ' GPU(s)' if _conf.cuda_available else 'CPU(Much slower)'}.")
             self.args['gpus'] = list(range(_conf.num_gpus))
 
     def _show_args(self):
         if self.args['verbose']:
-            print('***   Starting with the following parameters:   ***\n')
+            success('Starting with the following parameters:')
             _pp.pprint(self.args)
-            print('\nNote: Defaults args are loaded from easytorch.config.default_args.\n')
+            warn('Defaults args are loaded from easytorch.config.default_args.')
 
     def _init_args_(self, args):
         if isinstance(args, _AP):
@@ -130,6 +134,17 @@ class EasyTorch:
         for k in _conf.args:
             if self.args.get(k) is None:
                 self.args[k] = _conf.args.get(k)
+
+    def _make_reproducible(self):
+        self.args['seed'] = _conf.current_seed
+        if self.args.get('seed_all'):
+            _torch.manual_seed(self.args['seed'])
+            _torch.cuda.manual_seed_all(self.args['seed'])
+            _torch.cuda.manual_seed(self.args['seed'])
+            _np.random.seed(self.args['seed'])
+            _random.seed(self.args['seed'])
+            _torch.backends.cudnn.deterministic = True
+            _torch.backends.cudnn.benchmark = False
 
     def _init_dataspecs_(self, dataspecs):
         """
@@ -173,7 +188,7 @@ class EasyTorch:
                 test_dataset.add(files=[f], verbose=False, **dspec)
                 test_dataset_list.append(test_dataset)
             if self.args['verbose']:
-                print(f'{len(test_dataset_list)} sparse dataset loaded.')
+                success(f'{len(test_dataset_list)} sparse dataset loaded.')
         else:
             test_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'], **self.args)
             test_dataset.add(files=split.get('test', []), verbose=self.args['verbose'], **dspec)
@@ -191,6 +206,9 @@ class EasyTorch:
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
             if _du.create_splits_(trainer.cache['log_dir'], dspec):
                 data_splitter(dspec=dspec, args=self.args)
+                success(f"{len(_os.listdir(dspec['split_dir']))} split(s) created in '{dspec['split_dir']}' directory.")
+            elif self.args['verbose']:
+                success(f"{len(_os.listdir(dspec['split_dir']))} split(s) loaded from '{dspec['split_dir']}' directory.")
 
             """
             We will save the global scores of all folds if any.
@@ -219,6 +237,7 @@ class EasyTorch:
             Run for each splits.
             """
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
+            self._show_args()
             for split_file in _os.listdir(dspec['split_dir']):
                 split = _json.loads(open(dspec['split_dir'] + _sep + split_file).read())
 
@@ -330,6 +349,7 @@ class EasyTorch:
         """
         trainer.reset_dataset_cache()
         _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
+        self._show_args()
 
         trainer.cache['experiment_id'] = 'pooled'
         trainer.cache['checkpoint'] = trainer.cache['experiment_id'] + '.pt'

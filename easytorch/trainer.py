@@ -14,6 +14,7 @@ import easytorch.utils as _etutils
 from easytorch.metrics import metrics as _base_metrics
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
 from .vision import plotter as _log_utils
+from easytorch.utils.logger import *
 
 _sep = _os.sep
 
@@ -46,8 +47,8 @@ class ETTrainer:
         if self.args['verbose']:
             for k, m in self.nn.items():
                 if isinstance(m, _torch.nn.Module):
-                    print(f' ### Total params in {k}:'
-                          f' {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
+                    success(f'Total params in {k}:'
+                            f' {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
 
         self._init_nn_weights(**kw)
         self._init_optimizer()
@@ -148,6 +149,7 @@ class ETTrainer:
         User can supply -f True flag to override by force.
         """
         if self.args['force']:
+            warn('Forced overriding previous logs.')
             return
         i = 'y'
         if self.args['phase'] == 'train':
@@ -223,10 +225,10 @@ class ETTrainer:
             self.cache['best_score'] = sc
             self.cache['best_epoch'] = epoch
             if self.args['verbose']:
-                print(f"##### BEST! Model *** Saved *** : {self.cache['best_score']}")
+                success(f"BEST! Model *** Saved *** : {self.cache['best_score']}")
         else:
             if self.args['verbose']:
-                print(f"##### Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}")
+                warn(f"Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}")
 
     def iteration(self, batch):
         r"""
@@ -272,7 +274,8 @@ class ETTrainer:
             self.nn[k].eval()
 
         if self.args['verbose']:
-            print(f'--- Running {split_key} ---')
+            info('')
+            info(f'Running {split_key}')
 
         eval_avg = self.new_averages()
         eval_metrics = self.new_metrics()
@@ -294,17 +297,17 @@ class ETTrainer:
                     if save_pred:
                         its.append(it)
                     if self.args['verbose'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
-                        print(f"Itr:{i}/{len(loader)}, {it['averages'].get()}, {it['metrics'].get()}")
+                        info(f"Itr:{i}/{len(loader)}, {it['averages'].get()}, {it['metrics'].get()}")
 
                 eval_metrics.accumulate(metrics)
                 eval_avg.accumulate(avg)
                 if self.args['verbose'] and len(dataset_list) > 1:
-                    print(f"{split_key}, {avg.get()}, {metrics.get()}")
+                    info(f"{split_key}, {avg.get()}, {metrics.get()}")
                 if save_pred:
                     self.save_predictions(loader.dataset, its)
 
         if self.args['verbose']:
-            print(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.get()}")
+            info(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.get()}")
         return eval_avg, eval_metrics
 
     def training_iteration(self, batch):
@@ -372,6 +375,7 @@ class ETTrainer:
         """
         train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
         for ep in range(1, self.args['epochs'] + 1):
+            if self.args['verbose']: info('')
 
             for k in self.nn:
                 self.nn[k].train()
@@ -395,8 +399,8 @@ class ETTrainer:
                 _avg.accumulate(it['averages'])
                 _metrics.accumulate(it['metrics'])
                 if self.args['verbose'] and i % int(_math.log(i + 1) + 1) == 0:
-                    print(f"Ep:{ep}/{self.args['epochs']},Itr:{i}/{len(train_loader)},"
-                          f"{_avg.get()},{_metrics.get()}")
+                    info(f"Ep:{ep}/{self.args['epochs']},Itr:{i}/{len(train_loader)},"
+                         f"{_avg.get()},{_metrics.get()}")
 
                     self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
                     _metrics.reset()
