@@ -279,10 +279,9 @@ class ETTrainer:
 
         eval_avg = self.new_averages()
         eval_metrics = self.new_metrics()
-        val_loaders = [_etdata.ETDataLoader.new(mode='eval', shuffle=False, dataset=d, **self.args) for d in
-                       dataset_list]
+        loaders = [_etdata.ETDataLoader.new(mode='eval', shuffle=False, dataset=d, **self.args) for d in dataset_list]
         with _torch.no_grad():
-            for loader in val_loaders:
+            for loader in loaders:
                 its = []
                 metrics = self.new_metrics()
                 avg = self.new_averages()
@@ -346,73 +345,67 @@ class ETTrainer:
                 reduced[k] = [ik[k] for ik in its]
         return reduced
 
-    def _on_epoch_end(self, ep, ep_averages, ep_metrics, val_averages, val_metrics):
+    def _on_epoch_end(self, **kw):
         r"""
         Any logic to run after an epoch ends.
         """
-        _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                 plot_keys=['training_log', 'validation_log'], epoch=ep)
+        pass
 
-    def _on_iteration_end(self, i, ep, it):
+    def _on_iteration_end(self, i, epoch, it):
         r"""
         Any logic to run after an iteration ends.
         """
         pass
 
-    def _early_stopping(self, ep, ep_averages, ep_metrics, val_averages, val_metrics):
+    def _stop_early(self, **kw):
         r"""
         Stop the training based on some criteria.
          For example: the implementation below will stop training if the validation
          scores does not improve within a 'patience' number of epochs.
         """
-        if ep - self.cache['best_epoch'] >= self.args.get('patience', 'epochs'):
-            return True
-        return False
+        return kw.get('epoch') - self.cache['best_epoch'] >= self.args.get('patience', 'epochs')
+
+    def _plot_progress(self, **kw):
+        _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
+                                 plot_keys=['training_log', 'validation_log'], epoch=kw.get('epoch', 1))
 
     def train(self, dataset, val_dataset):
-        r"""
-        Main training loop.
-        """
         train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
-        for ep in range(1, self.args['epochs'] + 1):
-            if self.args['verbose']: info('')
+        for epoch in range(1, self.args['epochs'] + 1):
+            if self.args['verbose']:
+                info('')
 
             for k in self.nn:
                 self.nn[k].train()
 
-            _metrics = self.new_metrics()
-            _avg = self.new_averages()
-            ep_avg = self.new_averages()
-            ep_metrics = self.new_metrics()
+            _metrics, _avg = self.new_metrics(), self.new_averages()
+            ep_avg, ep_metrics = self.new_averages(), self.new_metrics()
             for i, batch in enumerate(train_loader, 1):
-
                 it = self.training_iteration(batch)
-                if not it.get('metrics'):
-                    it['metrics'] = _base_metrics.ETMetrics()
+                if not it.get('metrics'): it['metrics'] = _base_metrics.ETMetrics()
 
                 ep_avg.accumulate(it['averages'])
                 ep_metrics.accumulate(it['metrics'])
 
-                """
-                Running loss/metrics
-                """
+                """Running loss/metrics """
                 _avg.accumulate(it['averages'])
                 _metrics.accumulate(it['metrics'])
                 if self.args['verbose'] and i % int(_math.log(i + 1) + 1) == 0:
-                    info(f"Ep:{ep}/{self.args['epochs']},Itr:{i}/{len(train_loader)},"
-                         f"{_avg.get()},{_metrics.get()}")
-
+                    info(f"Ep:{epoch}/{self.args['epochs']},Itr:{i}/{len(train_loader)},{_avg.get()},{_metrics.get()}")
                     self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
                     _metrics.reset()
                     _avg.reset()
 
-                self._on_iteration_end(i, ep, it)
-
+                self._on_iteration_end(i=i, epoch=epoch, it=it)
             self.cache['training_log'].append([*ep_avg.get(), *ep_metrics.get()])
-            val_loss, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
-            self.save_if_better(ep, val_metric)
-            self.cache['validation_log'].append([*val_loss.get(), *val_metric.get()])
 
-            self._on_epoch_end(ep, ep_avg, ep_metrics, val_loss, val_metric)
-            if self._early_stopping(ep, ep_avg, ep_metrics, val_loss, val_metric):
+            val_averages, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
+            self.cache['validation_log'].append([*val_averages.get(), *val_metric.get()])
+            self.save_if_better(epoch, val_metric)
+
+            self._on_epoch_end(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
+                               validation_averages=val_averages, validation_metric=val_metric)
+            self._plot_progress(epoch=epoch)
+            if self._stop_early(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
+                                validation_averages=val_averages, validation_metric=val_metric):
                 break
