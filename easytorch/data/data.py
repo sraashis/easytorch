@@ -3,6 +3,7 @@ import os as _os
 
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
+import easytorch.config as _conf
 
 
 def safe_collate(batch):
@@ -37,7 +38,7 @@ class ETDataLoader(_DataLoader):
 
 
 class ETDataset(_Dataset):
-    def __init__(self, mode='init', limit=float('inf')):
+    def __init__(self, mode='init', limit=_conf.data_load_limit, **kw):
         self.mode = mode
         self.limit = limit
         self.dataspecs = {}

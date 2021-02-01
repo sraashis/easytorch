@@ -146,7 +146,7 @@ class EasyTorch:
         r"""
         Load the train data from current fold/split.
         """
-        train_dataset = dataset_cls(mode='train', limit=self.args['load_limit'])
+        train_dataset = dataset_cls(mode='train', limit=self.args['load_limit'], **self.args)
         train_dataset.add(files=split.get('train', []), verbose=self.args['verbose'], **dspec)
         return train_dataset
 
@@ -154,7 +154,7 @@ class EasyTorch:
         r"""
         Load the validation data from current fold/split.
         """
-        val_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'])
+        val_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'], **self.args)
         val_dataset.add(files=split.get('validation', []), verbose=self.args['verbose'], **dspec)
         return val_dataset
 
@@ -169,13 +169,13 @@ class EasyTorch:
             for f in split.get('test', []):
                 if len(test_dataset_list) >= self.args['load_limit']:
                     break
-                test_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'])
+                test_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'], **self.args)
                 test_dataset.add(files=[f], verbose=False, **dspec)
                 test_dataset_list.append(test_dataset)
             if self.args['verbose']:
                 print(f'{len(test_dataset_list)} sparse dataset loaded.')
         else:
-            test_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'])
+            test_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'], **self.args)
             test_dataset.add(files=split.get('test', []), verbose=self.args['verbose'], **dspec)
             test_dataset_list.append(test_dataset)
         return test_dataset_list
