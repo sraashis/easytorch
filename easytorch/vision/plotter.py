@@ -16,7 +16,7 @@ _COLORS = ['black', 'darkslateblue', 'maroon', 'magenta', 'teal', 'red', 'blue',
           'chartreuse', 'coral', 'cornflowerblue', 'indigo', 'cyan', 'navy']
 
 
-def plot_progress(cache, experiment_id='', plot_keys=[], num_points=11, epoch=None):
+def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31, epoch=None):
     r"""
     Custom plot to plot data from the cache by keys.
     """
@@ -50,8 +50,9 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=11, epoch=No
         color = _rd.sample(_COLORS, n_cols)
 
         rollin_window = max(df.shape[0] // num_points + 1, 3)
-        rolling = df.rolling(rollin_window, min_periods=1).mean()
         ax = df.plot(x_compat=True, alpha=0.11, legend=0, color=color)
+
+        rolling = df.rolling(rollin_window, min_periods=1).mean()
         rolling.plot(ax=ax, title=k.upper(), color=color)
 
         if epoch and epoch != df.shape[0]:
@@ -59,7 +60,7 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=11, epoch=No
             Set correct epoch as x-tick-labels.
             """
             xticks = list(range(0, df.shape[0], df.shape[0] // epoch)) + [df.shape[0] - 1]
-            step = int(_math.log(len(xticks) + 1) + 1)
+            step = int(_math.log(len(xticks) + 1) + len(xticks) // num_points + 1)
             xticks_range = list(range(len(xticks)))[::step]
             xticks = xticks[::step]
             ax.set_xticks(xticks)
