@@ -1,45 +1,19 @@
 import math as _math
 import os as _os
+import random as _rd
 
 import matplotlib.pyplot as _plt
 import numpy as _np
 import pandas as _pd
 from sklearn.preprocessing import MinMaxScaler as _MinMaxScaler
+
 from easytorch.config import current_seed as _cuseed
-import random as _rd
 
 _plt.switch_backend('agg')
 _plt.rcParams["figure.figsize"] = [16, 9]
 
-_COLORS = ['blue',
-           'blueviolet',
-           'brown',
-           'burlywood',
-           'cadetblue',
-           'chartreuse',
-           'chocolate',
-           'coral',
-           'cyan',
-           'darkblue',
-           'darkcyan',
-           'darkgoldenrod',
-           'darkgray',
-           'darkgreen',
-           'darkgrey',
-           'darkkhaki',
-           'darkmagenta',
-           'darkolivegreen',
-           'darkseagreen',
-           'darkslateblue',
-           'darkslategray',
-           'darkslategrey',
-           'darkturquoise',
-           'darkviolet',
-           'deepskyblue',
-           'darkred',
-           'magenta',
-           'teal',
-           'purple']
+_COLORS = ['black', 'darkslateblue', 'maroon', 'magenta', 'teal', 'red', 'blue', 'blueviolet', 'brown', 'cadetblue',
+          'chartreuse', 'coral', 'cornflowerblue', 'indigo', 'cyan', 'navy']
 
 
 def plot_progress(cache, experiment_id='', plot_keys=[], num_points=11, epoch=None):
