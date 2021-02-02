@@ -12,9 +12,9 @@ import easytorch.config as _config
 import easytorch.data as _etdata
 import easytorch.utils as _etutils
 from easytorch.metrics import metrics as _base_metrics
+from easytorch.utils.logger import *
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
 from .vision import plotter as _log_utils
-from easytorch.utils.logger import *
 
 _sep = _os.sep
 
@@ -308,22 +308,6 @@ class ETTrainer:
             info(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.get()}")
         return eval_avg, eval_metrics
 
-    def training_iteration(self, batch):
-        r"""
-        Learning step for one batch.
-        We decoupled it so that user could implement any complex/multi/alternate training strategies.
-        """
-        first_optim = list(self.optimizer.keys())[0]
-        self.optimizer[first_optim].zero_grad()
-        its = []
-        for i in range(self.cache.get('num_iteration', 1)):
-            """Accumulate gradients"""
-            it = self.iteration(batch)
-            it['loss'].backward()
-            its.append(it)
-        self.optimizer[first_optim].step()
-        return self._reduce_iteration(its)
-
     def _reduce_iteration(self, its):
         if len(its) == 1:
             return its[0]
@@ -364,37 +348,55 @@ class ETTrainer:
         """
         return kw.get('epoch') - self.cache['best_epoch'] >= self.args.get('patience', 'epochs')
 
-    def _plot_progress(self, **kw):
+    def _plot_progress(self, epoch, *kw):
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                 plot_keys=['training_log', 'validation_log'], epoch=kw.get('epoch', 1))
+                                 plot_keys=['training_log', 'validation_log'], epoch=epoch)
+
+    def training_iteration(self, i, batch):
+        r"""
+        Learning step for one batch.
+        We decoupled it so that user could implement any complex/multi/alternate training strategies.
+        """
+        it = self.iteration(batch)
+        it['loss'].backward()
+        if i % self.args.get('num_iteration', 1) == 0:
+            first_optim = list(self.optimizer.keys())[0]
+            self.optimizer[first_optim].step()
+            self.optimizer[first_optim].zero_grad()
+        return it
 
     def train(self, dataset, val_dataset):
         train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
+        local_iter = self.args.get('num_iteration', 1)
         for epoch in range(1, self.args['epochs'] + 1):
             for k in self.nn:
                 self.nn[k].train()
 
             _metrics, _avg = self.new_metrics(), self.new_averages()
             ep_avg, ep_metrics = self.new_averages(), self.new_metrics()
+            its = []
+            it = {'averages': _base_metrics.ETAverages(), 'metrics': _base_metrics.ETMetrics()}
             for i, batch in enumerate(train_loader, 1):
-                it = self.training_iteration(batch)
-                if not it.get('metrics'): it['metrics'] = _base_metrics.ETMetrics()
+                its.append(self.training_iteration(i, batch))
+                if i % local_iter == 0:
+                    it = self._reduce_iteration(its)
+                    its = []
 
-                ep_avg.accumulate(it['averages'])
-                ep_metrics.accumulate(it['metrics'])
+                    ep_avg.accumulate(it['averages'])
+                    ep_metrics.accumulate(it['metrics'])
 
-                """Running loss/metrics """
-                _avg.accumulate(it['averages'])
-                _metrics.accumulate(it['metrics'])
-                if self.args['verbose'] and i % int(_math.log(i + 1) + 1) == 0:
-                    info(f"Ep:{epoch}/{self.args['epochs']},Itr:{i}/{len(train_loader)},{_avg.get()},{_metrics.get()}")
-                    self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
-                    _metrics.reset()
-                    _avg.reset()
+                    """Running loss/metrics """
+                    _avg.accumulate(it['averages'])
+                    _metrics.accumulate(it['metrics'])
+                    _i, _i_tot = i // local_iter, len(train_loader) // local_iter
+                    if self.args['verbose'] and _i % int(_math.log(_i + 1) + 1) == 0:
+                        info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{_i_tot},{_avg.get()},{_metrics.get()}")
+                        self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
+                        _metrics.reset()
+                        _avg.reset()
+                    self._on_iteration_end(i=i, epoch=epoch, it=it)
 
-                self._on_iteration_end(i=i, epoch=epoch, it=it)
             self.cache['training_log'].append([*ep_avg.get(), *ep_metrics.get()])
-
             val_averages, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
             self.cache['validation_log'].append([*val_averages.get(), *val_metric.get()])
             self.save_if_better(epoch, val_metric)
