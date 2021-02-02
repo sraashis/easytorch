@@ -391,10 +391,9 @@ class ETTrainer:
                         self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
                         _metrics.reset()
                         _avg.reset()
+                    self._on_iteration_end(i=i, epoch=epoch, it=it)
 
-                self._on_iteration_end(i=i, epoch=epoch, it=it)
             self.cache['training_log'].append([*ep_avg.get(), *ep_metrics.get()])
-
             val_averages, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
             self.cache['validation_log'].append([*val_averages.get(), *val_metric.get()])
             self.save_if_better(epoch, val_metric)
