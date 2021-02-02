@@ -115,7 +115,7 @@ class EasyTorch:
         if self.args['verbose'] and len(self.args['gpus']) > _conf.num_gpus:
             warn(f"{len(self.args['gpus'])} GPU(s) requested "
                  f"but {_conf.num_gpus if _conf.cuda_available else 'GPU(s) not'} detected. "
-                 f"Using {_conf.num_gpus + ' GPU(s)' if _conf.cuda_available else 'CPU(Much slower)'}.")
+                 f"Using {str(_conf.num_gpus) +' GPU(s)' if _conf.cuda_available else 'CPU(Much slower)'}.")
             self.args['gpus'] = list(range(_conf.num_gpus))
 
     def _show_args(self):
