@@ -359,7 +359,7 @@ class ETTrainer:
         """
         it = self.iteration(batch)
         it['loss'].backward()
-        if i % self.cache.get('num_iteration', 1) == 0:
+        if i % self.args.get('num_iteration', 1) == 0:
             first_optim = list(self.optimizer.keys())[0]
             self.optimizer[first_optim].step()
             self.optimizer[first_optim].zero_grad()
@@ -367,6 +367,7 @@ class ETTrainer:
 
     def train(self, dataset, val_dataset):
         train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
+        local_iter = self.args.get('num_iteration', 1)
         for epoch in range(1, self.args['epochs'] + 1):
             for k in self.nn:
                 self.nn[k].train()
@@ -377,7 +378,7 @@ class ETTrainer:
             it = {'averages': _base_metrics.ETAverages(), 'metrics': _base_metrics.ETMetrics()}
             for i, batch in enumerate(train_loader, 1):
                 its.append(self.training_iteration(i, batch))
-                if i % self.cache.get('num_iteration', 1) == 0:
+                if i % local_iter == 0:
                     it = self._reduce_iteration(its)
                     its = []
 
@@ -387,8 +388,9 @@ class ETTrainer:
                     """Running loss/metrics """
                     _avg.accumulate(it['averages'])
                     _metrics.accumulate(it['metrics'])
-                    if self.args['verbose'] and i % int(_math.log(i + 1) + 1) == 0:
-                        info(f"Ep:{epoch}/{self.args['epochs']},Itr:{i}/{len(train_loader)},{_avg.get()},{_metrics.get()}")
+                    _i, _i_tot = i // local_iter, len(train_loader) // local_iter
+                    if self.args['verbose'] and _i % int(_math.log(_i + 1) + 1) == 0:
+                        info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{_i_tot},{_avg.get()},{_metrics.get()}")
                         self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
                         _metrics.reset()
                         _avg.reset()
