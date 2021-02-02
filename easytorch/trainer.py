@@ -18,6 +18,8 @@ from .vision import plotter as _log_utils
 
 _sep = _os.sep
 
+def _now(x):
+    return x % int(_math.log(x + 1) + 1) == 0
 
 class ETTrainer:
     def __init__(self, args: dict):
@@ -368,6 +370,7 @@ class ETTrainer:
     def train(self, dataset, val_dataset):
         train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
         local_iter = self.args.get('num_iteration', 1)
+        total_iter = len(train_loader) // local_iter
         for epoch in range(1, self.args['epochs'] + 1):
             for k in self.nn:
                 self.nn[k].train()
@@ -388,13 +391,13 @@ class ETTrainer:
                     """Running loss/metrics """
                     _avg.accumulate(it['averages'])
                     _metrics.accumulate(it['metrics'])
-                    _i, _i_tot = i // local_iter, len(train_loader) // local_iter
-                    if self.args['verbose'] and _i % int(_math.log(_i + 1) + 1) == 0:
-                        info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{_i_tot},{_avg.get()},{_metrics.get()}")
+                    _i = i // local_iter
+                    if self.args['verbose'] and (_now(_i) or _i == total_iter):
+                        info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{total_iter},{_avg.get()},{_metrics.get()}")
                         self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
                         _metrics.reset()
                         _avg.reset()
-                    self._on_iteration_end(i=i, epoch=epoch, it=it)
+                    self._on_iteration_end(i=_i, epoch=epoch, it=it)
 
             self.cache['training_log'].append([*ep_avg.get(), *ep_metrics.get()])
             val_averages, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
@@ -404,9 +407,11 @@ class ETTrainer:
             self._on_epoch_end(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                validation_averages=val_averages, validation_metric=val_metric)
 
-            if epoch % int(_math.log(epoch + 1) + 1) == 0:
+            if _now(epoch):
                 self._plot_progress(epoch=epoch)
 
             if self._stop_early(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                 validation_averages=val_averages, validation_metric=val_metric):
                 break
+        """Plot at the end regardless."""
+        self._plot_progress(epoch=epoch)
