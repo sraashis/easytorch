@@ -11,4 +11,4 @@ def info(msg):
 
 
 def success(msg):
-    print(f"---[Success!]---: {msg}")
+    print(f"***[Success!]***: {msg}")
