@@ -1,5 +1,5 @@
 def error(msg):
-    print(f"---[Error!]---: {msg}")
+    print(f"--###[Error!]###---: {msg}")
 
 
 def warn(msg):
@@ -11,4 +11,4 @@ def info(msg):
 
 
 def success(msg):
-    print(f"***[Success!]***: {msg}")
+    print(f"---***[Success!]***---: {msg}")
