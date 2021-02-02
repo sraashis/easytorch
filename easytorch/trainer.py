@@ -348,9 +348,9 @@ class ETTrainer:
         """
         return kw.get('epoch') - self.cache['best_epoch'] >= self.args.get('patience', 'epochs')
 
-    def _plot_progress(self, **kw):
+    def _plot_progress(self, epoch, *kw):
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                 plot_keys=['training_log', 'validation_log'], epoch=kw.get('epoch', 1))
+                                 plot_keys=['training_log', 'validation_log'], epoch=epoch)
 
     def training_iteration(self, i, batch):
         r"""
