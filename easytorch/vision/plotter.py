@@ -4,6 +4,7 @@ import matplotlib.pyplot as _plt
 import numpy as _np
 import pandas as _pd
 from sklearn.preprocessing import MinMaxScaler as _MinMaxScaler
+import math as _math
 
 _plt.switch_backend('agg')
 _plt.rcParams["figure.figsize"] = [16, 9]
@@ -49,8 +50,11 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=11, epoch=No
             Set correct epoch as x-tick-labels.
             """
             xticks = list(range(0, df.shape[0], df.shape[0] // epoch)) + [df.shape[0] - 1]
+            step = int(_math.log(len(xticks) + 1) + 1)
+            xticks_range = list(range(len(xticks)))[::step]
+            xticks = xticks[::step]
             ax.set_xticks(xticks)
-            ax.set_xticklabels(list(range(len(xticks))))
+            ax.set_xticklabels(xticks_range)
 
         _plt.xlabel('Epochs')
         _plt.savefig(cache['log_dir'] + _os.sep + f"{experiment_id}_{k}.png")
