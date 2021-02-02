@@ -379,13 +379,14 @@ class ETTrainer:
                 its.append(self.training_iteration(i, batch))
                 if i % self.cache.get('num_iteration', 1) == 0:
                     it = self._reduce_iteration(its)
+                    its = []
+
                     ep_avg.accumulate(it['averages'])
                     ep_metrics.accumulate(it['metrics'])
 
                     """Running loss/metrics """
                     _avg.accumulate(it['averages'])
                     _metrics.accumulate(it['metrics'])
-                    its = []
                     if self.args['verbose'] and i % int(_math.log(i + 1) + 1) == 0:
                         info(f"Ep:{epoch}/{self.args['epochs']},Itr:{i}/{len(train_loader)},{_avg.get()},{_metrics.get()}")
                         self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
