@@ -330,7 +330,7 @@ class ETTrainer:
         """
         return kw.get('epoch') - self.cache['best_epoch'] >= self.args.get('patience', 'epochs')
 
-    def _plot_progress(self, epoch, *kw):
+    def _save_progress(self, epoch):
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
                                  plot_keys=['training_log', 'validation_log'], epoch=epoch)
 
@@ -383,8 +383,8 @@ class ETTrainer:
             self._on_epoch_end(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                validation_averages=val_averages, validation_metric=val_metric)
 
-            if lazy_debug(epoch): self._plot_progress(epoch=epoch)
+            if lazy_debug(epoch): self._save_progress(epoch=epoch)
             if self._stop_early(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                 validation_averages=val_averages, validation_metric=val_metric): break
         """Plot at the end regardless."""
-        self._plot_progress(epoch=epoch)
+        self._save_progress(epoch=epoch)

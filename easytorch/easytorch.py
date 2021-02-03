@@ -161,9 +161,9 @@ class EasyTorch:
             success(f"{len(_os.listdir(dspec['split_dir']))} split(s) created in '{dspec['split_dir']}' directory.",
                     self.args['verbose'])
         else:
-            success(
-                f"{len(_os.listdir(dspec['split_dir']))} split(s) loaded from '{dspec['split_dir']}' directory.",
-                self.args['verbose'])
+            splits_len = len(_os.listdir(dspec['split_dir']))
+            success(f"{splits_len} split(s) loaded from '{dspec['split_dir']}' directory.",
+                    self.args['verbose'] and splits_len > 0)
 
     def _load_dataset(self, split_key, split_file, dspec, dataset_cls):
         with open(dspec['split_dir'] + _sep + split_file) as file:
