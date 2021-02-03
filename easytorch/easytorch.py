@@ -282,7 +282,7 @@ class EasyTorch:
                 """
                 Save the calculated scores in list so that later we can do extra things(Like save to a file.)
                 """
-                trainer.cache['test_score'].append([*test_averages.get(), *test_score.get()])
+                trainer.cache['test_score'].append([split_file, *test_averages.get(), *test_score.get()])
                 trainer.cache['global_test_score'].append([split_file, *test_averages.get(), *test_score.get()])
                 _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
                                    file_keys=['test_score'])
@@ -311,7 +311,6 @@ class EasyTorch:
         Save the latest time(maximize current time.). One can also maximize/minimize any other score from
         easytorch.metrics.ETMetrics() class by overriding _reset_dataset_cache.
         """
-        trainer.cache['global_test_score'] = []
         global_metrics = trainer.new_metrics()
         global_averages = trainer.new_averages()
 

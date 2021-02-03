@@ -6,7 +6,7 @@ def error(msg):
 
 
 def warn(msg):
-    print(f"****  [Warning!]  ****: {msg}")
+    print(f"---  [Warning!]  ---: {msg}")
 
 
 def info(msg):
@@ -14,7 +14,7 @@ def info(msg):
 
 
 def success(msg):
-    print(f"----  [Success!] ----: {msg}")
+    print(f"***  [Success!] ***: {msg}")
 
 
 def lazy_debug(x, add=1):
