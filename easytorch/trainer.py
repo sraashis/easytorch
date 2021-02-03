@@ -18,8 +18,6 @@ from .vision import plotter as _log_utils
 
 _sep = _os.sep
 
-def _now(x):
-    return x % int(_math.log(x + 1) + 1) == 0
 
 class ETTrainer:
     def __init__(self, args: dict):
@@ -383,7 +381,7 @@ class ETTrainer:
                 its.append(self.training_iteration(i, batch))
                 if i % local_iter == 0:
                     it = self._reduce_iteration(its)
-                    its = []
+                    _i, its = i // local_iter, []
 
                     ep_avg.accumulate(it['averages'])
                     ep_metrics.accumulate(it['metrics'])
@@ -391,8 +389,8 @@ class ETTrainer:
                     """Running loss/metrics """
                     _avg.accumulate(it['averages'])
                     _metrics.accumulate(it['metrics'])
-                    _i = i // local_iter
-                    if self.args['verbose'] and (_now(_i) or _i == total_iter):
+                    log_now = _i % int(_math.log(_i + 1) + 1)
+                    if self.args['verbose'] and (log_now == 0 or _i == total_iter):
                         info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{total_iter},{_avg.get()},{_metrics.get()}")
                         self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
                         _metrics.reset()
@@ -407,7 +405,7 @@ class ETTrainer:
             self._on_epoch_end(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                validation_averages=val_averages, validation_metric=val_metric)
 
-            if _now(epoch):
+            if epoch % int(_math.log(epoch + 1) + 1) == 0:
                 self._plot_progress(epoch=epoch)
 
             if self._stop_early(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
