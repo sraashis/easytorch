@@ -18,8 +18,6 @@ from .vision import plotter as _log_utils
 
 _sep = _os.sep
 
-def _now(x):
-    return x % int(_math.log(x + 1) + 1) == 0
 
 class ETTrainer:
     def __init__(self, args: dict):
@@ -68,10 +66,7 @@ class ETTrainer:
             for mk in self.nn:
                 _init_weights(self.nn[mk])
 
-    def load_checkpoint_from_key(self, key='checkpoint'):
-        self.load_checkpoint(self.cache['log_dir'] + _sep + self.cache[key])
-
-    def load_checkpoint(self, full_path):
+    def load_checkpoint(self, full_path, src='easytorch'):
         r"""
         Load checkpoint from the given path:
             If it is an easytorch checkpoint, try loading all the models.
@@ -82,7 +77,7 @@ class ETTrainer:
         except:
             chk = _torch.load(full_path, map_location='cpu')
 
-        if chk.get('source', 'Unknown').lower() == 'easytorch':
+        if chk.get('source', 'Unknown').lower() == src:
             for m in chk['models']:
                 try:
                     self.nn[m].module.load_state_dict(chk['models'][m])
@@ -151,7 +146,7 @@ class ETTrainer:
         User can supply -f True flag to override by force.
         """
         if self.args['force']:
-            warn('Forced overriding previous logs.')
+            if self.cache['debug']: warn('Forced overriding previous logs.')
             return
         i = 'y'
         if self.args['phase'] == 'train':
@@ -168,7 +163,7 @@ class ETTrainer:
         if i.lower() == 'n':
             raise FileExistsError(f' ##### {self.args["log_dir"]} directory is not empty. #####')
 
-    def save_checkpoint(self, file_name, src='easytorch'):
+    def save_checkpoint(self, full_path, src='easytorch'):
         checkpoint = {'source': src}
         for k in self.nn:
             checkpoint['models'] = {}
@@ -182,9 +177,10 @@ class ETTrainer:
                 checkpoint['optimizers'][k] = self.optimizer[k].module.state_dict()
             except:
                 checkpoint['optimizers'][k] = self.optimizer[k].state_dict()
-        _torch.save(checkpoint, self.cache['log_dir'] + _sep + file_name)
+        _torch.save(checkpoint, full_path)
+        # self.cache['log_dir'] + _sep + file_name
 
-    def reset_dataset_cache(self):
+    def init_experiment_cache(self):
         r"""
         An extra layer to reset cache for each dataspec. For example:
         1. Set a new score to monitor:
@@ -207,12 +203,6 @@ class ETTrainer:
         """
         pass
 
-    def reset_fold_cache(self):
-        """Nothing specific to do here.
-        Just keeping in case we need to intervene with each of the k-folds just like each datasets above.
-        """
-        pass
-
     def save_if_better(self, epoch, metrics):
         r"""
         Save the current model as best if it has better validation scores.
@@ -223,7 +213,7 @@ class ETTrainer:
 
         if (self.cache['metric_direction'] == 'maximize' and sc >= self.cache['best_score']) or (
                 self.cache['metric_direction'] == 'minimize' and sc <= self.cache['best_score']):
-            self.save_checkpoint(self.cache['checkpoint'])
+            self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
             self.cache['best_score'] = sc
             self.cache['best_epoch'] = epoch
             if self.args['verbose']:
@@ -383,20 +373,14 @@ class ETTrainer:
                 its.append(self.training_iteration(i, batch))
                 if i % local_iter == 0:
                     it = self._reduce_iteration(its)
-                    its = []
+                    _i, its = i // local_iter, []
 
-                    ep_avg.accumulate(it['averages'])
-                    ep_metrics.accumulate(it['metrics'])
-
-                    """Running loss/metrics """
-                    _avg.accumulate(it['averages'])
-                    _metrics.accumulate(it['metrics'])
-                    _i = i // local_iter
-                    if self.args['verbose'] and (_now(_i) or _i == total_iter):
+                    ep_avg.accumulate(it['averages']), ep_metrics.accumulate(it['metrics'])
+                    _avg.accumulate(it['averages']), _metrics.accumulate(it['metrics'])
+                    if self.args['verbose'] and (lazy_debug(_i) or _i == total_iter):
                         info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{total_iter},{_avg.get()},{_metrics.get()}")
                         self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
-                        _metrics.reset()
-                        _avg.reset()
+                        _metrics.reset(), _avg.reset()
                     self._on_iteration_end(i=_i, epoch=epoch, it=it)
 
             self.cache['training_log'].append([*ep_avg.get(), *ep_metrics.get()])
@@ -407,7 +391,7 @@ class ETTrainer:
             self._on_epoch_end(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                validation_averages=val_averages, validation_metric=val_metric)
 
-            if _now(epoch):
+            if lazy_debug(epoch):
                 self._plot_progress(epoch=epoch)
 
             if self._stop_early(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,

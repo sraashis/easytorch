@@ -16,7 +16,7 @@ _COLORS = ['black', 'darkslateblue', 'maroon', 'magenta', 'teal', 'red', 'blue',
           'chartreuse', 'coral', 'cornflowerblue', 'indigo', 'cyan', 'navy']
 
 
-def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31, epoch=None):
+def plot_progress(cache, experiment_id='', plot_keys=[], num_points=11, epoch=None):
     r"""
     Custom plot to plot data from the cache by keys.
     """
@@ -49,7 +49,7 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31, epoch=No
         _rd.seed(_cuseed)
         color = _rd.sample(_COLORS, n_cols)
 
-        rollin_window = max(df.shape[0] // num_points + 1, 3)
+        rollin_window = max(df.shape[0] // num_points, 3)
         ax = df.plot(x_compat=True, alpha=0.11, legend=0, color=color)
 
         rolling = df.rolling(rollin_window, min_periods=1).mean()

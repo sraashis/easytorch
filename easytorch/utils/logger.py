@@ -1,3 +1,6 @@
+import math as _math
+
+
 def error(msg):
     print(f"####   [Error!]   ####: {msg}")
 
@@ -12,3 +15,7 @@ def info(msg):
 
 def success(msg):
     print(f"----  [Success!] ----: {msg}")
+
+
+def lazy_debug(x, add=1):
+    return x % int(_math.log(x + 1) + add) == 0
