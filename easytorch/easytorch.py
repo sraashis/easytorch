@@ -244,7 +244,7 @@ class EasyTorch:
                 trainer.cache['checkpoint'] = trainer.cache['experiment_id'] + '.pt'
                 trainer.cache.update(best_epoch=0, best_score=0.0)
                 if trainer.cache['metric_direction'] == 'minimize':
-                    trainer.cache['best_score'] = 1e11
+                    trainer.cache['best_score'] = _conf.data_load_limit
 
                 trainer.check_previous_logs()
                 trainer.init_nn()
