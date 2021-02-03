@@ -22,3 +22,19 @@ class Phase(str, _Enum):
     VALIDATION = 'validation'
     TEST = 'test'
     EVAL = 'eval'
+
+
+class LogKey(str, _Enum):
+    TRAIN_LOG = 'train_log'
+    SERIALIZABLE_TRAIN = 'serializable_training_log'
+
+    VALIDATION_LOG = 'validation_log'
+    VALIDATION_METRICS = "validation_metrics"
+    SERIALIZABLE_VALIDATION = 'serializable_validation_log'
+
+    TEST_METRICS = 'test_metrics'
+    SERIALIZABLE_TEST = 'serializable_test_log'
+
+    GLOBAL_TEST_LOG = 'global_test_log'
+    GLOBAL_TEST_METRICS = 'global_test_metrics'
+    SERIALIZABLE_GLOBAL_TEST = 'serializable_global_test_log'

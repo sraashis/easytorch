@@ -137,30 +137,6 @@ class ETTrainer:
         """
         return _base_metrics.ETAverages(num_averages=1)
 
-    def check_previous_logs(self):
-        r"""
-        Checks if there already is a previous run and prompt[Y/N] so that
-        we avoid accidentally overriding previous runs and lose temper.
-        User can supply -f True flag to override by force.
-        """
-        if self.args['force']:
-            warn('Forced overriding previous logs.', self.args['verbose'])
-            return
-        i = 'y'
-        if self.args['phase'] == 'train':
-            train_log = f"{self.cache['log_dir']}{_sep}{self.cache['experiment_id']}_log.json"
-            if _os.path.exists(train_log):
-                i = input(f"Previous log *** {train_log} *** exists. Override [y/n]:")
-
-        if self.args['phase'] == 'test':
-            test_log = f"{self.cache['log_dir']}{_sep}{self.cache['experiment_id']}_test_scores.csv"
-            if _os.path.exists(test_log):
-                if _os.path.exists(test_log):
-                    i = input(f"*** {test_log} *** \n Exists. OVERRIDE [y/n]:")
-
-        if i.lower() == 'n':
-            raise FileExistsError(f' ##### {self.args["log_dir"]} directory is not empty. #####')
-
     def save_checkpoint(self, full_path, src=MYSELF):
         checkpoint = {'_its_origin_': src}
         for k in self.nn:
@@ -198,7 +174,8 @@ class ETTrainer:
             - so Default heade is [Loss,Precision,Recall,F1,Accuracy]
         3. Set new log_dir based on different experiment versions on each datasets as per info. received from arguments.
         """
-        pass
+        self.cache['log_header'] = 'Loss,Precision,Recall,F1,Accuracy'
+        self.cache.update(monitor_metric='f1', metric_direction='maximize')
 
     def save_if_better(self, epoch, metrics):
         r"""
@@ -251,17 +228,17 @@ class ETTrainer:
         pass
 
     def evaluation(self, split_key=None, save_pred=False, dataset_list=None):
-        r"""
-        Evaluation phase that handles validation/test phase
-        split-key: the key to list of files used in this particular evaluation.
-        The program will create k-splits(json files) as per specified in --nf -num_of_folds
-         argument with keys 'train', ''validation', and 'test'.
-        """
-        info(f'Running {split_key} ... ', self.args['verbose'])
-        for k in self.nn: self.nn[k].eval()
-        eval_avg = self.new_averages()
-        eval_metrics = self.new_metrics()
-        loaders = [_etdata.ETDataLoader.new(mode='eval', shuffle=False, dataset=d, **self.args) for d in dataset_list]
+        info(f' {split_key} ...', self.args['verbose'])
+
+        for k in self.nn:
+            self.nn[k].eval()
+
+        eval_avg, eval_metrics = self.new_averages(), self.new_metrics()
+
+        loaders = []
+        for dataset in dataset_list:
+            loaders.append(_etdata.ETDataLoader.new(mode=split_key if split_key is not None else 'eval',
+                                                    shuffle=False, dataset=dataset, **self.args))
         with _torch.no_grad():
             for loader in loaders:
                 its = []
@@ -273,21 +250,25 @@ class ETTrainer:
                     if not it.get('metrics'):
                         it['metrics'] = _base_metrics.ETMetrics()
 
-                    metrics.accumulate(it['metrics'])
-                    avg.accumulate(it['averages'])
+                    if not it.get('averages'):
+                        it['averages'] = _base_metrics.ETAverages()
+
+                    metrics.accumulate(it['metrics']), avg.accumulate(it['averages'])
                     if save_pred:
                         its.append(it)
-                    if self.args['verbose'] and len(dataset_list) <= 1 and i % int(_math.log(i + 1) + 1) == 0:
-                        info(f"Itr:{i}/{len(loader)}, {it['averages'].get()}, {it['metrics'].get()}")
+
+                    if self.args['verbose'] and len(dataset_list) <= 1 and lazy_debug(i):
+                        info(f" Itr:{i}/{len(loader)}, {it['averages'].get()}, {it['metrics'].get()}")
 
                 eval_metrics.accumulate(metrics)
                 eval_avg.accumulate(avg)
                 if self.args['verbose'] and len(dataset_list) > 1:
                     info(f"{split_key}, {avg.get()}, {metrics.get()}")
                 if save_pred:
-                    self.save_predictions(loader.dataset, its)
+                    self.save_predictions(loader.dataset, self._reduce_iteration(its))
 
-        info(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.get()}", self.args['verbose'])
+        info(f"{self.cache['experiment_id']} {split_key} metrics: {eval_avg.get()}, {eval_metrics.get()}",
+             self.args['verbose'])
         return eval_avg, eval_metrics
 
     def _reduce_iteration(self, its):
@@ -332,7 +313,7 @@ class ETTrainer:
 
     def _save_progress(self, epoch):
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                 plot_keys=['training_log', 'validation_log'], epoch=epoch)
+                                 plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG], epoch=epoch)
 
     def training_iteration(self, i, batch):
         r"""
@@ -348,36 +329,41 @@ class ETTrainer:
         return it
 
     def train(self, dataset, val_dataset):
-        train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
+        info('Training ...', self.args['verbose'])
+
         local_iter = self.args.get('num_iteration', 1)
-        total_iter = len(train_loader) // local_iter
+        train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
+        tot_iter = len(train_loader) // local_iter
+
         for epoch in range(1, self.args['epochs'] + 1):
-            its = []
-            for k in self.nn: self.nn[k].train()
-            _metrics, _avg = self.new_metrics(), self.new_averages()
+            for k in self.nn:
+                self.nn[k].train()
+
+            _metrics, _avg, its = self.new_metrics(), self.new_averages(), []
             ep_avg, ep_metrics = self.new_averages(), self.new_metrics()
 
             for i, batch in enumerate(train_loader, 1):
                 its.append(self.training_iteration(i, batch))
                 if i % local_iter == 0:
                     it = self._reduce_iteration(its)
-                    if not it.get('metrics'): it['metrics'] = _base_metrics.ETMetrics()
-                    if not it.get('averages'): it['averages'] = _base_metrics.ETAverages()
+                    if not it.get('metrics'):
+                        it['metrics'] = _base_metrics.ETMetrics()
+                    if not it.get('averages'):
+                        it['averages'] = _base_metrics.ETAverages()
 
                     ep_avg.accumulate(it['averages']), ep_metrics.accumulate(it['metrics'])
                     _avg.accumulate(it['averages']), _metrics.accumulate(it['metrics'])
 
                     _i, its = i // local_iter, []
-                    if lazy_debug(_i) or _i == total_iter:
-                        info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{total_iter},{_avg.get()},{_metrics.get()}",
+                    if lazy_debug(_i) or _i == tot_iter:
+                        info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{tot_iter},{_avg.get()},{_metrics.get()}",
                              self.args['verbose'])
-                        self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
+                        self.cache[LogKey.TRAIN_LOG].append([*_avg.get(), *_metrics.get()])
                         _metrics.reset(), _avg.reset()
                     self._on_iteration_end(i=_i, epoch=epoch, it=it)
 
-            self.cache['training_log'].append([*ep_avg.get(), *ep_metrics.get()])
             val_averages, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
-            self.cache['validation_log'].append([*val_averages.get(), *val_metric.get()])
+            self.cache[LogKey.VALIDATION_LOG].append([*val_averages.get(), *val_metric.get()])
             self.save_if_better(epoch, val_metric)
 
             self._on_epoch_end(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
@@ -385,6 +371,8 @@ class ETTrainer:
 
             if lazy_debug(epoch): self._save_progress(epoch=epoch)
             if self._stop_early(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
-                                validation_averages=val_averages, validation_metric=val_metric): break
+                                validation_averages=val_averages, validation_metric=val_metric):
+                break
+
         """Plot at the end regardless."""
         self._save_progress(epoch=epoch)

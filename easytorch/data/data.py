@@ -101,7 +101,7 @@ class ETDataset(_Dataset):
         """
         all_d = []
         for dspec in dataspecs:
-            for split in _os.listdir(dspec['split_dir']):
+            for split in sorted(_os.listdir(dspec['split_dir'])):
                 split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
                 if load_sparse:
                     for file in split[split_key]:
@@ -116,9 +116,7 @@ class ETDataset(_Dataset):
                     if len(all_d) <= 0:
                         all_d.append(cls(mode=split_key, limit=args['load_limit']))
                     all_d[0].add(files=split[split_key], debug=args['verbose'], **dspec)
-                """
-                Pooling only works with 1 split at the moment.
-                """
+                """Pooling only works with 1 split at the moment."""
                 break
 
         return all_d

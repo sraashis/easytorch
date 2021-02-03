@@ -9,7 +9,8 @@ import typing as _typing
 
 import numpy as _np
 import torch as _torch
-from easytorch.config import *
+
+from easytorch.config.status import *
 
 
 class SerializableMetrics:
@@ -36,6 +37,10 @@ class ETMetrics(SerializableMetrics):
     @_abc.abstractmethod
     def update(self, *args, **kw):
         raise NotImplementedError('Must be implemented.')
+
+    def update_all(self, kws: _typing.List[dict] = None):
+        if kws is not None:
+            [self.update(**kw) for kw in kws]
 
     @_abc.abstractmethod
     def add(self, *args, **kw):

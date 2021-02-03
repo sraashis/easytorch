@@ -87,7 +87,7 @@ def make_weights_for_balanced_classes(images, nclasses):
     return weight
 
 
-def create_splits_(log_dir, dspec):
+def should_create_splits_(log_dir, dspec):
     if dspec.get('split_dir') and _os.path.exists(dspec.get('split_dir')) and len(list(
             _os.listdir(dspec.get('split_dir')))) > 0:
         return False
@@ -100,7 +100,7 @@ def create_splits_(log_dir, dspec):
     return True
 
 
-def init_kfolds_(dspec, args):
+def default_data_splitter_(dspec, args):
     r"""
     Initialize k-folds for given dataspec.
         If: custom splits path is given it will use the splits from there
