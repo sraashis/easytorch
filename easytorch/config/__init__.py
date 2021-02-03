@@ -1,20 +1,6 @@
 import argparse as _ap
-import random as _random
 from collections import OrderedDict as _ODict
-import sys as _sys
-
-import torch as _torch
-
-cuda_available = _torch.cuda.is_available()
-num_gpus = _torch.cuda.device_count()
-
-metrics_eps = 10e-5
-metrics_num_precision = 5
-
-data_load_limit = _sys.maxsize
-data_split_ratio = [0.6, 0.2, 0.2]
-current_seed = _random.randint(0, 2**24)
-
+from .status import *
 
 def boolean_string(s):
     try:
@@ -41,12 +27,12 @@ default_args.add_argument('-ep', '--epochs', default=31, type=int, help='Number 
 default_args.add_argument('-ni', '--num_iteration', default=1, type=int,
                           help='Number of iterations for gradient accumulation.')
 default_args.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
-default_args.add_argument('-gpus', '--gpus', default=[0] if cuda_available else [], nargs='*', type=int, help='How many gpus to use?')
-default_args.add_argument('-pin', '--pin_memory', default=cuda_available, type=boolean_string, help='Pin Memory.')
+default_args.add_argument('-gpus', '--gpus', default=[0] if CUDA_AVAILABLE else [], nargs='*', type=int, help='How many gpus to use?')
+default_args.add_argument('-pin', '--pin_memory', default=CUDA_AVAILABLE, type=boolean_string, help='Pin Memory.')
 default_args.add_argument('-nw', '--num_workers', default=4, type=int,
                           help='Number of workers to work on data loading.')
 default_args.add_argument('-data', '--dataset_dir', default='', type=str, help='Root path to Datasets.')
-default_args.add_argument('-lim', '--load_limit', default=data_load_limit, type=int, help='Data load limit')
+default_args.add_argument('-lim', '--load_limit', default=MAX_SIZE, type=int, help='Data load limit')
 default_args.add_argument('-log', '--log_dir', default='net_logs', type=str, help='Logging directory.')
 default_args.add_argument('-pt', '--pretrained_path', default=None, type=str,
                           help='Full path to pretrained weights(It will be loaded before training.)')

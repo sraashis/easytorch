@@ -1,30 +1,29 @@
 import json as _json
 import os as _os
 import pprint as _pp
+import random as _random
 from argparse import ArgumentParser as _AP
 from typing import List as _List, Union as _Union, Callable as _Callable
 
+import numpy as _np
+import torch as _torch
+
 import easytorch.config as _conf
 import easytorch.utils as _utils
+from easytorch.config.status import *
 from easytorch.data import datautils as _du
-import torch as _torch
-import numpy as _np
-import random as _random
 from easytorch.utils.logger import *
 
 _sep = _os.sep
 
 
 class EasyTorch:
-    _MODES_ = ['test', 'train']
+    _MODES_ = [Phase.TRAIN, Phase.TEST]
     _MODE_ERR_ = \
-        'argument *** phase *** is required and must be passed to either' \
-        '\n1). EasyTorch(..,phase=<value>,..)' \
-        '\n2). runtime arguments 2). python main.py -ph <value> | ' \
-        f'\nPossible values are:{_MODES_}' \
-        '\n\t- train (runs all train, validation, and test steps)' \
-        '\n\t- test (only runs test step; either by picking best saved model, ' \
-        '\n\tor loading provided weights in pretrained_path argument) '
+        "####  [ERROR]  ### argument 'phase' is required and must be passed to either" \
+        '\n\t1). EasyTorch(..,phase=<value>,..)' \
+        '\n\t2). runtime arguments 2). python main.py -ph <value> ...' \
+        f'\nPossible values are:{_MODES_}'
 
     def __init__(self, dataspecs: _List[dict],
                  args: _Union[dict, _AP] = _conf.args,
@@ -82,7 +81,7 @@ class EasyTorch:
                         test is provided in split_dir folder as specified in dataspecs, it will be loaded.
         @param kw: Extra kwargs.
         """
-        self._init_args_(args)
+        self._init_args(args)
 
         if phase is not None: self.args.update(phase=phase)
         if batch_size is not None: self.args.update(batch_size=batch_size)
@@ -105,26 +104,25 @@ class EasyTorch:
         self.args.update(**kw)
         assert (self.args.get('phase') in self._MODES_), self._MODE_ERR_
 
-        self._init_dataspecs_(dataspecs)
+        self._init_dataspecs(dataspecs)
 
-        self._device_check_()
+        self._device_check()
         self._make_reproducible()
 
-    def _device_check_(self):
+    def _device_check(self):
         self.args['gpus'] = self.args['gpus'] if self.args.get('gpus') is not None else []
-        if self.args['verbose'] and len(self.args['gpus']) > _conf.num_gpus:
+        if self.args['verbose'] and len(self.args['gpus']) > NUM_GPUS:
             warn(f"{len(self.args['gpus'])} GPU(s) requested "
-                 f"but {_conf.num_gpus if _conf.cuda_available else 'GPU(s) not'} detected. "
-                 f"Using {str(_conf.num_gpus) +' GPU(s)' if _conf.cuda_available else 'CPU(Much slower)'}.")
-            self.args['gpus'] = list(range(_conf.num_gpus))
+                 f"but {NUM_GPUS if CUDA_AVAILABLE else 'GPU(s) not'} detected. "
+                 f"Using {str(NUM_GPUS) + ' GPU(s)' if CUDA_AVAILABLE else 'CPU(Much slower)'}.")
+            self.args['gpus'] = list(range(NUM_GPUS))
 
     def _show_args(self):
-        if self.args['verbose']:
-            success('Starting with the following parameters:')
-            _pp.pprint(self.args)
-            warn('Defaults args are loaded from easytorch.config.default_args.')
+        success('Starting with the following parameters:', self.args['verbose'])
+        _pp.pprint(self.args)
+        warn('Defaults args are loaded from easytorch.config.default_args.', self.args['verbose'])
 
-    def _init_args_(self, args):
+    def _init_args(self, args):
         if isinstance(args, _AP):
             self.args = vars(args.parse_args())
         elif isinstance(args, dict):
@@ -136,7 +134,7 @@ class EasyTorch:
                 self.args[k] = _conf.args.get(k)
 
     def _make_reproducible(self):
-        self.args['seed'] = _conf.current_seed
+        self.args['seed'] = CURRENT_SEED
         if self.args.get('seed_all'):
             _torch.manual_seed(self.args['seed'])
             _torch.cuda.manual_seed_all(self.args['seed'])
@@ -146,7 +144,7 @@ class EasyTorch:
             _torch.backends.cudnn.deterministic = True
             _torch.backends.cudnn.benchmark = False
 
-    def _init_dataspecs_(self, dataspecs):
+    def _init_dataspecs(self, dataspecs):
         """
         Need to add -data(base folder for dataset) to all the directories in dataspecs.
         THis makes it flexible to access dataset from arbitrary location.
@@ -157,23 +155,36 @@ class EasyTorch:
                 if '_dir' in k:
                     dspec[k] = _os.path.join(self.args['dataset_dir'], dspec[k])
 
-    def _get_train_dataset(self, split, dspec, dataset_cls):
+    def _load_splits(self, dspec, log_dir, data_splitter:_Callable = None):
+        if _du.create_splits_(log_dir, dspec) and data_splitter:
+            data_splitter(dspec=dspec, args=self.args)
+            success(f"{len(_os.listdir(dspec['split_dir']))} split(s) created in '{dspec['split_dir']}' directory.",
+                    self.args['verbose'])
+        else:
+            success(
+                f"{len(_os.listdir(dspec['split_dir']))} split(s) loaded from '{dspec['split_dir']}' directory.",
+                self.args['verbose'])
+
+    def _load_dataset(self, split_key, split_file, dspec, dataset_cls):
+        with open(dspec['split_dir'] + _sep + split_file) as file:
+            split = _json.loads(file.read())
+            dataset = dataset_cls(mode=split_key, limit=self.args['load_limit'], **self.args)
+            dataset.add(files=split.get(split_key, []), verbose=self.args['verbose'], **dspec)
+            return dataset
+
+    def _get_train_dataset(self, split_file=None, dspec: dict = None, dataset_cls=None):
         r"""
         Load the train data from current fold/split.
         """
-        train_dataset = dataset_cls(mode='train', limit=self.args['load_limit'], **self.args)
-        train_dataset.add(files=split.get('train', []), verbose=self.args['verbose'], **dspec)
-        return train_dataset
+        return self._load_dataset('train', split_file, dspec, dataset_cls)
 
-    def _get_validation_dataset(self, split, dspec, dataset_cls):
+    def _get_validation_dataset(self, split_file=None, dspec: dict = None, dataset_cls=None):
         r"""
         Load the validation data from current fold/split.
         """
-        val_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'], **self.args)
-        val_dataset.add(files=split.get('validation', []), verbose=self.args['verbose'], **dspec)
-        return val_dataset
+        return self._load_dataset('validation', split_file, dspec, dataset_cls)
 
-    def _get_test_dataset(self, split, dspec, dataset_cls):
+    def _get_test_dataset(self, split_file, dspec, dataset_cls):
         r"""
         Load the test data from current fold/split.
         If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
@@ -181,18 +192,16 @@ class EasyTorch:
         """
         test_dataset_list = []
         if self.args.get('load_sparse'):
-            for f in split.get('test', []):
-                if len(test_dataset_list) >= self.args['load_limit']:
-                    break
-                test_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'], **self.args)
-                test_dataset.add(files=[f], verbose=False, **dspec)
-                test_dataset_list.append(test_dataset)
-            if self.args['verbose']:
-                success(f'{len(test_dataset_list)} sparse dataset loaded.')
+            with open(dspec['split_dir'] + _sep + split_file) as file:
+                for f in _json.loads(file.read()).get('test', []):
+                    if len(test_dataset_list) >= self.args['load_limit']:
+                        break
+                    test_dataset = dataset_cls(mode='test', limit=self.args['load_limit'], **self.args)
+                    test_dataset.add(files=[f], verbose=False, **dspec)
+                    test_dataset_list.append(test_dataset)
+                success(f'{len(test_dataset_list)} sparse dataset loaded.', self.args['verbose'])
         else:
-            test_dataset = dataset_cls(mode='eval', limit=self.args['load_limit'], **self.args)
-            test_dataset.add(files=split.get('test', []), verbose=self.args['verbose'], **dspec)
-            test_dataset_list.append(test_dataset)
+            test_dataset_list.append(self._load_dataset('test', split_file, dspec, dataset_cls))
         return test_dataset_list
 
     def run(self, dataset_cls, trainer_cls,
@@ -202,13 +211,8 @@ class EasyTorch:
         """
         for dspec in self.dataspecs:
             trainer = trainer_cls(self.args)
-
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
-            if _du.create_splits_(trainer.cache['log_dir'], dspec):
-                data_splitter(dspec=dspec, args=self.args)
-                success(f"{len(_os.listdir(dspec['split_dir']))} split(s) created in '{dspec['split_dir']}' directory.")
-            elif self.args['verbose']:
-                success(f"{len(_os.listdir(dspec['split_dir']))} split(s) loaded from '{dspec['split_dir']}' directory.")
+            self._load_splits(dspec, trainer.cache['log_dir'], data_splitter)
 
             """
             We will save the global scores of all folds if any.
@@ -219,14 +223,14 @@ class EasyTorch:
 
             """
             The easytorch.metrics.Prf1a() has Precision,Recall,F1,Accuracy,and Overlap implemented.
-             We use F1 as default score to monitor while doing validation and save best model.
+             We use F1 as **default** score to monitor while doing validation and save best model.
              And we will have loss returned by easytorch.metrics.Averages() while training.
             """
             trainer.cache['log_header'] = 'Loss,Precision,Recall,F1,Accuracy'
             trainer.cache.update(monitor_metric='f1', metric_direction='maximize')
 
             """
-            reset_dataset_cache() is an intervention to set any specific needs for each dataset. For example:
+            init_experiment_cache() is an intervention to set any specific needs for each dataset. For example:
                 - custom log_dir
                 - Monitor some other metrics
                 - Set metrics direction differently.
@@ -237,14 +241,12 @@ class EasyTorch:
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
             self._show_args()
             for split_file in _os.listdir(dspec['split_dir']):
-                split = _json.loads(open(dspec['split_dir'] + _sep + split_file).read())
-
                 """   Experiment id is split file name. For the example of k-fold. """
                 trainer.cache['experiment_id'] = split_file.split('.')[0]
                 trainer.cache['checkpoint'] = trainer.cache['experiment_id'] + '.pt'
                 trainer.cache.update(best_epoch=0, best_score=0.0)
                 if trainer.cache['metric_direction'] == 'minimize':
-                    trainer.cache['best_score'] = _conf.data_load_limit
+                    trainer.cache['best_score'] = MAX_SIZE
 
                 trainer.check_previous_logs()
                 trainer.init_nn()
@@ -253,23 +255,23 @@ class EasyTorch:
                 trainer.cache.update(training_log=[], validation_log=[], test_score=[])
 
                 """###########  Run training phase ########################"""
-                if self.args['phase'] == 'train':
-                    trainset = self._get_train_dataset(split, dspec, dataset_cls)
-                    valset = self._get_validation_dataset(split, dspec, dataset_cls)
+                if self.args['phase'] == Phase.TRAIN:
+                    trainset = self._get_train_dataset(split_file, dspec, dataset_cls)
+                    valset = self._get_validation_dataset(split_file, dspec, dataset_cls)
                     info('')
                     trainer.train(trainset, valset)
                     cache = {**self.args, **trainer.cache, **dspec, **trainer.nn, **trainer.optimizer}
                     _utils.save_cache(cache, experiment_id=trainer.cache['experiment_id'])
                 """#########################################################"""
 
-                if self.args['phase'] == 'train' or self.args['pretrained_path'] is None:
+                if self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None:
                     """
                     Best model will be split_name.pt in training phase, and if no pretrained path is supplied.
                     """
                     trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['checkpoint'])
 
                 """########## Run test phase. ##############################"""
-                testset = self._get_test_dataset(split, dspec, dataset_cls)
+                testset = self._get_test_dataset(split_file, dspec, dataset_cls)
                 test_averages, test_score = trainer.evaluation(split_key='test', save_pred=True,
                                                                dataset_list=testset)
 
@@ -296,15 +298,12 @@ class EasyTorch:
         r"""  Run in pooled fashion. """
         trainer = trainer_cls(self.args)
 
-        """ Check if the splits are given. If not, create new.  """
-        for dspec in self.dataspecs:
-            trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
-            if _du.create_splits_(trainer.cache['log_dir'], dspec):
-                data_splitter(dspec=dspec, args=self.args)
-
         """ Create log-dir by concatenating all the involved dataset names.  """
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + 'pooled_' + '_'.join(
             [d['name'] for d in self.dataspecs])
+
+        """ Check if the splits are given. If not, create new.  """
+        for dspec in self.dataspecs: self._load_splits(dspec, trainer.cache['log_dir'], data_splitter)
 
         """
         Default global score holder for each datasets.
@@ -323,12 +322,13 @@ class EasyTorch:
         trainer.cache.update(monitor_metric='f1', metric_direction='maximize')
 
         """
-        reset_dataset_cache() is an intervention to set any specific needs for each dataset. For example:
+        init_experiment_cache() is an intervention to set any specific needs for each dataset. For example:
             - custom log_dir
             - Monitor some other metrics
             - Set metrics direction differently.
         """
         trainer.init_experiment_cache()
+
         _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
         self._show_args()
 
@@ -337,14 +337,14 @@ class EasyTorch:
 
         trainer.cache.update(best_epoch=0, best_score=0.0)
         if trainer.cache['metric_direction'] == 'minimize':
-            trainer.cache['best_score'] = 1e11
+            trainer.cache['best_score'] = MAX_SIZE
 
         trainer.check_previous_logs()
         trainer.init_nn()
 
         """ Clear cache to save scores for each fold"""
         trainer.cache.update(training_log=[], validation_log=[], test_score=[])
-        if self.args['phase'] == 'train':
+        if self.args['phase'] == Phase.TRAIN:
             train_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='train',
                                              load_sparse=False)[0]
             val_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
@@ -353,7 +353,7 @@ class EasyTorch:
             cache = {**self.args, **trainer.cache, 'dataspecs': self.dataspecs}
             _utils.save_cache(cache, experiment_id=cache['experiment_id'])
 
-        if self.args['phase'] == 'train' or self.args['pretrained_path'] is None:
+        if self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None:
             """
             Best model will be split_name.pt in training phase, and if no pretrained path is supplied.
             """

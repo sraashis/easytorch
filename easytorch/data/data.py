@@ -46,7 +46,7 @@ class ETDataLoader(_DataLoader):
 
 
 class ETDataset(_Dataset):
-    def __init__(self, mode='init', limit=_conf.data_load_limit, **kw):
+    def __init__(self, mode='init', limit=_conf.MAX_SIZE, **kw):
         self.mode = mode
         self.limit = limit
         self.dataspecs = {}

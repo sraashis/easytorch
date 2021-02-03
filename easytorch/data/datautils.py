@@ -111,7 +111,7 @@ def init_kfolds_(dspec, args):
                              save_to_dir=dspec['split_dir'], shuffle_files=True, name=dspec['name'])
     else:
         if args['split_ratio'] is None or len(args['split_ratio']) == 0:
-            args['split_ratio'] = _conf.data_split_ratio
+            args['split_ratio'] = _conf.DATA_SPLIT_RATIO
         create_ratio_split(_os.listdir(dspec['data_dir']),
                            save_to_dir=dspec['split_dir'],
                            ratio=args['split_ratio'],

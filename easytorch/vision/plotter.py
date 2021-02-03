@@ -7,7 +7,7 @@ import numpy as _np
 import pandas as _pd
 from sklearn.preprocessing import MinMaxScaler as _MinMaxScaler
 
-from easytorch.config import current_seed as _cuseed
+from easytorch.config import CURRENT_SEED as _cuseed
 
 _plt.switch_backend('agg')
 _plt.rcParams["figure.figsize"] = [16, 9]

@@ -9,7 +9,7 @@ import typing as _typing
 
 import numpy as _np
 import torch as _torch
-from easytorch.config import metrics_num_precision as _nump, metrics_eps as _eps
+from easytorch.config import *
 
 
 class SerializableMetrics:
@@ -41,7 +41,7 @@ class ETMetrics(SerializableMetrics):
     def add(self, *args, **kw):
         r"""
         Add two tensor to collect scores.
-        Example implementation easytorch.utils.measurements.Prf1a().
+        Example implementation easytorch.metrics.Prf1a().
         Calculate/store all True Positives, False Positives, True Negatives, False Negatives:
            out = F.softmax(core(x), 1)
            _, pred = torch.max(out, 1)
@@ -65,7 +65,7 @@ class ETMetrics(SerializableMetrics):
     def get(self, *args, **kw) -> _typing.List[float]:
         r"""
         Computes/returns list of scores.
-            Example: easytorch.utils.measurements.Prf1a() returns
+            Example: easytorch.metrics.Prf1a() returns
             Precision, Recall, F1, Accuracy from the collected TP, TN, FP, FN.
         """
         return [0.0]
@@ -75,14 +75,14 @@ class ETMetrics(SerializableMetrics):
         r"""
         Epsilon(default 10e-5) for numerical stability.
         """
-        return _eps
+        return METRICS_EPS
 
     @property
     def num_precision(self):
         r"""
         Numerical Precision(default 5) for nice looking numbers.
         """
-        return _nump
+        return METRICS_NUM_PRECISION
 
     @property
     def time(self):
@@ -146,11 +146,11 @@ class ETAverages(ETMetrics):
 
     @property
     def eps(self):
-        return _eps
+        return METRICS_EPS
 
     @property
     def num_precision(self):
-        return _nump
+        return METRICS_NUM_PRECISION
 
     @property
     def time(self):

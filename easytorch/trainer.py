@@ -8,9 +8,9 @@ from collections import OrderedDict as _ODict
 
 import torch as _torch
 
-import easytorch.config as _config
 import easytorch.data as _etdata
 import easytorch.utils as _etutils
+from easytorch.config.status import *
 from easytorch.metrics import metrics as _base_metrics
 from easytorch.utils.logger import *
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
@@ -33,7 +33,7 @@ class ETTrainer:
         self.device = _ODict()
         self.optimizer = _ODict()
 
-    def init_nn(self, **kw):
+    def init_nn(self, init_weights=True, init_optimizer=True, set_device=True):
         r"""
         Call to user implementation of:
             Initialize models.
@@ -45,16 +45,14 @@ class ETTrainer:
         self._init_nn_model()
         # Print number of parameters in all models.
         if self.args['verbose']:
-            for k, m in self.nn.items():
-                if isinstance(m, _torch.nn.Module):
-                    success(f'Total params in {k}:'
-                            f' {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
+            for k, m in [(_k, _m) for _k, _m in self.nn.items() if isinstance(_m, _torch.nn.Module)]:
+                success(f'Total params in {k}:' f' {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
 
-        self._init_nn_weights(**kw)
-        self._init_optimizer()
-        self._set_device()
+        if init_weights: self._init_nn_weights()
+        if init_optimizer: self._init_optimizer()
+        if set_device: self._set_device()
 
-    def _init_nn_weights(self, **kw):
+    def _init_nn_weights(self):
         r"""
         By default, will initialize network with Kaimming initialization.
         If path to pretrained weights are given, it will be used instead.
@@ -66,7 +64,7 @@ class ETTrainer:
             for mk in self.nn:
                 _init_weights(self.nn[mk])
 
-    def load_checkpoint(self, full_path, src='easytorch'):
+    def load_checkpoint(self, full_path, src=MYSELF):
         r"""
         Load checkpoint from the given path:
             If it is an easytorch checkpoint, try loading all the models.
@@ -77,7 +75,7 @@ class ETTrainer:
         except:
             chk = _torch.load(full_path, map_location='cpu')
 
-        if chk.get('source', 'Unknown').lower() == src:
+        if chk.get('_its_origin_', 'Unknown').lower() == src:
             for m in chk['models']:
                 try:
                     self.nn[m].module.load_state_dict(chk['models'][m])
@@ -109,7 +107,7 @@ class ETTrainer:
         If no GPU is present, CPU is used.
         """
         self.device['gpu'] = _torch.device("cpu")
-        if _config.cuda_available and len(self.args['gpus']) >= 1:
+        if CUDA_AVAILABLE and len(self.args['gpus']) >= 1:
             self.device['gpu'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
             if len(self.args['gpus']) >= 2:
                 for model_key in self.nn:
@@ -146,13 +144,13 @@ class ETTrainer:
         User can supply -f True flag to override by force.
         """
         if self.args['force']:
-            if self.cache['debug']: warn('Forced overriding previous logs.')
+            warn('Forced overriding previous logs.', self.args['verbose'])
             return
         i = 'y'
         if self.args['phase'] == 'train':
             train_log = f"{self.cache['log_dir']}{_sep}{self.cache['experiment_id']}_log.json"
             if _os.path.exists(train_log):
-                i = input(f"*** {train_log} *** \n Exists. OVERRIDE [y/n]:")
+                i = input(f"Previous log *** {train_log} *** exists. Override [y/n]:")
 
         if self.args['phase'] == 'test':
             test_log = f"{self.cache['log_dir']}{_sep}{self.cache['experiment_id']}_test_scores.csv"
@@ -163,8 +161,8 @@ class ETTrainer:
         if i.lower() == 'n':
             raise FileExistsError(f' ##### {self.args["log_dir"]} directory is not empty. #####')
 
-    def save_checkpoint(self, full_path, src='easytorch'):
-        checkpoint = {'source': src}
+    def save_checkpoint(self, full_path, src=MYSELF):
+        checkpoint = {'_its_origin_': src}
         for k in self.nn:
             checkpoint['models'] = {}
             try:
@@ -178,7 +176,6 @@ class ETTrainer:
             except:
                 checkpoint['optimizers'][k] = self.optimizer[k].state_dict()
         _torch.save(checkpoint, full_path)
-        # self.cache['log_dir'] + _sep + file_name
 
     def init_experiment_cache(self):
         r"""
@@ -216,11 +213,9 @@ class ETTrainer:
             self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
             self.cache['best_score'] = sc
             self.cache['best_epoch'] = epoch
-            if self.args['verbose']:
-                success(f"Best Model Saved!!! : {self.cache['best_score']}")
+            success(f"Best Model Saved!!! : {self.cache['best_score']}", self.args['verbose'])
         else:
-            if self.args['verbose']:
-                warn(f"Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}")
+            warn(f"Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}", self.args['verbose'])
 
     def iteration(self, batch):
         r"""
@@ -243,7 +238,7 @@ class ETTrainer:
             -we need to keep track of loss
             -we need to keep track of metrics
         """
-        return {'metrics': _base_metrics.ETMetrics(), 'averages': _base_metrics.ETAverages(num_averages=1)}
+        return {}
 
     def save_predictions(self, dataset, its):
         r"""
@@ -262,12 +257,8 @@ class ETTrainer:
         The program will create k-splits(json files) as per specified in --nf -num_of_folds
          argument with keys 'train', ''validation', and 'test'.
         """
-        for k in self.nn:
-            self.nn[k].eval()
-
-        if self.args['verbose']:
-            info(f'---Running {split_key}---')
-
+        info(f'Running {split_key} ... ', self.args['verbose'])
+        for k in self.nn: self.nn[k].eval()
         eval_avg = self.new_averages()
         eval_metrics = self.new_metrics()
         loaders = [_etdata.ETDataLoader.new(mode='eval', shuffle=False, dataset=d, **self.args) for d in dataset_list]
@@ -296,8 +287,7 @@ class ETTrainer:
                 if save_pred:
                     self.save_predictions(loader.dataset, its)
 
-        if self.args['verbose']:
-            info(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.get()}")
+        info(f"{self.cache['experiment_id']} {split_key} metrics: {eval_metrics.get()}", self.args['verbose'])
         return eval_avg, eval_metrics
 
     def _reduce_iteration(self, its):
@@ -362,23 +352,25 @@ class ETTrainer:
         local_iter = self.args.get('num_iteration', 1)
         total_iter = len(train_loader) // local_iter
         for epoch in range(1, self.args['epochs'] + 1):
-            for k in self.nn:
-                self.nn[k].train()
-
+            its = []
+            for k in self.nn: self.nn[k].train()
             _metrics, _avg = self.new_metrics(), self.new_averages()
             ep_avg, ep_metrics = self.new_averages(), self.new_metrics()
-            its = []
-            it = {'averages': _base_metrics.ETAverages(), 'metrics': _base_metrics.ETMetrics()}
+
             for i, batch in enumerate(train_loader, 1):
                 its.append(self.training_iteration(i, batch))
                 if i % local_iter == 0:
                     it = self._reduce_iteration(its)
-                    _i, its = i // local_iter, []
+                    if not it.get('metrics'): it['metrics'] = _base_metrics.ETMetrics()
+                    if not it.get('averages'): it['averages'] = _base_metrics.ETAverages()
 
                     ep_avg.accumulate(it['averages']), ep_metrics.accumulate(it['metrics'])
                     _avg.accumulate(it['averages']), _metrics.accumulate(it['metrics'])
-                    if self.args['verbose'] and (lazy_debug(_i) or _i == total_iter):
-                        info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{total_iter},{_avg.get()},{_metrics.get()}")
+
+                    _i, its = i // local_iter, []
+                    if lazy_debug(_i) or _i == total_iter:
+                        info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{total_iter},{_avg.get()},{_metrics.get()}",
+                             self.args['verbose'])
                         self.cache['training_log'].append([*_avg.get(), *_metrics.get()])
                         _metrics.reset(), _avg.reset()
                     self._on_iteration_end(i=_i, epoch=epoch, it=it)
@@ -391,11 +383,8 @@ class ETTrainer:
             self._on_epoch_end(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                validation_averages=val_averages, validation_metric=val_metric)
 
-            if lazy_debug(epoch):
-                self._plot_progress(epoch=epoch)
-
+            if lazy_debug(epoch): self._plot_progress(epoch=epoch)
             if self._stop_early(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
-                                validation_averages=val_averages, validation_metric=val_metric):
-                break
+                                validation_averages=val_averages, validation_metric=val_metric): break
         """Plot at the end regardless."""
         self._plot_progress(epoch=epoch)
