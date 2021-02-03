@@ -231,19 +231,15 @@ class EasyTorch:
                 - Monitor some other metrics
                 - Set metrics direction differently.
             """
-            trainer.reset_dataset_cache()
+            trainer.init_experiment_cache()
 
-            """
-            Run for each splits.
-            """
+            """ Run for each splits.  """
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
             self._show_args()
             for split_file in _os.listdir(dspec['split_dir']):
                 split = _json.loads(open(dspec['split_dir'] + _sep + split_file).read())
 
-                """
-                Experiment id is split file name. For the example of k-fold.
-                """
+                """   Experiment id is split file name. For the example of k-fold. """
                 trainer.cache['experiment_id'] = split_file.split('.')[0]
                 trainer.cache['checkpoint'] = trainer.cache['experiment_id'] + '.pt'
                 trainer.cache.update(best_epoch=0, best_score=0.0)
@@ -253,15 +249,8 @@ class EasyTorch:
                 trainer.check_previous_logs()
                 trainer.init_nn()
 
-                """
-                Clear cache to save scores for each fold
-                """
+                """ Clear cache to save scores for each fold """
                 trainer.cache.update(training_log=[], validation_log=[], test_score=[])
-
-                """
-                An intervention point if anyone wants to change things for each fold.
-                """
-                trainer.reset_fold_cache()
 
                 """###########  Run training phase ########################"""
                 if self.args['phase'] == 'train':
@@ -277,7 +266,7 @@ class EasyTorch:
                     """
                     Best model will be split_name.pt in training phase, and if no pretrained path is supplied.
                     """
-                    trainer.load_checkpoint_from_key(key='checkpoint')
+                    trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['checkpoint'])
 
                 """########## Run test phase. ##############################"""
                 testset = self._get_test_dataset(split, dspec, dataset_cls)
@@ -298,30 +287,22 @@ class EasyTorch:
                 _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
                                    file_keys=['test_score'])
 
-            """
-            Finally, save the global score to a file
-            """
+            """ Finally, save the global score to a file  """
             trainer.cache['global_test_score'].append(['Global', *global_averages.get(), *global_score.get()])
             _utils.save_scores(trainer.cache, file_keys=['global_test_score'])
 
     def run_pooled(self, dataset_cls, trainer_cls,
                    data_splitter: _Callable = _du.init_kfolds_):
-        r"""
-        Run in pooled fashion.
-        """
+        r"""  Run in pooled fashion. """
         trainer = trainer_cls(self.args)
 
-        """
-        Check if the splits are given. If not, create new.
-        """
+        """ Check if the splits are given. If not, create new.  """
         for dspec in self.dataspecs:
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
             if _du.create_splits_(trainer.cache['log_dir'], dspec):
                 data_splitter(dspec=dspec, args=self.args)
 
-        """
-        Create log-dir by concatenating all the involved dataset names.
-        """
+        """ Create log-dir by concatenating all the involved dataset names.  """
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + 'pooled_' + '_'.join(
             [d['name'] for d in self.dataspecs])
 
@@ -348,7 +329,7 @@ class EasyTorch:
             - Monitor some other metrics
             - Set metrics direction differently.
         """
-        trainer.reset_dataset_cache()
+        trainer.init_experiment_cache()
         _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
         self._show_args()
 
@@ -362,16 +343,8 @@ class EasyTorch:
         trainer.check_previous_logs()
         trainer.init_nn()
 
-        """
-        Clear cache to save scores for each fold
-        """
+        """ Clear cache to save scores for each fold"""
         trainer.cache.update(training_log=[], validation_log=[], test_score=[])
-
-        """
-        An intervention point if anyone wants to change things for each fold.
-        """
-        trainer.reset_fold_cache()
-
         if self.args['phase'] == 'train':
             train_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='train',
                                              load_sparse=False)[0]
@@ -385,7 +358,7 @@ class EasyTorch:
             """
             Best model will be split_name.pt in training phase, and if no pretrained path is supplied.
             """
-            trainer.load_checkpoint_from_key(key='checkpoint')
+            trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['checkpoint'])
 
         test_dataset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
                                              load_sparse=self.args['load_sparse'])
