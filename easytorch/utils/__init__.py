@@ -27,8 +27,11 @@ class FrozenDict(dict):
 def save_scores(cache, experiment_id='', file_keys=[]):
     for fk in file_keys:
         with open(cache['log_dir'] + _os.sep + f'{experiment_id}_{fk}.csv', 'w') as file:
-            header = 'Scores,' + cache.get('log_header', '')
-            for line in [header] + cache[fk] if any(isinstance(ln, list) for ln in cache[fk]) else [cache[fk]]:
+            header = cache.get('log_header', '')
+            if isinstance(header, list):
+                header = ','.join(header)
+            file.write('Scores,' + header + '\n')
+            for line in cache[fk]:
                 if isinstance(line, list):
                     file.write(','.join([str(s) for s in line]) + '\n')
                 else:

@@ -213,7 +213,7 @@ class EasyTorch:
             """
             We will save the global scores of all folds if any.
             """
-            global_score = trainer.new_metrics()
+            global_metrics = trainer.new_metrics()
             global_averages = trainer.new_averages()
             trainer.cache['global_test_score'] = []
 
@@ -244,7 +244,7 @@ class EasyTorch:
                 trainer.cache['checkpoint'] = trainer.cache['experiment_id'] + '.pt'
                 trainer.cache.update(best_epoch=0, best_score=0.0)
                 if trainer.cache['metric_direction'] == 'minimize':
-                    trainer.cache['best_score'] = 1e11
+                    trainer.cache['best_score'] = _conf.data_load_limit
 
                 trainer.check_previous_logs()
                 trainer.init_nn()
@@ -277,18 +277,18 @@ class EasyTorch:
                 Accumulate global scores-scores of each fold to report single global score for each datasets.
                 """
                 global_averages.accumulate(test_averages)
-                global_score.accumulate(test_score)
+                global_metrics.accumulate(test_score)
 
                 """
                 Save the calculated scores in list so that later we can do extra things(Like save to a file.)
                 """
-                trainer.cache['test_score'].append([*test_averages.get(), *test_score.get()])
+                trainer.cache['test_score'].append([split_file, *test_averages.get(), *test_score.get()])
                 trainer.cache['global_test_score'].append([split_file, *test_averages.get(), *test_score.get()])
                 _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
                                    file_keys=['test_score'])
 
             """ Finally, save the global score to a file  """
-            trainer.cache['global_test_score'].append(['Global', *global_averages.get(), *global_score.get()])
+            trainer.cache['global_test_score'].append(['Global', *global_averages.get(), *global_metrics.get()])
             _utils.save_scores(trainer.cache, file_keys=['global_test_score'])
 
     def run_pooled(self, dataset_cls, trainer_cls,
@@ -311,8 +311,7 @@ class EasyTorch:
         Save the latest time(maximize current time.). One can also maximize/minimize any other score from
         easytorch.metrics.ETMetrics() class by overriding _reset_dataset_cache.
         """
-        trainer.cache['global_test_score'] = []
-        global_score = trainer.new_metrics()
+        global_metrics = trainer.new_metrics()
         global_averages = trainer.new_averages()
 
         """
@@ -365,6 +364,6 @@ class EasyTorch:
         test_averages, test_score = trainer.evaluation(split_key='test', save_pred=True, dataset_list=test_dataset_list)
 
         global_averages.accumulate(test_averages)
-        global_score.accumulate(test_score)
-        trainer.cache['test_score'].append(['Global', *global_averages.get(), *global_score.get()])
+        global_metrics.accumulate(test_score)
+        trainer.cache['test_score'].append(['Global', *global_averages.get(), *global_metrics.get()])
         _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'], file_keys=['test_score'])
