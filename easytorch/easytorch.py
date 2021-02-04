@@ -29,6 +29,7 @@ class EasyTorch:
                  args: _Union[dict, _AP] = _conf.default_args,
                  phase: str = None,
                  batch_size: int = None,
+                 num_iterations: int = None,
                  epochs: int = None,
                  learning_rate: float = None,
                  gpus: _List[int] = None,
@@ -85,6 +86,7 @@ class EasyTorch:
 
         if phase is not None: self.args.update(phase=phase)
         if batch_size is not None: self.args.update(batch_size=batch_size)
+        if num_iterations is not None: self.args.update(num_iterations=num_iterations)
         if epochs is not None: self.args.update(epochs=epochs)
         if learning_rate is not None: self.args.update(learning_rate=learning_rate)
         if gpus is not None: self.args.update(gpus=gpus)

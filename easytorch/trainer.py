@@ -2,7 +2,6 @@ r"""
 The main core of EasyTorch
 """
 
-import math as _math
 import os as _os
 from collections import OrderedDict as _ODict
 
@@ -275,20 +274,28 @@ class ETTrainer:
         if len(its) == 1:
             return its[0]
         reduced = {}.fromkeys(its[0].keys(), None)
-        for k in reduced:
-            if isinstance(its[0][k], _base_metrics.ETAverages):
-                reduced[k] = self.new_averages()
-                [reduced[k].accumulate(ik[k]) for ik in its]
+        for key in reduced:
+            if isinstance(its[0][key], _base_metrics.ETAverages):
+                reduced[key] = self.new_averages()
+                [reduced[key].accumulate(ik[key]) for ik in its]
 
-            elif isinstance(its[0][k], _base_metrics.ETMetrics):
-                reduced[k] = self.new_metrics()
-                [reduced[k].accumulate(ik[k]) for ik in its]
+            elif isinstance(its[0][key], _base_metrics.ETMetrics):
+                reduced[key] = self.new_metrics()
+                [reduced[key].accumulate(ik[key]) for ik in its]
+            elif isinstance(its[0][key], _torch.Tensor) and not its[0][key].requires_grad and its[0][key].is_leaf:
+                def collect(k=key, src=its):
+                    _data = []
+                    for ik in src:
+                        if len(ik[k].shape) > 0:
+                            _data.append(ik[k])
+                        else:
+                            _data.append(ik[k].unsqueeze(0))
+                    return _torch.cat(_data)
 
-            elif isinstance(its[0][k], _torch.Tensor) and not its[0][k].requires_grad and its[0][k].is_leaf:
-                reduced[k] = _torch.cat([ik[k] for ik in its])
-
+                reduced[key] = collect
             else:
-                reduced[k] = [ik[k] for ik in its]
+                reduced[key] = (ik[key] for ik in its)
+
         return reduced
 
     def _on_epoch_end(self, **kw):
@@ -322,7 +329,7 @@ class ETTrainer:
         """
         it = self.iteration(batch)
         it['loss'].backward()
-        if i % self.args.get('num_iteration', 1) == 0:
+        if i % self.args.get('num_iterations', 1) == 0:
             first_optim = list(self.optimizer.keys())[0]
             self.optimizer[first_optim].step()
             self.optimizer[first_optim].zero_grad()
@@ -331,7 +338,7 @@ class ETTrainer:
     def train(self, dataset, val_dataset):
         info('Training ...', self.args['verbose'])
 
-        local_iter = self.args.get('num_iteration', 1)
+        local_iter = self.args.get('num_iterations', 1)
         train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
         tot_iter = len(train_loader) // local_iter
 
