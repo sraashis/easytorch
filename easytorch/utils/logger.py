@@ -3,12 +3,12 @@ import math as _math
 
 def error(msg, debug=True):
     if debug:
-        print(f"[#### Error!  ####]: {msg}")
+        print(f"[ERROR]! {msg}")
 
 
 def warn(msg, debug=True):
     if debug:
-        print(f"[---  Warning! ---]: {msg}")
+        print(f"[WARNING]! {msg}")
 
 
 def info(msg, debug=True):
@@ -17,7 +17,7 @@ def info(msg, debug=True):
 
 def success(msg, debug=True):
     if debug:
-        print(f"[***  Success! ***]: {msg}")
+        print(f"[SUCCESS]! {msg}")
 
 
 def lazy_debug(x, add=1):

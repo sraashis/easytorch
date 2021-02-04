@@ -123,7 +123,6 @@ class EasyTorch:
     def _show_args(self):
         success('Starting with the following parameters:', self.args['verbose'])
         _pp.pprint(self.args)
-        warn('Defaults args are loaded from easytorch.config.default_args.', self.args['verbose'])
 
     def _init_args(self, args):
         if isinstance(args, _AP):
@@ -264,7 +263,7 @@ class EasyTorch:
             trainer.cache['log_header'] = 'Loss,Precision,Recall,F1,Accuracy'
             trainer.cache.update(monitor_metric='f1', metric_direction='maximize')
 
-            """ Init and Run for each splits.  """
+            """ Init and Run for each splits. """
             trainer.init_experiment_cache()
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
             for split_file in _os.listdir(dspec['split_dir']):
