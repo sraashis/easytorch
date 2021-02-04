@@ -14,6 +14,7 @@ from easytorch.metrics import metrics as _base_metrics
 from easytorch.utils.logger import *
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
 from .vision import plotter as _log_utils
+import math as _math
 
 _sep = _os.sep
 
@@ -226,8 +227,8 @@ class ETTrainer:
         """
         pass
 
-    def evaluation(self, split_key=None, save_pred=False, dataset_list=None):
-        info(f'{split_key} ...', self.args['verbose'])
+    def evaluation(self, epoch=0, mode='eval', dataset_list=None, save_pred=False):
+        info(f'{mode} ...', self.args['verbose'])
 
         for k in self.nn:
             self.nn[k].eval()
@@ -235,9 +236,10 @@ class ETTrainer:
         eval_avg, eval_metrics = self.new_averages(), self.new_metrics()
 
         loaders = []
+        _args = {**self.args}
+        _args['shuffle'] = False
         for dataset in dataset_list:
-            loaders.append(_etdata.ETDataLoader.new(mode=split_key if split_key is not None else 'eval',
-                                                    shuffle=False, dataset=dataset, **self.args))
+            loaders.append(_etdata.ETDataLoader.new(mode=mode, dataset=dataset, **_args))
         with _torch.no_grad():
             for loader in loaders:
                 its = []
@@ -256,17 +258,17 @@ class ETTrainer:
                     if save_pred:
                         its.append(it)
 
-                    if self.args['verbose'] and len(dataset_list) <= 1 and lazy_debug(i):
+                    if self.args['verbose'] and len(dataset_list) <= 1 and lazy_debug(i, add=epoch):
                         info(f" Itr:{i}/{len(loader)},{it['averages'].get()},{it['metrics'].get()}")
 
                 eval_metrics.accumulate(metrics)
                 eval_avg.accumulate(avg)
                 if self.args['verbose'] and len(dataset_list) > 1:
-                    info(f" {split_key}, {avg.get()}, {metrics.get()}")
+                    info(f" {mode}, {avg.get()}, {metrics.get()}")
                 if save_pred:
                     self.save_predictions(loader.dataset, self._reduce_iteration(its))
 
-        info(f" {self.cache['experiment_id']} {split_key} metrics: {eval_avg.get()}, {eval_metrics.get()}",
+        info(f" {self.cache['experiment_id']} {mode} metrics: {eval_avg.get()}, {eval_metrics.get()}",
              self.args['verbose'])
         return eval_avg, eval_metrics
 
@@ -339,7 +341,9 @@ class ETTrainer:
         info('Training ...', self.args['verbose'])
 
         local_iter = self.args.get('num_iterations', 1)
-        train_loader = _etdata.ETDataLoader.new(mode='train', shuffle=True, dataset=dataset, **self.args)
+        _args = {**self.args}
+        _args['shuffle'] = True
+        train_loader = _etdata.ETDataLoader.new(mode='train', dataset=dataset, **_args)
         tot_iter = len(train_loader) // local_iter
 
         for epoch in range(1, self.args['epochs'] + 1):
@@ -362,21 +366,21 @@ class ETTrainer:
                     _avg.accumulate(it['averages']), _metrics.accumulate(it['metrics'])
 
                     _i, its = i // local_iter, []
-                    if lazy_debug(_i) or _i == tot_iter:
+                    if lazy_debug(_i, add=epoch) or _i == tot_iter:
                         info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{tot_iter},{_avg.get()},{_metrics.get()}",
                              self.args['verbose'])
                         self.cache[LogKey.TRAIN_LOG].append([*_avg.get(), *_metrics.get()])
                         _metrics.reset(), _avg.reset()
                     self._on_iteration_end(i=_i, epoch=epoch, it=it)
 
-            val_averages, val_metric = self.evaluation(split_key='validation', dataset_list=[val_dataset])
+            val_averages, val_metric = self.evaluation(epoch=epoch, mode='validation', dataset_list=[val_dataset])
             self.cache[LogKey.VALIDATION_LOG].append([*val_averages.get(), *val_metric.get()])
             self.save_if_better(epoch, val_metric)
 
             self._on_epoch_end(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                validation_averages=val_averages, validation_metric=val_metric)
 
-            if lazy_debug(epoch):
+            if lazy_debug(epoch, _math.log(epoch)):
                 self._save_progress(epoch=epoch)
 
             if self._stop_early(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
