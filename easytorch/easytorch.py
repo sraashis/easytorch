@@ -286,8 +286,7 @@ class EasyTorch:
 
                 """########## Run test phase. ##############################"""
                 testset = self._get_test_dataset(split_file, dspec, dataset_cls)
-                test_averages, test_score = trainer.evaluation(split_key='test', save_pred=True,
-                                                               dataset_list=testset)
+                test_averages, test_score = trainer.evaluation(mode='test', save_pred=True, dataset_list=testset)
 
                 """Accumulate global scores-scores of each fold to report single global score for each datasets."""
                 global_averages.accumulate(test_averages)
@@ -360,7 +359,7 @@ class EasyTorch:
 
         test_dataset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
                                              load_sparse=self.args['load_sparse'])
-        test_averages, test_score = trainer.evaluation(split_key='test', save_pred=True, dataset_list=test_dataset_list)
+        test_averages, test_score = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset_list)
 
         global_averages.accumulate(test_averages)
         global_metrics.accumulate(test_score)
