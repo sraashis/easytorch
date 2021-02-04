@@ -40,9 +40,17 @@ class MyTrainer(ETTrainer):
     avg.add(loss.item(), len(inputs))
 
     return {'loss': loss, 'averages': avg, 'output': out, 'metrics': sc, 'predictions': pred}
+  
+   def init_experiment_cache(self):
+      r"""What scores you want to plot."""
+      r"""By default it plots Loss,Accuracy,F1,Precision,Recall."""
+      self.cache['log_header'] = 'Loss,Accuracy,F1,Precision,Recall'
+
+      r"""This is for best model selection: """
+      r"""It tells which metrics to monitor and either to maximize(F1 score), minimize(MSE)"""
+      self.cache.update(monitor_metric='f1', metric_direction='maximize')
 
 ````
-
 
 ### 2. Use custom or pytorch based Datasets class.
  ***Define specification for your datasets:***
