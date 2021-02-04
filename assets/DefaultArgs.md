@@ -13,6 +13,8 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
 * **-ph/--phase** [Required]
     * Which phase to run? 'train' (runs all train, validation, test steps) OR 'test' (runs only test step).
 * **-b/--batch_size** [4]
+* **-ni/--num_iterations** [1]
+    * Number of local iterations to accumulate gradients.
 * **-ep/--epochs** [51]
 * **-lr/--learning_rate** [0.001]
 * **gpus/--gpus** [0]
