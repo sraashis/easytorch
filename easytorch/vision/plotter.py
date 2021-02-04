@@ -1,19 +1,16 @@
 import math as _math
 import os as _os
-import random as _rd
 
 import matplotlib.pyplot as _plt
 import numpy as _np
 import pandas as _pd
 from sklearn.preprocessing import MinMaxScaler as _MinMaxScaler
 
-from easytorch.config import CURRENT_SEED as _cuseed
-
 _plt.switch_backend('agg')
 _plt.rcParams["figure.figsize"] = [16, 9]
 
-_COLORS = ['black', 'darkslateblue', 'maroon', 'magenta', 'teal', 'red', 'blue', 'blueviolet', 'brown', 'cadetblue',
-          'chartreuse', 'coral', 'cornflowerblue', 'indigo', 'cyan', 'navy']
+_COLORS = ['black', 'blue', 'maroon', 'magenta', 'teal', 'red', 'blueviolet', 'brown', 'cadetblue',
+           'chartreuse', 'coral', 'darkslateblue', 'cornflowerblue', 'indigo', 'cyan', 'navy']
 
 
 def plot_progress(cache, experiment_id='', plot_keys=[], num_points=21, epoch=None):
@@ -46,8 +43,7 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=21, epoch=No
             if max(df[col]) > 1:
                 df[col] = scaler.fit_transform(df[[col]])
 
-        _rd.seed(_cuseed)
-        color = _rd.sample(_COLORS, n_cols)
+        color = _COLORS[:n_cols]
 
         rollin_window = max(df.shape[0] // num_points, 3)
         ax = df.plot(x_compat=True, alpha=0.11, legend=0, color=color)
