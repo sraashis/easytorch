@@ -123,7 +123,6 @@ class EasyTorch:
     def _show_args(self):
         success('Starting with the following parameters:', self.args['verbose'])
         _pp.pprint(self.args)
-        warn('Defaults args are loaded from easytorch.config.default_args.', self.args['verbose'])
 
     def _init_args(self, args):
         if isinstance(args, _AP):
