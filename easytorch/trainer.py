@@ -227,7 +227,7 @@ class ETTrainer:
         pass
 
     def evaluation(self, split_key=None, save_pred=False, dataset_list=None):
-        info(f' {split_key} ...', self.args['verbose'])
+        info(f'{split_key} ...', self.args['verbose'])
 
         for k in self.nn:
             self.nn[k].eval()
@@ -257,16 +257,16 @@ class ETTrainer:
                         its.append(it)
 
                     if self.args['verbose'] and len(dataset_list) <= 1 and lazy_debug(i):
-                        info(f" Itr:{i}/{len(loader)}, {it['averages'].get()}, {it['metrics'].get()}")
+                        info(f" Itr:{i}/{len(loader)},{it['averages'].get()},{it['metrics'].get()}")
 
                 eval_metrics.accumulate(metrics)
                 eval_avg.accumulate(avg)
                 if self.args['verbose'] and len(dataset_list) > 1:
-                    info(f"{split_key}, {avg.get()}, {metrics.get()}")
+                    info(f" {split_key}, {avg.get()}, {metrics.get()}")
                 if save_pred:
                     self.save_predictions(loader.dataset, self._reduce_iteration(its))
 
-        info(f"{self.cache['experiment_id']} {split_key} metrics: {eval_avg.get()}, {eval_metrics.get()}",
+        info(f" {self.cache['experiment_id']} {split_key} metrics: {eval_avg.get()}, {eval_metrics.get()}",
              self.args['verbose'])
         return eval_avg, eval_metrics
 
