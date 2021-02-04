@@ -1,20 +1,23 @@
 import math as _math
 
 
-def error(msg):
-    print(f"####   [Error!]   ####: {msg}")
+def error(msg, debug=True):
+    if debug:
+        print(f"[#### Error!  ####]: {msg}")
 
 
-def warn(msg):
-    print(f"---  [Warning!]  ---: {msg}")
+def warn(msg, debug=True):
+    if debug:
+        print(f"[---  Warning! ---]: {msg}")
 
 
-def info(msg):
-    print(f"{msg}")
+def info(msg, debug=True):
+    if debug: print(f"{msg}")
 
 
-def success(msg):
-    print(f"***  [Success!] ***: {msg}")
+def success(msg, debug=True):
+    if debug:
+        print(f"[***  Success! ***]: {msg}")
 
 
 def lazy_debug(x, add=1):

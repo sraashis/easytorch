@@ -2,9 +2,9 @@
 
 ```python
 import argparse
-from easytorch import default_args, EasyTorch
+from easytorch import default_ap, EasyTorch
 
-ap = argparse.ArgumentParser(parents=[default_args], add_help=False)
+ap = argparse.ArgumentParser(parents=[default_ap], add_help=False)
 ap.add_argument('-a_new', '--new_argument', default=1, type=int, help='My new argument')
 easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_value')
 ```
