@@ -44,7 +44,7 @@ def new_averages(self):
     """
     return easytorch.ETAverages(num_averages=1)
 
-def reset_dataset_cache(self):
+def init_experiment_cache(self):
     r"""
     An extra layer to reset cache for each dataspec. For example:
     1. Set a new score to monitor:
