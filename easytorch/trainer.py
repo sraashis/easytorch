@@ -243,7 +243,7 @@ class ETTrainer:
                 its = []
                 metrics = self.new_metrics()
                 avg = self.new_averages()
-                for i, batch in enumerate(loader):
+                for i, batch in enumerate(loader, 1):
 
                     it = self.iteration(batch)
                     if not it.get('metrics'):
