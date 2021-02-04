@@ -369,7 +369,9 @@ class ETTrainer:
             self._on_epoch_end(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                validation_averages=val_averages, validation_metric=val_metric)
 
-            if lazy_debug(epoch): self._save_progress(epoch=epoch)
+            if lazy_debug(epoch):
+                self._save_progress(epoch=epoch)
+
             if self._stop_early(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                 validation_averages=val_averages, validation_metric=val_metric):
                 break

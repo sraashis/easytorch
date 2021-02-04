@@ -275,8 +275,8 @@ class EasyTorch:
                     trainset = self._get_train_dataset(split_file, dspec, dataset_cls)
                     valset = self._get_validation_dataset(split_file, dspec, dataset_cls)
                     trainer.train(trainset, valset)
-                    cache = {**self.args, **trainer.cache, **dspec, **trainer.nn, **trainer.optimizer}
-                    _utils.save_cache(cache, experiment_id=trainer.cache['experiment_id'])
+                    _utils.save_cache({**self.args, **trainer.cache, **dspec},
+                                      experiment_id=trainer.cache['experiment_id'])
                 """#########################################################"""
 
                 if self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None:
@@ -350,13 +350,11 @@ class EasyTorch:
             val_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
                                            load_sparse=False)[0]
             trainer.train(train_dataset, val_dataset)
-            cache = {**self.args, **trainer.cache, 'dataspecs': self.dataspecs}
-            _utils.save_cache(cache, experiment_id=cache['experiment_id'])
+            _utils.save_cache({**self.args, **trainer.cache, 'dataspecs': self.dataspecs},
+                              experiment_id=trainer.cache['experiment_id'])
 
         if self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None:
-            """
-            Best model will be split_name.pt in training phase, and if no pretrained path is supplied.
-            """
+            """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
             trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['checkpoint'])
 
         test_dataset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
