@@ -284,19 +284,21 @@ class ETTrainer:
             elif isinstance(its[0][key], _base_metrics.ETMetrics):
                 reduced[key] = self.new_metrics()
                 [reduced[key].accumulate(ik[key]) for ik in its]
-            elif isinstance(its[0][key], _torch.Tensor) and not its[0][key].requires_grad and its[0][key].is_leaf:
+            else:
                 def collect(k=key, src=its):
                     _data = []
+                    is_tensor = isinstance(src[0][k], _torch.Tensor)
+                    is_tensor = is_tensor and not src[0][k].requires_grad and src[0][k].is_leaf
                     for ik in src:
-                        if len(ik[k].shape) > 0:
-                            _data.append(ik[k])
+                        if is_tensor:
+                            _data.append(ik[k] if len(ik[k].shape) > 0 else ik[k].unsqueeze(0))
                         else:
-                            _data.append(ik[k].unsqueeze(0))
-                    return _torch.cat(_data)
+                            _data.append(ik[k])
+                    if is_tensor:
+                        return _torch.cat(_data)
+                    return _data
 
                 reduced[key] = collect
-            else:
-                reduced[key] = (ik[key] for ik in its)
 
         return reduced
 
