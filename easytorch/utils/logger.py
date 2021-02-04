@@ -22,4 +22,4 @@ def success(msg, debug=True):
 
 def lazy_debug(x, add=0):
     _scale = int(_math.log(max(x, 1)) * _math.log(max(add, 1)))
-    return x % max(_scale, 1) == 0
+    return x % (_scale + 1) == 0
