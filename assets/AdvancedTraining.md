@@ -61,7 +61,7 @@ def init_experiment_cache(self):
         of your implementation of easytorch.metrics.ETMetrics and easytorch.metrics.ETAverages class:
         For example, the default implementation is:
         - The get method of easytorch.metrics.ETAverages class returns the average loss value.
-        - The get method of easytorch.metrics.Prf1a returns Precision,Recall,F1,Accuracy
+        - The get method of easytorch.metrics.Prf1a returns Accuracy,F1,Precision,Recall
         - so Default heade is [Loss,Precision,Recall,F1,Accuracy]
     3. Set new log_dir based on different experiment versions on each datasets as per info. received from arguments.
     """

@@ -226,11 +226,8 @@ class Prf1a(ETMetrics):
                  max(((beta ** 2) * self.precision) + self.recall, self.eps)
         return round(f_beta, self.num_precision)
 
-    def prfa(self, beta=1):
-        return [self.precision, self.recall, self.f_beta(beta=beta), self.accuracy]
-
-    def get(self, beta=1):
-        return self.prfa(beta)
+    def get(self):
+        return [self.accuracy, self.f1, self.precision, self.recall]
 
     @property
     def overlap(self):
@@ -296,9 +293,6 @@ class ConfusionMatrix(ETMetrics):
     def accuracy(self):
         return self.matrix.trace().item() / max(self.matrix.sum().item(), self.eps)
 
-    def prfa(self):
-        return [round(self.precision(), self.num_precision), round(self.recall(), self.num_precision),
-                round(self.f1(), self.num_precision), round(self.accuracy(), self.num_precision)]
-
     def get(self):
-        return self.prfa()
+        return [round(self.accuracy(), self.num_precision), round(self.f1(), self.num_precision),
+                round(self.precision(), self.num_precision), round(self.recall(), self.num_precision)]

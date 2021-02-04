@@ -1,4 +1,5 @@
 ### To use custom metrics, implement the following:
+#### Easytorch calls the .get() method, so it should return a list of scores you want to log or plot.
 ```python
 class ETMetrics:
     @_abc.abstractmethod
@@ -26,7 +27,7 @@ class ETMetrics:
         """
         pass
 
-    def get(self, *args, **kw) -> _typing.List[float]:
+    def get(self, *args, **kw) -> List[float]:
         r"""
         Computes/returns list of scores.
             Example: easytorch.metrics.Prf1a() returns
@@ -34,8 +35,9 @@ class ETMetrics:
         """
         return [0.0]
 ```
-### Example for Precision, Recall, F1 score, Accuracy,a bd Overlap(IoU):
+### Example for Precision, Recall, F1 score, and Accuracy:
 ```python
+
 class Prf1a(ETMetrics):
     r"""
     A class that has GPU based computation of:
@@ -46,7 +48,7 @@ class Prf1a(ETMetrics):
         super().__init__()
         self.tn, self.fp, self.fn, self.tp = 0, 0, 0, 0
 
-    def update(self, tn=0, fp=0, fn=0, tp=0):
+    def update(self, tn=0, fp=0, fn=0, tp=0, **kw):
         self.tp += tp
         self.fp += fp
         self.tn += tn
@@ -100,14 +102,6 @@ class Prf1a(ETMetrics):
                  max(((beta ** 2) * self.precision) + self.recall, self.eps)
         return round(f_beta, self.num_precision)
 
-    @property
-    def overlap(self):
-        o = self.tp / max(self.tp + self.fp + self.fn, self.eps)
-        return round(o, self.num_precision)
-    
-    def prfa(self, beta=1):
-        return [self.precision, self.recall, self.f_beta(beta=beta), self.accuracy]
-
-    def get(self, beta=1):
-        return self.prfa(beta)
+    def get(self):
+        return [self.accuracy, self.f1, self.precision, self.recall]
 ```

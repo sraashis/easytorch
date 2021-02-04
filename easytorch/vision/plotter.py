@@ -29,7 +29,7 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=21, epoch=No
         header = cache['log_header'].split(',')
         data = _np.array(data)
 
-        n_cols = len(header)
+        n_cols = min(len(header), data.shape[1])
         data = data[:, :n_cols]
         if _np.sum(data) <= 0:
             continue

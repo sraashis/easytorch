@@ -260,7 +260,7 @@ class EasyTorch:
              We use F1 as **default** score to monitor while doing validation and save best model.
              And we will have loss returned by easytorch.metrics.Averages() while training.
             """
-            trainer.cache['log_header'] = 'Loss,Precision,Recall,F1,Accuracy'
+            trainer.cache['log_header'] = 'Loss,Accuracy,F1,Precision,Recall'
             trainer.cache.update(monitor_metric='f1', metric_direction='maximize')
 
             """ Init and Run for each splits. """
@@ -328,7 +328,7 @@ class EasyTorch:
          We use F1 as default score to monitor while doing validation and save best model.
          And we will have loss returned by easytorch.metrics.Averages() while training.
         """
-        trainer.cache['log_header'] = 'Loss,Precision,Recall,F1,Accuracy'
+        trainer.cache['log_header'] = 'Loss,Accuracy,F1,Precision,Recall'
         trainer.cache.update(monitor_metric='f1', metric_direction='maximize')
 
         """
