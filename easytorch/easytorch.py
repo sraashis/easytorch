@@ -186,7 +186,7 @@ class EasyTorch:
         r"""
         Load the test data from current fold/split.
         If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
-        So that we can correctly gather components of one image(components like output patches)
+        So that we can correctly gather cDduomponents of one image(components like output patches)
         """
         test_dataset_list = []
         if self.args.get('load_sparse'):
@@ -254,6 +254,8 @@ class EasyTorch:
         self._show_args()
         for dspec in self.dataspecs:
             trainer = trainer_cls(self.args)
+            trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
+
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
             self._split_data(dspec, trainer.cache['log_dir'], data_splitter)
 
@@ -313,6 +315,7 @@ class EasyTorch:
                    data_splitter: _Callable = _du.default_data_splitter_):
         r"""  Run in pooled fashion. """
         trainer = trainer_cls(self.args)
+        trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
 
         """ Create log-dir by concatenating all the involved dataset names.  """
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + f'Pooled_{len(self.dataspecs)}'
