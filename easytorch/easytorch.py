@@ -242,6 +242,12 @@ class EasyTorch:
         if cache['metric_direction'] == 'minimize':
             cache['best_score'] = MAX_SIZE
 
+    def _on_experiment_end(self, trainer, global_averages, global_metrics):
+        with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:
+            log = {'averages': vars(global_averages),
+                   'metrics': vars(global_metrics)}
+            f.write(_json.dumps(log))
+
     def run(self, dataset_cls, trainer_cls,
             data_splitter: _Callable = _du.default_data_splitter_):
         r"""Run for individual datasets"""
@@ -286,21 +292,22 @@ class EasyTorch:
 
                 """########## Run test phase. ##############################"""
                 testset = self._get_test_dataset(split_file, dspec, dataset_cls)
-                test_averages, test_score = trainer.evaluation(mode='test', save_pred=True, dataset_list=testset)
-
+                test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=testset)
                 """Accumulate global scores-scores of each fold to report single global score for each datasets."""
                 global_averages.accumulate(test_averages)
-                global_metrics.accumulate(test_score)
+                global_metrics.accumulate(test_metrics)
 
                 """Save the calculated scores in list so that later we can do extra things(Like save to a file.)"""
-                trainer.cache[LogKey.TEST_METRICS] = [[split_file, *test_averages.get(), *test_score.get()]]
-                trainer.cache[LogKey.GLOBAL_TEST_METRICS].append([split_file, *test_averages.get(), *test_score.get()])
+                trainer.cache[LogKey.TEST_METRICS] = [[split_file, *test_averages.get(), *test_metrics.get()]]
+                trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
+                    [split_file, *test_averages.get(), *test_metrics.get()])
                 _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
                                    file_keys=[LogKey.TEST_METRICS])
 
             """ Finally, save the global score to a file  """
             trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(['Global', *global_averages.get(), *global_metrics.get()])
             _utils.save_scores(trainer.cache, file_keys=[LogKey.GLOBAL_TEST_METRICS])
+            self._on_experiment_end(trainer, global_averages, global_metrics)
 
     def run_pooled(self, dataset_cls, trainer_cls,
                    data_splitter: _Callable = _du.default_data_splitter_):
@@ -365,3 +372,4 @@ class EasyTorch:
         global_metrics.accumulate(test_score)
         trainer.cache[LogKey.TEST_METRICS] = [['Pooled', *global_averages.get(), *global_metrics.get()]]
         _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'], file_keys=[LogKey.TEST_METRICS])
+        self._on_experiment_end(trainer, global_averages, global_metrics)
