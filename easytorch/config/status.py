@@ -37,4 +37,4 @@ class LogKey(str, _Enum):
 
     GLOBAL_TEST_LOG = 'global_test_log'
     GLOBAL_TEST_METRICS = 'global_test_metrics'
-    SERIALIZABLE_GLOBAL_TEST = 'serializable_global_test_log'
+    SERIALIZABLE_GLOBAL_TEST = 'serializable_global_test_scores'
