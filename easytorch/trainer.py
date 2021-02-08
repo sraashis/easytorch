@@ -33,7 +33,7 @@ class ETTrainer:
         self.device = _ODict()
         self.optimizer = _ODict()
 
-    def init_nn(self, init_weights=True, init_optimizer=True, set_device=True):
+    def init_nn(self, init_models=True, init_weights=True, init_optimizer=True, set_device=True):
         r"""
         Call to user implementation of:
             Initialize models.
@@ -42,9 +42,9 @@ class ETTrainer:
             Initialize optimizer.
         """
 
-        self._init_nn_model()
+        if init_models: self._init_nn_model()
         # Print number of parameters in all models.
-        if self.args['verbose']:
+        if init_models and self.args['verbose']:
             for k, m in [(_k, _m) for _k, _m in self.nn.items() if isinstance(_m, _torch.nn.Module)]:
                 success(f'Total params in {k}:' f' {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
 

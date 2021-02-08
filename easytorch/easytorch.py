@@ -254,6 +254,8 @@ class EasyTorch:
         self._show_args()
         for dspec in self.dataspecs:
             trainer = trainer_cls(self.args)
+            trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
+
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
             self._split_data(dspec, trainer.cache['log_dir'], data_splitter)
 
@@ -313,6 +315,7 @@ class EasyTorch:
                    data_splitter: _Callable = _du.default_data_splitter_):
         r"""  Run in pooled fashion. """
         trainer = trainer_cls(self.args)
+        trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
 
         """ Create log-dir by concatenating all the involved dataset names.  """
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + f'Pooled_{len(self.dataspecs)}'
