@@ -317,9 +317,9 @@ class ETTrainer:
         it = self.iteration(batch)
         it['loss'].backward()
         if i % self.args.get('num_iterations', 1) == 0:
-            first_optim = list(self.optimizer.keys())[0]
-            self.optimizer[first_optim].step()
-            self.optimizer[first_optim].zero_grad()
+            for optim in self.optimizer:
+                self.optimizer[optim].step()
+                self.optimizer[optim].zero_grad()
         return it
 
     def train(self, dataset, val_dataset):
