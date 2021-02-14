@@ -250,14 +250,12 @@ class ConfusionMatrix(ETMetrics):
 
     def reset(self):
         self.matrix = _torch.zeros(self.num_classes, self.num_classes).float()
-        return self
 
     def update(self, matrix=0, **kw):
-        self.matrix += _np.array(matrix)
+        self.matrix += _torch.tensor(matrix)
 
     def accumulate(self, other):
         self.matrix += other.matrix
-        return self
 
     def add(self, pred, true):
         pred = pred.clone().long().reshape(1, -1).squeeze()
