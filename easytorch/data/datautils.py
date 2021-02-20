@@ -87,7 +87,8 @@ def make_weights_for_balanced_classes(images, nclasses):
     return weight
 
 
-def should_create_splits_(log_dir, dspec):
+def should_create_splits_(log_dir, dspec, args):
+
     if dspec.get('split_dir') and _os.path.exists(dspec.get('split_dir')) and len(list(
             _os.listdir(dspec.get('split_dir')))) > 0:
         return False
@@ -97,6 +98,11 @@ def should_create_splits_(log_dir, dspec):
         return False
 
     _os.makedirs(dspec['split_dir'], exist_ok=True)
+    if args['num_folds'] is None and args['split_ratio'] is None:
+        with open(dspec['split_dir'] + _sep + '_placeholder_split.json', 'w') as sp:
+            sp.write(_json.dumps({'train': [], 'validation': [], 'test': []}))
+        return False
+
     return True
 
 

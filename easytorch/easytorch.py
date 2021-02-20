@@ -27,25 +27,25 @@ class EasyTorch:
 
     def __init__(self, dataspecs: _List[dict],
                  args: _Union[dict, _AP] = _conf.default_args,
-                 phase: str = None,
-                 batch_size: int = None,
-                 num_iterations: int = None,
-                 epochs: int = None,
-                 learning_rate: float = None,
-                 gpus: _List[int] = None,
-                 pin_memory: bool = None,
-                 num_workers: int = None,
-                 dataset_dir: str = None,
-                 load_limit: int = None,
-                 log_dir: str = None,
-                 pretrained_path: str = None,
-                 verbose: bool = None,
-                 seed: int = None,
-                 force: bool = None,
-                 patience: int = None,
-                 load_sparse: bool = None,
-                 num_folds: int = None,
-                 split_ratio: _List[float] = None,
+                 phase: str = _conf.default_args['phase'],
+                 batch_size: int = _conf.default_args['batch_size'],
+                 num_iterations: int = _conf.default_args['num_iterations'],
+                 epochs: int = _conf.default_args['epochs'],
+                 learning_rate: float = _conf.default_args['learning_rate'],
+                 gpus: _List[int] = _conf.default_args['gpus'],
+                 pin_memory: bool = _conf.default_args['pin_memory'],
+                 num_workers: int = _conf.default_args['num_workers'],
+                 dataset_dir: str = _conf.default_args['dataset_dir'],
+                 load_limit: int = _conf.default_args['load_limit'],
+                 log_dir: str = _conf.default_args['log_dir'],
+                 pretrained_path: str = _conf.default_args['pretrained_path'],
+                 verbose: bool = _conf.default_args['verbose'],
+                 seed_all: int = _conf.default_args['seed_all'],
+                 force: bool = _conf.default_args['force'],
+                 patience: int = _conf.default_args['patience'],
+                 load_sparse: bool = _conf.default_args['load_sparse'],
+                 num_folds=_conf.default_args['num_folds'],
+                 split_ratio=_conf.default_args['split_ratio'],
                  **kw):
         """
         Order of precedence of arguments is(Higher will override the lower):
@@ -70,7 +70,7 @@ class EasyTorch:
         @param log_dir: Directory path to place all saved models, plots.... Default is net_logs/
         @param pretrained_path: Path to load pretrained model. Default is None
         @param verbose: Show logs? Default is True
-        @param seed: If seeds to use for reproducibility. Default is False.
+        @param seed_all: If seeds to use for reproducibility. Default is False.
         @param force: Force to clear previous logs in log_dir(if any).
         @param patience: Set patience epochs to stop training. Uses validation scores. Default is 11.
         @param load_sparse: Loads test dataset in single data loader to recreate data(eg images) from prediction. Default is False.
@@ -84,25 +84,25 @@ class EasyTorch:
         """
         self._init_args(args)
 
-        if phase is not None: self.args.update(phase=phase)
-        if batch_size is not None: self.args.update(batch_size=batch_size)
-        if num_iterations is not None: self.args.update(num_iterations=num_iterations)
-        if epochs is not None: self.args.update(epochs=epochs)
-        if learning_rate is not None: self.args.update(learning_rate=learning_rate)
-        if gpus is not None: self.args.update(gpus=gpus)
-        if pin_memory is not None: self.args.update(pin_memory=pin_memory)
-        if num_workers is not None: self.args.update(num_workers=num_workers)
-        if dataset_dir is not None: self.args.update(dataset_dir=dataset_dir)
-        if load_limit is not None: self.args.update(load_limit=load_limit)
-        if log_dir is not None: self.args.update(log_dir=log_dir)
-        if pretrained_path is not None: self.args.update(pretrained_path=pretrained_path)
-        if verbose is not None: self.args.update(verbose=verbose)
-        if seed is not None: self.args.update(seed=seed)
-        if force is not None: self.args.update(force=force)
-        if patience is not None: self.args.update(patience=patience)
-        if load_sparse is not None: self.args.update(load_sparse=load_sparse)
-        if num_folds is not None: self.args.update(num_folds=num_folds)
-        if split_ratio is not None: self.args.update(split_ratio=split_ratio)
+        self.args.update(phase=phase)
+        self.args.update(batch_size=batch_size)
+        self.args.update(num_iterations=num_iterations)
+        self.args.update(epochs=epochs)
+        self.args.update(learning_rate=learning_rate)
+        self.args.update(gpus=gpus)
+        self.args.update(pin_memory=pin_memory)
+        self.args.update(num_workers=num_workers)
+        self.args.update(dataset_dir=dataset_dir)
+        self.args.update(load_limit=load_limit)
+        self.args.update(log_dir=log_dir)
+        self.args.update(pretrained_path=pretrained_path)
+        self.args.update(verbose=verbose)
+        self.args.update(seed_all=seed_all)
+        self.args.update(force=force)
+        self.args.update(patience=patience)
+        self.args.update(load_sparse=load_sparse)
+        self.args.update(num_folds=num_folds)
+        self.args.update(split_ratio=split_ratio)
         self.args.update(**kw)
         assert (self.args.get('phase') in self._MODES_), self._MODE_ERR_
 
@@ -131,9 +131,6 @@ class EasyTorch:
             self.args = {**args}
         else:
             raise ValueError('2nd Argument of EasyTorch could be only one of :ArgumentParser, dict')
-        for k in _conf.default_args:
-            if self.args.get(k) is None:
-                self.args[k] = _conf.default_args.get(k)
 
     def _make_reproducible(self):
         self.args['seed'] = CURRENT_SEED
@@ -157,9 +154,9 @@ class EasyTorch:
                 if '_dir' in k:
                     dspec[k] = _os.path.join(self.args['dataset_dir'], dspec[k])
 
-    def _split_data(self, dspec, log_dir, data_splitter: _Callable = None):
-        if data_splitter and _du.should_create_splits_(log_dir, dspec):
-            data_splitter(dspec=dspec, args=self.args)
+    def _create_splits(self, dspec, log_dir):
+        if _du.should_create_splits_(log_dir, dspec, self.args):
+            _du.default_data_splitter_(dspec=dspec, args=self.args)
             success(f"{len(_os.listdir(dspec['split_dir']))} split(s) created in '{dspec['split_dir']}' directory.",
                     self.args['verbose'])
         else:
@@ -248,8 +245,7 @@ class EasyTorch:
                    'metrics': vars(global_metrics)}
             f.write(_json.dumps(log))
 
-    def run(self, dataset_cls, trainer_cls,
-            data_splitter: _Callable = _du.default_data_splitter_):
+    def run(self, dataset_cls, trainer_cls):
         r"""Run for individual datasets"""
         self._show_args()
         for dspec in self.dataspecs:
@@ -257,7 +253,7 @@ class EasyTorch:
             trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
 
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
-            self._split_data(dspec, trainer.cache['log_dir'], data_splitter)
+            self._create_splits(dspec, trainer.cache['log_dir'])
 
             """We will save the global scores of all folds if any."""
             global_metrics, global_averages = trainer.new_metrics(), trainer.new_averages()
@@ -311,8 +307,7 @@ class EasyTorch:
             _utils.save_scores(trainer.cache, file_keys=[LogKey.GLOBAL_TEST_METRICS])
             self._on_experiment_end(trainer, global_averages, global_metrics)
 
-    def run_pooled(self, dataset_cls, trainer_cls,
-                   data_splitter: _Callable = _du.default_data_splitter_):
+    def run_pooled(self, dataset_cls, trainer_cls):
         r"""  Run in pooled fashion. """
         trainer = trainer_cls(self.args)
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
@@ -322,7 +317,7 @@ class EasyTorch:
 
         """ Check if the splits are given. If not, create new.  """
         for dspec in self.dataspecs:
-            self._split_data(dspec, trainer.cache['log_dir'] + _sep + dspec['name'], data_splitter)
+            self._create_splits(dspec, trainer.cache['log_dir'] + _sep + dspec['name'])
         warn('Pooling only uses first split from each datasets at the moment.', self.args['verbose'])
 
         """
