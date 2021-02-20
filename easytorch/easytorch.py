@@ -245,7 +245,7 @@ class EasyTorch:
                    'metrics': vars(global_metrics)}
             f.write(_json.dumps(log))
 
-    def run(self, dataset_cls, trainer_cls):
+    def run(self, trainer_cls, dataset_cls=None):
         r"""Run for individual datasets"""
         self._show_args()
         for dspec in self.dataspecs:
@@ -307,7 +307,7 @@ class EasyTorch:
             _utils.save_scores(trainer.cache, file_keys=[LogKey.GLOBAL_TEST_METRICS])
             self._on_experiment_end(trainer, global_averages, global_metrics)
 
-    def run_pooled(self, dataset_cls, trainer_cls):
+    def run_pooled(self, trainer_cls, dataset_cls=None):
         r"""  Run in pooled fashion. """
         trainer = trainer_cls(self.args)
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
