@@ -164,22 +164,22 @@ class EasyTorch:
             success(f"{splits_len} split(s) loaded from '{dspec['split_dir']}' directory.",
                     self.args['verbose'] and splits_len > 0)
 
-    def _load_dataset(self, split_key, split_file, dspec, dataset_cls):
+    def _load_dataset(self, split_key, split_file, dspec:dict, dataset_cls=None):
         with open(dspec['split_dir'] + _sep + split_file) as file:
             split = _json.loads(file.read())
             dataset = dataset_cls(mode=split_key, limit=self.args['load_limit'], **self.args)
             dataset.add(files=split.get(split_key, []), verbose=self.args['verbose'], **dspec)
             return dataset
 
-    def _get_train_dataset(self, split_file=None, dspec: dict = None, dataset_cls=None):
+    def _get_train_dataset(self, split_file, dspec: dict, dataset_cls=None):
         r"""Load the train data from current fold/split."""
         return self._load_dataset('train', split_file, dspec, dataset_cls)
 
-    def _get_validation_dataset(self, split_file=None, dspec: dict = None, dataset_cls=None):
+    def _get_validation_dataset(self, split_file, dspec: dict, dataset_cls=None):
         r""" Load the validation data from current fold/split."""
         return self._load_dataset('validation', split_file, dspec, dataset_cls)
 
-    def _get_test_dataset(self, split_file, dspec, dataset_cls):
+    def _get_test_dataset(self, split_file, dspec:dict, dataset_cls=None):
         r"""
         Load the test data from current fold/split.
         If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
@@ -245,7 +245,7 @@ class EasyTorch:
                    'metrics': vars(global_metrics)}
             f.write(_json.dumps(log))
 
-    def run(self, dataset_cls, trainer_cls):
+    def run(self, trainer_cls, dataset_cls=None):
         r"""Run for individual datasets"""
         self._show_args()
         for dspec in self.dataspecs:
@@ -307,7 +307,7 @@ class EasyTorch:
             _utils.save_scores(trainer.cache, file_keys=[LogKey.GLOBAL_TEST_METRICS])
             self._on_experiment_end(trainer, global_averages, global_metrics)
 
-    def run_pooled(self, dataset_cls, trainer_cls):
+    def run_pooled(self, trainer_cls, dataset_cls=None):
         r"""  Run in pooled fashion. """
         trainer = trainer_cls(self.args)
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)

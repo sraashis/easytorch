@@ -72,7 +72,7 @@ MyOTHERDATA = {
 }
 ```
 
-***Define how to load each data item***
+***Define how to load each data item by using EasyTorch's base ETDataset class to get extra benefits like limiting, pooling data...***
 ```python
 from easytorch import ETDataset
 import torchvision
@@ -99,6 +99,36 @@ class MyDataset(ETDataset):
     def transforms(self):
         return torchvision.transforms.Compose(["""List of transforms"""])
 ```
+#### (If one proceeds with the above (by overriding the ETDataset), can skip directly to 3.)
+#### ***Or, one can use any other custom datasets as follows:***
+```python
+from easytorch import EasyTorch
+class MyExperiment(EasyTorch):
+ def _load_dataset(self, split_key, split_file, dspec:dict, dataset_cls=None):
+    return ...
+```
+***Here, the framework will:***
+* call _load_dataset(...) with every data split key (train, test, validation).
+* So, we just need to write logic to load data for a given key, and return the dataset object.
+* Now, just use class MyExperiment class instead of EasyTorch in the entrypoint.
+
+***For more advanced cases, one can override the following and directly specify each datasets(train/validation/test):***
+* The framework will internally call ***_load_dataset(...)*** from each of the following methods with corresponding split_key
+* So only implement the following if you absolutely have to. Otherwise, implementing ***_load_dataset()*** will be enough in most of the cases.
+```python
+from easytorch import EasyTorch
+class MyExperiment(EasyTorch):
+  
+    def _get_train_dataset(self, split_file, dspec: dict, dataset_cls=None):
+        return ...
+    
+    def _get_validation_dataset(self, split_file, dspec: dict, dataset_cls=None):
+        return ...
+    
+    def _get_test_dataset(self, split_file, dspec: dict, dataset_cls=None):
+      return ...
+        
+```
 
 ### 3. Entry point
 
@@ -109,10 +139,9 @@ runner = EasyTorch([MYDATA, MyOTHERDATA],
                    num_channel=1, num_class=2)
 
 if __name__ == "__main__":
-    runner.run(MyDataset, MyTrainer)
-    runner.run_pooled(MyDataset, MyTrainer)
+    runner.run(MyTrainer, MyDataset)
+    runner.run_pooled(MyTrainer, MyDataset)
 ```
-
 
 <hr />
 
