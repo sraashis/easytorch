@@ -164,22 +164,22 @@ class EasyTorch:
             success(f"{splits_len} split(s) loaded from '{dspec['split_dir']}' directory.",
                     self.args['verbose'] and splits_len > 0)
 
-    def _load_dataset(self, split_key, split_file, dspec, dataset_cls):
+    def _load_dataset(self, split_key, split_file, dspec:dict, dataset_cls=None):
         with open(dspec['split_dir'] + _sep + split_file) as file:
             split = _json.loads(file.read())
             dataset = dataset_cls(mode=split_key, limit=self.args['load_limit'], **self.args)
             dataset.add(files=split.get(split_key, []), verbose=self.args['verbose'], **dspec)
             return dataset
 
-    def _get_train_dataset(self, split_file=None, dspec: dict = None, dataset_cls=None):
+    def _get_train_dataset(self, split_file, dspec: dict, dataset_cls=None):
         r"""Load the train data from current fold/split."""
         return self._load_dataset('train', split_file, dspec, dataset_cls)
 
-    def _get_validation_dataset(self, split_file=None, dspec: dict = None, dataset_cls=None):
+    def _get_validation_dataset(self, split_file, dspec: dict, dataset_cls=None):
         r""" Load the validation data from current fold/split."""
         return self._load_dataset('validation', split_file, dspec, dataset_cls)
 
-    def _get_test_dataset(self, split_file, dspec, dataset_cls):
+    def _get_test_dataset(self, split_file, dspec:dict, dataset_cls=None):
         r"""
         Load the test data from current fold/split.
         If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
