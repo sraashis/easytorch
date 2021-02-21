@@ -8,14 +8,14 @@
 
 <hr/>
 
-### Installation
+#### Installation
 
-1. **Install latest pytorch and torchvision from [Pytorch official website](https://pytorch.org/)**
-2. **pip install easytorch**
+1. Install latest pytorch and torchvision from [Pytorch official website](https://pytorch.org/)
+2. pip install easytorch
 
-### `'How to use?' you ask!`
-#### MNIST digits classification using CNN in google colab:
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
+#### `'How to use?' you ask!`
+* MNIST digits classification using CNN in google colab: 
+  * [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
 
 ### General use case:
 #### 1. Define your trainer
@@ -53,7 +53,7 @@ class MyTrainer(ETTrainer):
 
 ````
 
-* **Method new_metrics() Examples**:
+* Method new_metrics() uses:
   * Prf1a() for binary classification that computes accuracy,f1,precision,recall.
   * Or ConfusionMatrix(num_classes=...) for multiclass classification that also computes global accuracy,f1,precision,recall. 
   * Or any custom implementation of easytorch.metrics.ETMetrics()
@@ -61,7 +61,7 @@ class MyTrainer(ETTrainer):
 
 #### 2. Use custom or pytorch based Datasets class.
 
-***Define specification for your datasets:***
+Define specification for your datasets:
 
 ```python
 import os
@@ -82,8 +82,8 @@ MyOTHERDATA = {
 }
 ```
 
-***Define how to load each data item by using EasyTorch's base ETDataset class to get extra benefits like limiting,
-pooling data...***
+Define how to load each data item by using EasyTorch's base ETDataset class to get extra benefits like limiting,
+pooling data...
 
 ```python
 from easytorch import ETDataset
@@ -109,7 +109,7 @@ class MyDataset(ETDataset):
     return image, label
 ```
 
-#### Note: If one proceeds with the above (by overriding the ETDataset), they can skip directly to point 3. below. Or, one can use any other custom datasets as follows:
+Note: If one proceeds with the above (by overriding the ETDataset), they can skip directly to point 3. below. Or, one can use any other custom datasets as follows:
 
 ```python
 from easytorch import EasyTorch
@@ -120,13 +120,13 @@ class MyExperiment(EasyTorch):
     return ...
 ```
 
-***Here, the framework will:***
+**Here, the framework will:**
 
 * call _load_dataset(...) with every data split key (train, test, validation).
 * So, we just need to write logic to load data for a given key, and return the dataset object.
 * The, use class MyExperiment class instead of EasyTorch in the entrypoint.
 
-***For more advanced cases, one can override the following and directly specify each datasets(train/validation/test):***
+For more advanced cases, one can override the following and directly specify each datasets(train/validation/test):
 
 * The framework will internally call ***_load_dataset(...)*** from each of the following methods with corresponding
   split_key
