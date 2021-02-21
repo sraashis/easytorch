@@ -128,7 +128,7 @@ class ETTrainer:
         User can override to supply desired implementation of easytorch.metrics.ETMetrics().
             Example: easytorch.metrics.Pr11a() will work with precision, recall, F1, Accuracy, IOU scores.
         """
-        return _base_metrics.Prf1a()
+        return _base_metrics.ETMetrics()
 
     def new_averages(self):
         r""""
@@ -156,11 +156,11 @@ class ETTrainer:
     def init_experiment_cache(self):
         r"""What scores you want to plot."""
         r"""By default it plots Loss,Accuracy,F1,Precision,Recall."""
-        self.cache['log_header'] = 'Loss,Accuracy,F1,Precision,Recall'
+        self.cache['log_header'] = 'Loss,Accuracy'
 
         r"""This is for best model selection: """
         r"""It tells which metrics to monitor and either to maximize(F1 score), minimize(MSE)"""
-        self.cache.update(monitor_metric='f1', metric_direction='maximize')
+        self.cache.update(monitor_metric='time', metric_direction='maximize')
 
     def save_if_better(self, epoch, metrics):
         r"""
@@ -220,34 +220,30 @@ class ETTrainer:
 
         eval_avg, eval_metrics = self.new_averages(), self.new_metrics()
 
-        loaders = []
         _args = {**self.args}
         _args['shuffle'] = False
-        for dataset in dataset_list:
-            loaders.append(_etdata.ETDataLoader.new(mode=mode, dataset=dataset, **_args))
+        loaders = [_etdata.ETDataLoader.new(mode=mode, dataset=d, **_args) for d in dataset_list if d is not None]
         with _torch.no_grad():
             for loader in loaders:
                 its = []
                 metrics = self.new_metrics()
                 avg = self.new_averages()
+
                 for i, batch in enumerate(loader, 1):
-
                     it = self.iteration(batch)
-                    if not it.get('metrics'):
-                        it['metrics'] = _base_metrics.ETMetrics()
 
-                    if not it.get('averages'):
-                        it['averages'] = _base_metrics.ETAverages()
+                    avg.accumulate(it.get('averages'))
+                    metrics.accumulate(it.get('metrics'))
 
-                    metrics.accumulate(it['metrics']), avg.accumulate(it['averages'])
                     if save_pred:
                         its.append(it)
 
                     if self.args['verbose'] and len(dataset_list) <= 1 and lazy_debug(i, add=epoch):
-                        info(f" Itr:{i}/{len(loader)},{it['averages'].get()},{it['metrics'].get()}")
+                        info(f" Itr:{i}/{len(loader)},{it.get('averages').get()},{it.get('metrics').get()}")
 
                 eval_metrics.accumulate(metrics)
                 eval_avg.accumulate(avg)
+
                 if self.args['verbose'] and len(dataset_list) > 1:
                     info(f" {mode}, {avg.get()}, {metrics.get()}")
                 if save_pred:
@@ -259,6 +255,7 @@ class ETTrainer:
 
     def _reduce_iteration(self, its):
         reduced = {}.fromkeys(its[0].keys(), None)
+
         for key in reduced:
             if isinstance(its[0][key], _base_metrics.ETAverages):
                 reduced[key] = self.new_averages()
@@ -285,7 +282,7 @@ class ETTrainer:
 
         return reduced
 
-    def _on_epoch_end(self, **kw):
+    def _on_epoch_end(self, epoch, **kw):
         r"""
         Any logic to run after an epoch ends.
         """
@@ -297,13 +294,13 @@ class ETTrainer:
         """
         pass
 
-    def _stop_early(self, **kw):
+    def _stop_early(self, epoch, **kw):
         r"""
         Stop the training based on some criteria.
          For example: the implementation below will stop training if the validation
          scores does not improve within a 'patience' number of epochs.
         """
-        return kw.get('epoch') - self.cache['best_epoch'] >= self.args.get('patience', 'epochs')
+        return epoch - self.cache['best_epoch'] >= self.args.get('patience', 'epochs')
 
     def _save_progress(self, epoch):
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
@@ -329,48 +326,61 @@ class ETTrainer:
         _args = {**self.args}
         _args['shuffle'] = True
         train_loader = _etdata.ETDataLoader.new(mode='train', dataset=dataset, **_args)
-        tot_iter = len(train_loader) // local_iter
 
-        for epoch in range(1, self.args['epochs'] + 1):
+        tot_iter = len(train_loader) // local_iter
+        for ep in range(1, self.args['epochs'] + 1):
             for k in self.nn:
                 self.nn[k].train()
 
-            _metrics, _avg, its = self.new_metrics(), self.new_averages(), []
+            """Collect accumulated iterations data"""
+            its = []
+
+            """Collect epoch metrics and averages"""
             ep_avg, ep_metrics = self.new_averages(), self.new_metrics()
 
+            """Keep track of running metrics and averages for logging/plotting"""
+            _metrics, _avg = self.new_metrics(), self.new_averages()
             for i, batch in enumerate(train_loader, 1):
                 its.append(self.training_iteration(i, batch))
+
+                """When end of iteration"""
                 if i % local_iter == 0:
                     it = self._reduce_iteration(its)
-                    if not it.get('metrics'):
-                        it['metrics'] = _base_metrics.ETMetrics()
-                    if not it.get('averages'):
-                        it['averages'] = _base_metrics.ETAverages()
 
-                    ep_avg.accumulate(it['averages']), ep_metrics.accumulate(it['metrics'])
-                    _avg.accumulate(it['averages']), _metrics.accumulate(it['metrics'])
+                    """Update global accumulators"""
+                    ep_avg.accumulate(it.get('averages'))
+                    ep_metrics.accumulate(it.get('metrics'))
 
+                    """Update running accumulators."""
+                    _avg.accumulate(it.get('averages'))
+                    _metrics.accumulate(it.get('metrics'))
+
+                    """Reset iteration accumulator"""
                     _i, its = i // local_iter, []
-                    if lazy_debug(_i, add=epoch) or _i == tot_iter:
-                        info(f"Ep:{epoch}/{self.args['epochs']},Itr:{_i}/{tot_iter},{_avg.get()},{_metrics.get()}",
+                    if lazy_debug(_i, add=ep) or _i == tot_iter:
+                        info(f"Ep:{ep}/{self.args['epochs']},Itr:{_i}/{tot_iter},{_avg.get()},{_metrics.get()}",
                              self.args['verbose'])
+
+                        r"""Debug and reset running accumulators"""
                         self.cache[LogKey.TRAIN_LOG].append([*_avg.get(), *_metrics.get()])
                         _metrics.reset(), _avg.reset()
-                    self._on_iteration_end(i=_i, epoch=epoch, it=it)
 
-            val_averages, val_metric = self.evaluation(epoch=epoch, mode='validation', dataset_list=[val_dataset])
+                    self._on_iteration_end(i, ep, it)
+
+            """Validation step"""
+            val_averages, val_metric = self.evaluation(epoch=ep, mode='validation', dataset_list=[val_dataset])
             self.cache[LogKey.VALIDATION_LOG].append([*val_averages.get(), *val_metric.get()])
-            self.save_if_better(epoch, val_metric)
+            self.save_if_better(ep, val_metric)
 
-            self._on_epoch_end(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
+            self._on_epoch_end(epoch=ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                validation_averages=val_averages, validation_metric=val_metric)
 
-            if lazy_debug(epoch, _math.log(epoch)):
-                self._save_progress(epoch=epoch)
+            if lazy_debug(ep, _math.log(ep)):
+                self._save_progress(epoch=ep)
 
-            if self._stop_early(epoch=epoch, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
+            if self._stop_early(epoch=ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                 validation_averages=val_averages, validation_metric=val_metric):
                 break
 
         """Plot at the end regardless."""
-        self._save_progress(epoch=epoch)
+        self._save_progress(epoch=ep)

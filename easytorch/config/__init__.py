@@ -43,7 +43,7 @@ default_ap.add_argument('-f', '--force', default=False, type=boolean_string, hel
 default_ap.add_argument('-pat', '--patience', default=11, type=int, help='Early Stopping patience epochs.')
 default_ap.add_argument('-lsp', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')
 default_ap.add_argument('-nf', '--num_folds', default=None, type=int, help='Number of folds.')
-default_ap.add_argument('-spl', '--split_ratio', default=DATA_SPLIT_RATIO, nargs='*', type=float,
+default_ap.add_argument('-spl', '--split_ratio', default=None, nargs='*', type=float,
                         help='Split ratio. Eg: 0.6 0.2 0.2 or 0.8 0.2. Exclusive to num_fold.')
 
 _known, _unknown = default_ap.parse_known_args()

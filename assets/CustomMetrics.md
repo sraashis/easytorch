@@ -35,7 +35,7 @@ class ETMetrics:
         """
         return [0.0]
 ```
-### Example for Precision, Recall, F1 score, and Accuracy:
+### Example for Accuracy, F1 score, Precision, Recall, and IOU:
 ```python
 
 class Prf1a(ETMetrics):
