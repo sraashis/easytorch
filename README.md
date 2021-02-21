@@ -8,24 +8,22 @@
 
 <hr/>
 
-## Installation
+### Installation
 
 1. **Install latest pytorch and torchvision from [Pytorch official website](https://pytorch.org/)**
 2. **pip install easytorch**
 
-## `'How to use?' you ask!`
-### MNIST digits classification using CNN in google colab:
+### `'How to use?' you ask!`
+#### MNIST digits classification using CNN in google colab:
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
 
 ### General use case:
-### 1. Define your trainer
+#### 1. Define your trainer
 ```python
 from easytorch import ETTrainer, Prf1a, ConfusionMatrix
 
 
 class MyTrainer(ETTrainer):
-  def __init__(self, args):
-    super().__init__(args)
 
   def _init_nn_model(self):
     self.nn['model'] = NeuralNetModel()
@@ -47,25 +45,21 @@ class MyTrainer(ETTrainer):
     return {'loss': loss, 'averages': avg, 'metrics': sc, 'predictions': pred}
 
   def new_metrics(self):
-    """Examples:"""
-    """For binary classification that computes accuracy,f1,precision,recall"""
     return Prf1a()
-    """Or"""
-    """For multiclass classification that also computes global accuracy,f1,precision,recall"""
-    # return ConfusionMatrix(num_classes=...)
-    """Or any custom implementation of easytorch.metrics.ETMetrics"""
 
   def init_experiment_cache(self):
-    """Prf1a class gets 'Loss,Accuracy,F1,Precision,Recall metrices"""
-    self.cache['log_header'] = 'Loss,Accuracy,F1,Precision,Recall'
-
-    r"""This is for best model selection: """
-    r"""It tells which metrics to monitor and either to maximize(F1 score), minimize(MSE)"""
-    self.cache.update(monitor_metric='f1', metric_direction='maximize')
+    self.cache['log_header'] = 'Loss,Accuracy,F1,Precision,Recall' # Will plot these
+    self.cache.update(monitor_metric='f1', metric_direction='maximize') # Model selection
 
 ````
 
-### 2. Use custom or pytorch based Datasets class.
+* **Method new_metrics() Examples**:
+  * Prf1a() for binary classification that computes accuracy,f1,precision,recall.
+  * Or ConfusionMatrix(num_classes=...) for multiclass classification that also computes global accuracy,f1,precision,recall. 
+  * Or any custom implementation of easytorch.metrics.ETMetrics()
+
+
+#### 2. Use custom or pytorch based Datasets class.
 
 ***Define specification for your datasets:***
 
@@ -115,9 +109,7 @@ class MyDataset(ETDataset):
     return image, label
 ```
 
-#### (If one proceeds with the above (by overriding the ETDataset), can skip directly to 3.)
-
-#### ***Or, one can use any other custom datasets as follows:***
+#### Note: If one proceeds with the above (by overriding the ETDataset), they can skip directly to point 3. below. Or, one can use any other custom datasets as follows:
 
 ```python
 from easytorch import EasyTorch
@@ -132,7 +124,7 @@ class MyExperiment(EasyTorch):
 
 * call _load_dataset(...) with every data split key (train, test, validation).
 * So, we just need to write logic to load data for a given key, and return the dataset object.
-* Now, just use class MyExperiment class instead of EasyTorch in the entrypoint.
+* The, use class MyExperiment class instead of EasyTorch in the entrypoint.
 
 ***For more advanced cases, one can override the following and directly specify each datasets(train/validation/test):***
 
@@ -158,7 +150,7 @@ class MyExperiment(EasyTorch):
 
 ```
 
-### 3. Entry point
+#### 3. Entry point
 
 ```python
 from easytorch import EasyTorch
@@ -174,13 +166,13 @@ if __name__ == "__main__":
 
 <hr />
 
-### Complete Examples
+### Complete Examples:
 
 * **[Vessel segmentation with U-NET example.](https://github.com/sraashis/unet-vessel-segmentation-easytorch)**
 * **[Healthy/Pneumonia/Covid-19 chest x-ray (Multi-label/Binary)classification example.](https://github.com/sraashis/covidxfactory)**
 * **[DCGAN Example.](https://github.com/sraashis/gan-easytorch-celeb-faces)**
 
-### `Feature Higlights`
+#### `Feature Higlights`
 
 * **For advanced training with multiple networks, and complex training steps,
   click [here](assets/AdvancedTraining.md):**
@@ -188,10 +180,10 @@ if __name__ == "__main__":
 * Minimal configuration to setup a new experiment.
 * Use your choice of Neural Network architecture.
 * Automatic k-fold cross validation/Auto dataset split.
-* Automatic logging/plotting, and model checkpointing.
+* Grads accumulation, automatic logging/plotting, model checkpointing
   [..more features](assets/Features.md)
 
-### Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)
+#### Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)
 
 * **-ph/--phase** [Required]
   * Which phase to run? 'train' (runs all train, validation, test steps) OR 'test' (runs only test step).
@@ -211,7 +203,7 @@ if __name__ == "__main__":
     item given.
 * [...see more](assets/DefaultArgs.md)
 
-## All the best! for whatever you are working on. Cheers!
+### All the best! for whatever you are working on. Cheers!
 
 #### Please star or cite if you find it useful.
 
