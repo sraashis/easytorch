@@ -10,13 +10,15 @@
 
 ## Installation
 
-1. Install latest pytorch and torchvision from [Pytorch official website](https://pytorch.org/)
-2. pip install easytorch
+1. **Install latest pytorch and torchvision from [Pytorch official website](https://pytorch.org/)**
+2. **pip install easytorch**
 
 ## `'How to use?' you ask!`
+### MNIST digits classification using CNN in google colab:
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1bShuSEU6bb_-Ov-9fgG0Fe_YodPQhm5x?usp=sharing)
 
+### General use case:
 ### 1. Define your trainer
-
 ```python
 from easytorch import ETTrainer, Prf1a, ConfusionMatrix
 
