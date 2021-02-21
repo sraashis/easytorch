@@ -178,7 +178,7 @@ class Prf1a(ETMetrics):
         self.tn += tn
         self.fn += fn
 
-    def add(self, pred, true):
+    def add(self, pred: _torch.Tensor, true: _torch.Tensor):
         y_true = true.clone().int().view(1, -1).squeeze()
         y_pred = pred.clone().int().view(1, -1).squeeze()
 
@@ -192,7 +192,7 @@ class Prf1a(ETMetrics):
         self.tn += _torch.sum(y_cases == 0).item()
         self.fn += _torch.sum(y_cases == 2).item()
 
-    def accumulate(self, other):
+    def accumulate(self, other: ETMetrics):
         self.tp += other.tp
         self.fp += other.fp
         self.tn += other.tn
@@ -254,10 +254,10 @@ class ConfusionMatrix(ETMetrics):
     def update(self, matrix=0, **kw):
         self.matrix += _torch.tensor(matrix)
 
-    def accumulate(self, other):
+    def accumulate(self, other: ETMetrics):
         self.matrix += other.matrix
 
-    def add(self, pred, true):
+    def add(self, pred: _torch.Tensor, true: _torch.Tensor):
         pred = pred.clone().long().reshape(1, -1).squeeze()
         true = true.clone().long().reshape(1, -1).squeeze()
         self.matrix += _torch.sparse.LongTensor(
