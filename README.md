@@ -15,7 +15,7 @@
 
 ## `'How to use?' you ask!`
 ### MNIST digits classification using CNN in google colab:
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/eas/colabtools/blob/master/notebooks/colab-github-demo.ipynb.)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
 
 ### General use case:
 ### 1. Define your trainer
