@@ -166,11 +166,11 @@ if __name__ == "__main__":
 
 <hr />
 
-### Complete Examples:
+#### Complete Examples:
 
-* **[Vessel segmentation with U-NET example.](https://github.com/sraashis/unet-vessel-segmentation-easytorch)**
-* **[Healthy/Pneumonia/Covid-19 chest x-ray (Multi-label/Binary)classification example.](https://github.com/sraashis/covidxfactory)**
-* **[DCGAN Example.](https://github.com/sraashis/gan-easytorch-celeb-faces)**
+* [Vessel segmentation with U-NET example.](https://github.com/sraashis/unet-vessel-segmentation-easytorch)
+* [Healthy/Pneumonia/Covid-19 chest x-ray (Multi-label/Binary)classification example.](https://github.com/sraashis/covidxfactory)
+* [DCGAN Example.](https://github.com/sraashis/gan-easytorch-celeb-faces)
 
 #### `Feature Higlights`
 
