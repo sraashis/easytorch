@@ -25,7 +25,7 @@ class EasyTorch:
         '\n\t2). runtime arguments 2). python main.py -ph <value> ...' \
         f'\nPossible values are:{_MODES_}'
 
-    def __init__(self, dataspecs: _List[dict],
+    def __init__(self, dataspecs: _List[dict] = None,
                  args: _Union[dict, _AP] = _conf.default_args,
                  phase: str = _conf.default_args['phase'],
                  batch_size: int = _conf.default_args['batch_size'],
@@ -148,8 +148,14 @@ class EasyTorch:
         Need to add -data(base folder for dataset) to all the directories in dataspecs.
         THis makes it flexible to access dataset from arbitrary location.
         """
+        if dataspecs is None or len(dataspecs) == 0:
+            dataspecs = [{'name': 'experiment'}]
+
         self.dataspecs = [{**dspec} for dspec in dataspecs]
         for dspec in self.dataspecs:
+            if dspec.get('name') is None:
+                raise ValueError('Each dataspec must have a name.')
+
             for k in dspec:
                 if '_dir' in k:
                     dspec[k] = _os.path.join(self.args['dataset_dir'], dspec[k])
@@ -164,22 +170,26 @@ class EasyTorch:
             success(f"{splits_len} split(s) loaded from '{dspec['split_dir']}' directory.",
                     self.args['verbose'] and splits_len > 0)
 
-    def _load_dataset(self, split_key, split_file, dspec:dict, dataset_cls=None):
-        with open(dspec['split_dir'] + _sep + split_file) as file:
+    def _load_dataset(self, split_key, dataspec: dict, **kw):
+        with open(dataspec['split_dir'] + _sep + kw.get('split_file')) as file:
             split = _json.loads(file.read())
-            dataset = dataset_cls(mode=split_key, limit=self.args['load_limit'], **self.args)
-            dataset.add(files=split.get(split_key, []), verbose=self.args['verbose'], **dspec)
+            dataset = kw.get('dataset_cls')(mode=split_key, limit=self.args['load_limit'], **self.args)
+            dataset.add(files=split.get(split_key, []), verbose=self.args['verbose'], **dataspec)
             return dataset
 
-    def _get_train_dataset(self, split_file, dspec: dict, dataset_cls=None):
+    def _get_train_dataset(self, dataspec: dict, **kw):
         r"""Load the train data from current fold/split."""
-        return self._load_dataset('train', split_file, dspec, dataset_cls)
+        return self._load_dataset('train', dataspec,
+                                  split_file=kw.get('split_file'),
+                                  dataset_cls=kw.get('dataset_cls'))
 
-    def _get_validation_dataset(self, split_file, dspec: dict, dataset_cls=None):
+    def _get_validation_dataset(self, dataspec: dict, **kw):
         r""" Load the validation data from current fold/split."""
-        return self._load_dataset('validation', split_file, dspec, dataset_cls)
+        return self._load_dataset('validation', dataspec,
+                                  split_file=kw.get('split_file'),
+                                  dataset_cls=kw.get('dataset_cls'))
 
-    def _get_test_dataset(self, split_file, dspec:dict, dataset_cls=None):
+    def _get_test_dataset(self, dataspec: dict, **kw):
         r"""
         Load the test data from current fold/split.
         If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
@@ -187,16 +197,18 @@ class EasyTorch:
         """
         test_dataset_list = []
         if self.args.get('load_sparse'):
-            with open(dspec['split_dir'] + _sep + split_file) as file:
+            with open(dataspec['split_dir'] + _sep + kw.get('split_file')) as file:
                 for f in _json.loads(file.read()).get('test', []):
                     if len(test_dataset_list) >= self.args['load_limit']:
                         break
-                    test_dataset = dataset_cls(mode='test', limit=self.args['load_limit'], **self.args)
-                    test_dataset.add(files=[f], verbose=False, **dspec)
+                    test_dataset = kw.get('dataset_cls')(mode='test', limit=self.args['load_limit'], **self.args)
+                    test_dataset.add(files=[f], verbose=False, **dataspec)
                     test_dataset_list.append(test_dataset)
                 success(f'{len(test_dataset_list)} sparse dataset loaded.', self.args['verbose'])
         else:
-            test_dataset_list.append(self._load_dataset('test', split_file, dspec, dataset_cls))
+            test_dataset_list.append(self._load_dataset('test', dataspec,
+                                                        split_file=kw.get('split_file'),
+                                                        dataset_cls=kw.get('dataset_cls')))
         return test_dataset_list
 
     def check_previous_logs(self, cache):
@@ -259,13 +271,8 @@ class EasyTorch:
             global_metrics, global_averages = trainer.new_metrics(), trainer.new_averages()
             trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
 
-            """
-            The easytorch.metrics.Prf1a() has Precision,Recall,F1,Accuracy,and Overlap implemented.
-             We use F1 as **default** score to monitor while doing validation and save best model.
-             And we will have loss returned by easytorch.metrics.Averages() while training.
-            """
-            trainer.cache['log_header'] = 'Loss,Accuracy,F1,Precision,Recall'
-            trainer.cache.update(monitor_metric='f1', metric_direction='maximize')
+            trainer.cache['log_header'] = 'Loss,Accuracy'
+            trainer.cache.update(monitor_metric='time', metric_direction='maximize')
 
             """ Init and Run for each splits. """
             trainer.init_experiment_cache()
@@ -277,8 +284,8 @@ class EasyTorch:
 
                 """###########  Run training phase ########################"""
                 if self.args['phase'] == Phase.TRAIN:
-                    trainset = self._get_train_dataset(split_file, dspec, dataset_cls)
-                    valset = self._get_validation_dataset(split_file, dspec, dataset_cls)
+                    trainset = self._get_train_dataset(dspec, split_file=split_file, dataset_cls=dataset_cls)
+                    valset = self._get_validation_dataset(dspec, split_file=split_file, dataset_cls=dataset_cls)
                     trainer.train(trainset, valset)
                     _utils.save_cache({**self.args, **trainer.cache, **dspec},
                                       experiment_id=trainer.cache['experiment_id'])
@@ -289,7 +296,7 @@ class EasyTorch:
                     trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['checkpoint'])
 
                 """########## Run test phase. ##############################"""
-                testset = self._get_test_dataset(split_file, dspec, dataset_cls)
+                testset = self._get_test_dataset(dspec, split_file=split_file, dataset_cls=dataset_cls)
                 test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=testset)
                 """Accumulate global scores-scores of each fold to report single global score for each datasets."""
                 global_averages.accumulate(test_averages)
@@ -328,13 +335,8 @@ class EasyTorch:
         global_metrics = trainer.new_metrics()
         global_averages = trainer.new_averages()
 
-        """
-        The easytorch.metrics.Prf1a() has Precision,Recall,F1,Accuracy,and Overlap implemented.
-         We use F1 as default score to monitor while doing validation and save best model.
-         And we will have loss returned by easytorch.metrics.Averages() while training.
-        """
-        trainer.cache['log_header'] = 'Loss,Accuracy,F1,Precision,Recall'
-        trainer.cache.update(monitor_metric='f1', metric_direction='maximize')
+        trainer.cache['log_header'] = 'Loss,Accuracy'
+        trainer.cache.update(monitor_metric='time', metric_direction='maximize')
 
         """
         init_experiment_cache() is an intervention to set any specific needs for each dataset. For example:
@@ -365,7 +367,6 @@ class EasyTorch:
         test_dataset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
                                              load_sparse=self.args['load_sparse'])
         test_averages, test_score = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset_list)
-
         global_averages.accumulate(test_averages)
         global_metrics.accumulate(test_score)
         trainer.cache[LogKey.TEST_METRICS] = [['Pooled', *global_averages.get(), *global_metrics.get()]]

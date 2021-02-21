@@ -59,7 +59,7 @@ def init_experiment_cache(self):
         self.cache['metric_direction'] = 'maximize'
     2. Set new log_headers based on what is returned by get() method
         of your implementation of easytorch.metrics.ETMetrics and easytorch.metrics.ETAverages class:
-        For example, the default implementation is:
+        For example:
         - The get method of easytorch.metrics.ETAverages class returns the average loss value.
         - The get method of easytorch.metrics.Prf1a returns Accuracy,F1,Precision,Recall
         - so Default heade is [Loss,Precision,Recall,F1,Accuracy]

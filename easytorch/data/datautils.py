@@ -88,7 +88,6 @@ def make_weights_for_balanced_classes(images, nclasses):
 
 
 def should_create_splits_(log_dir, dspec, args):
-
     if dspec.get('split_dir') and _os.path.exists(dspec.get('split_dir')) and len(list(
             _os.listdir(dspec.get('split_dir')))) > 0:
         return False
@@ -99,7 +98,7 @@ def should_create_splits_(log_dir, dspec, args):
 
     _os.makedirs(dspec['split_dir'], exist_ok=True)
     if args['num_folds'] is None and args['split_ratio'] is None:
-        with open(dspec['split_dir'] + _sep + '_placeholder_split.json', 'w') as sp:
+        with open(dspec['split_dir'] + _sep + 'experiment.json', 'w') as sp:
             sp.write(_json.dumps({'train': [], 'validation': [], 'test': []}))
         return False
 
@@ -112,12 +111,10 @@ def default_data_splitter_(dspec, args):
         If: custom splits path is given it will use the splits from there
         else: will create new k-splits and run k-fold cross validation.
     """
-    if args.get('num_folds'):
+    if args.get('num_folds') is not None:
         create_k_fold_splits(_os.listdir(dspec['data_dir']), k=args['num_folds'],
                              save_to_dir=dspec['split_dir'], shuffle_files=True, name=dspec['name'])
-    else:
-        if args['split_ratio'] is None or len(args['split_ratio']) == 0:
-            args['split_ratio'] = _conf.DATA_SPLIT_RATIO
+    elif args.get('split_ratio') is not None:
         create_ratio_split(_os.listdir(dspec['data_dir']),
                            save_to_dir=dspec['split_dir'],
                            ratio=args['split_ratio'],
