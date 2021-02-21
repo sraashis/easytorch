@@ -25,7 +25,7 @@ from easytorch import ETTrainer, Prf1a, ConfusionMatrix
 class MyTrainer(ETTrainer):
 
   def _init_nn_model(self):
-    self.nn['model'] = NeuralNetModel()
+    self.nn['model'] = NeuralNetModel(out_size=self.args['num_class'])
 
   def iteration(self, batch):
     inputs = batch[0].to(self.device['gpu']).float()
