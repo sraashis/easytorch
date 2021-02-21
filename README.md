@@ -17,7 +17,7 @@
 * MNIST digits classification using CNN in google colab: 
   * [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
 
-### General use case:
+#### General use case:
 #### 1. Define your trainer
 ```python
 from easytorch import ETTrainer, Prf1a, ConfusionMatrix
