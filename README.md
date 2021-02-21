@@ -14,7 +14,7 @@
 2. `pip install easytorch`
 
 #### `'How to use?' you ask!`
-* MNIST example [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
+* [MNIST example](./examples/MNIST_easytorch_CNN.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
 
 #### General use case:
 #### 1. Define your trainer
