@@ -14,7 +14,12 @@
 2. `pip install easytorch`
 
 #### `'How to use?' you ask!`
-* [MNIST example](./examples/MNIST_easytorch_CNN.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
+* [MNIST](./examples/MNIST_easytorch_CNN.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
+* [Retinal blood vessel segmentation with U-Net.](https://github.com/sraashis/unet-vessel-segmentation-easytorch)
+* [Covid-19 chest x-ray classification.](https://github.com/sraashis/covidxfactory)
+* [DCGAN.](https://github.com/sraashis/gan-easytorch-celeb-faces)
+
+<hr>
 
 #### General use case:
 #### 1. Define your trainer
@@ -164,12 +169,6 @@ if __name__ == "__main__":
 ```
 
 <hr />
-
-#### Complete Examples:
-
-* [Vessel segmentation with U-NET example.](https://github.com/sraashis/unet-vessel-segmentation-easytorch)
-* [Healthy/Pneumonia/Covid-19 chest x-ray (Multi-label/Binary)classification example.](https://github.com/sraashis/covidxfactory)
-* [DCGAN Example.](https://github.com/sraashis/gan-easytorch-celeb-faces)
 
 #### `Feature Higlights`
 
