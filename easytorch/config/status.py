@@ -7,7 +7,7 @@ import torch as _torch
 CUDA_AVAILABLE = _torch.cuda.is_available()
 NUM_GPUS = _torch.cuda.device_count()
 
-METRICS_EPS = 10e-5
+METRICS_EPS = 1e-5
 METRICS_NUM_PRECISION = 5
 
 MAX_SIZE = _sys.maxsize
