@@ -127,3 +127,6 @@ net_logs
 logs_backup
 .ipynb_checkpoints
 chk
+data
+examples/net_logs
+examples/.ipynb_checkpoints
