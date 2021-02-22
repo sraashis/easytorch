@@ -247,7 +247,7 @@ class EasyTorch:
 
         cache['experiment_id'] = split_file.split('.')[0]
         cache['checkpoint'] = cache['experiment_id'] + '.pt'
-        cache.update(best_epoch=0, best_score=0.0)
+        cache.update(best_epoch=0, best_score=0.0, score_window=[])
         if cache['metric_direction'] == 'minimize':
             cache['best_score'] = MAX_SIZE
 

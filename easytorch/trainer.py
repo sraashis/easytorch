@@ -162,23 +162,6 @@ class ETTrainer:
         r"""It tells which metrics to monitor and either to maximize(F1 score), minimize(MSE)"""
         self.cache.update(monitor_metric='time', metric_direction='maximize')
 
-    def save_if_better(self, epoch, metrics):
-        r"""
-        Save the current model as best if it has better validation scores.
-        """
-        sc = getattr(metrics, self.cache['monitor_metric'])
-        if callable(sc):
-            sc = sc()
-
-        if (self.cache['metric_direction'] == 'maximize' and sc >= self.cache['best_score']) or (
-                self.cache['metric_direction'] == 'minimize' and sc <= self.cache['best_score']):
-            self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
-            self.cache['best_score'] = sc
-            self.cache['best_epoch'] = epoch
-            success(f"Best Model Saved!!! : {self.cache['best_score']}", self.args['verbose'])
-        else:
-            warn(f"Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}", self.args['verbose'])
-
     def iteration(self, batch):
         r"""
         Left for user to implement one mini-bath iteration:
@@ -294,13 +277,45 @@ class ETTrainer:
         """
         pass
 
+    def save_if_better(self, epoch, metrics):
+        r"""
+        Save the current model as best if it has better validation scores.
+        """
+        sc = getattr(metrics, self.cache['monitor_metric'])
+        if callable(sc):
+            sc = sc()
+
+        improved = False
+        delta = self.args.setdefault('score_delta', SCORE_DELTA)
+        if self.cache['metric_direction'] == 'maximize':
+            improved = sc > self.cache['best_score'] + delta
+        elif self.cache['metric_direction'] == 'minimize':
+            improved = sc < self.cache['best_score'] - delta
+
+        if improved:
+            self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
+            self.cache['best_score'] = sc
+            self.cache['best_epoch'] = epoch
+            success(f"Best Model Saved!!! : {self.cache['best_score']}", self.args['verbose'])
+        else:
+            warn(f"Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}", self.args['verbose'])
+
     def _stop_early(self, epoch, **kw):
         r"""
         Stop the training based on some criteria.
          For example: the implementation below will stop training if the validation
          scores does not improve within a 'patience' number of epochs.
         """
-        return epoch - self.cache['best_epoch'] >= self.args.get('patience', 'epochs')
+        if epoch - self.cache['best_epoch'] >= self.args.get('patience', 'epochs'):
+            return True
+        if epoch % self.args.get('score_window_len', SCORE_WINDOW_LEN) == 0:
+            avg = sum(self.cache['score_window']) / len(self.cache['score_window'])
+            self.cache['score_window'] = []
+            return abs(avg - self.cache['best_val_score']) <= self.cache.get('score_delta', SCORE_DELTA)
+        else:
+            self.cache['running_val_score'].append(kw['validation_score'])
+
+        return False
 
     def _save_progress(self, epoch):
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
@@ -368,19 +383,20 @@ class ETTrainer:
                     self._on_iteration_end(i, ep, it)
 
             """Validation step"""
-            val_averages, val_metric = self.evaluation(epoch=ep, mode='validation', dataset_list=[val_dataset])
-            self.cache[LogKey.VALIDATION_LOG].append([*val_averages.get(), *val_metric.get()])
-            self.save_if_better(ep, val_metric)
+            if ep % self.args['validation_epochs'] == 0:
+                val_averages, val_metric = self.evaluation(epoch=ep, mode='validation', dataset_list=[val_dataset])
+                self.cache[LogKey.VALIDATION_LOG].append([*val_averages.get(), *val_metric.get()])
+                self.save_if_better(ep, val_metric)
 
-            self._on_epoch_end(epoch=ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
-                               validation_averages=val_averages, validation_metric=val_metric)
+                self._on_epoch_end(epoch=ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
+                                   validation_averages=val_averages, validation_metric=val_metric)
 
-            if lazy_debug(ep, _math.log(ep)):
-                self._save_progress(epoch=ep)
+                if lazy_debug(ep, _math.log(ep)):
+                    self._save_progress(epoch=ep)
 
-            if self._stop_early(epoch=ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
-                                validation_averages=val_averages, validation_metric=val_metric):
-                break
+                if self._stop_early(epoch=ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
+                                    validation_averages=val_averages, validation_metric=val_metric):
+                    break
 
         """Plot at the end regardless."""
         self._save_progress(epoch=ep)
