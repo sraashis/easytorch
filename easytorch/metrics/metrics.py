@@ -36,7 +36,7 @@ class ETMetrics(SerializableMetrics):
 
     @_abc.abstractmethod
     def update(self, *args, **kw):
-        raise NotImplementedError('Must be implemented.')
+        pass
 
     def update_all(self, kws: _typing.List[dict] = None):
         if kws is not None:
