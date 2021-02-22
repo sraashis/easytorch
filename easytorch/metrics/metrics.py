@@ -93,6 +93,12 @@ class ETMetrics(SerializableMetrics):
     def time(self):
         return _time.time()
 
+    def attribute(self, name):
+        sc = getattr(self, name)
+        if callable(sc):
+            sc = sc()
+        return sc
+
 
 class ETAverages(ETMetrics):
     def __init__(self, num_averages=1, **kw):

@@ -277,14 +277,11 @@ class ETTrainer:
         """
         pass
 
-    def save_if_better(self, epoch, metrics):
+    def save_if_better(self, epoch, val_metrics, **kw):
         r"""
         Save the current model as best if it has better validation scores.
         """
-        sc = getattr(metrics, self.cache['monitor_metric'])
-        if callable(sc):
-            sc = sc()
-
+        sc = val_metrics.attribute(self.cache['monitor_metric'])
         improved = False
         delta = self.args.setdefault('score_delta', SCORE_DELTA)
         if self.cache['metric_direction'] == 'maximize':
@@ -300,7 +297,7 @@ class ETTrainer:
         else:
             warn(f"Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}", self.args['verbose'])
 
-    def _stop_early(self, epoch, **kw):
+    def _stop_early(self, epoch, val_metrics, **kw):
         r"""
         Stop the training based on some criteria.
          For example: the implementation below will stop training if the validation
@@ -313,7 +310,7 @@ class ETTrainer:
             self.cache['score_window'] = []
             return abs(avg - self.cache['best_val_score']) <= self.cache.get('score_delta', SCORE_DELTA)
         else:
-            self.cache['running_val_score'].append(kw['validation_score'])
+            self.cache['score_window'].append(val_metrics.attribute(self.cache['monitor_metric']))
 
         return False
 
@@ -386,16 +383,17 @@ class ETTrainer:
             if ep % self.args['validation_epochs'] == 0:
                 val_averages, val_metric = self.evaluation(epoch=ep, mode='validation', dataset_list=[val_dataset])
                 self.cache[LogKey.VALIDATION_LOG].append([*val_averages.get(), *val_metric.get()])
-                self.save_if_better(ep, val_metric)
+                self.save_if_better(ep, val_metric, val_averages=val_averages,
+                                    ep_metrics=ep_metrics, epoch_averages=ep_avg)
 
-                self._on_epoch_end(epoch=ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
+                self._on_epoch_end(ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
                                    validation_averages=val_averages, validation_metric=val_metric)
 
                 if lazy_debug(ep, _math.log(ep)):
                     self._save_progress(epoch=ep)
 
-                if self._stop_early(epoch=ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
-                                    validation_averages=val_averages, validation_metric=val_metric):
+                if self._stop_early(ep, val_metric, validation_averages=val_averages,
+                                    epoch_averages=ep_avg, epoch_metrics=ep_metrics):
                     break
 
         """Plot at the end regardless."""
