@@ -61,7 +61,9 @@ class EasyTorch:
         @param phase: phase of operation; train/test. (Default: None)
                     train phase will run all train, validation, and test step.
         @param batch_size: Default is 32
+        @param num_iterations: Number of iterations to accumulate gradients. (Default 1)
         @param epochs: Default is 21
+        @param validation_epochs: Validation after every epochs. (default 1)
         @param learning_rate: Default is 0.001
         @param gpus: Default [0]. But set to [](or cpu) if no gpus found.
         @param pin_memory: Default is True if cuda found.
