@@ -285,17 +285,18 @@ class ETTrainer:
         improved = False
         delta = self.args.setdefault('score_delta', SCORE_DELTA)
         if self.cache['metric_direction'] == 'maximize':
-            improved = sc > self.cache['best_score'] + delta
+            improved = sc > self.cache['best_val_score'] + delta
         elif self.cache['metric_direction'] == 'minimize':
-            improved = sc < self.cache['best_score'] - delta
+            improved = sc < self.cache['best_val_score'] - delta
 
         if improved:
             self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
-            self.cache['best_score'] = sc
-            self.cache['best_epoch'] = epoch
-            success(f"Best Model Saved!!! : {self.cache['best_score']}", self.args['verbose'])
+            self.cache['best_val_score'] = sc
+            self.cache['best_val_epoch'] = epoch
+            success(f"Best Model Saved!!! : {self.cache['best_val_score']}", self.args['verbose'])
         else:
-            warn(f"Not best: {sc}, {self.cache['best_score']} in ep: {self.cache['best_epoch']}", self.args['verbose'])
+            warn(f"Not best: {sc}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
+                 self.args['verbose'])
 
     def _stop_early(self, epoch, val_metrics, **kw):
         r"""
@@ -303,14 +304,15 @@ class ETTrainer:
          For example: the implementation below will stop training if the validation
          scores does not improve within a 'patience' number of epochs.
         """
-        if epoch - self.cache['best_epoch'] >= self.args.get('patience', 'epochs'):
+        if epoch - self.cache['best_val_epoch'] >= self.args.get('patience', 'epochs'):
             return True
-        if epoch % self.args.get('score_window_len', SCORE_WINDOW_LEN) == 0:
+
+        score_window_len = self.args.get('score_window_len', SCORE_WINDOW_LEN)
+        self.cache['score_window'].append(val_metrics.attribute(self.cache['monitor_metric']))
+        if score_window_len > 0 and epoch % score_window_len == 0:
             avg = sum(self.cache['score_window']) / len(self.cache['score_window'])
             self.cache['score_window'] = []
             return abs(avg - self.cache['best_val_score']) <= self.cache.get('score_delta', SCORE_DELTA)
-        else:
-            self.cache['score_window'].append(val_metrics.attribute(self.cache['monitor_metric']))
 
         return False
 

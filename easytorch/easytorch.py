@@ -247,9 +247,9 @@ class EasyTorch:
 
         cache['experiment_id'] = split_file.split('.')[0]
         cache['checkpoint'] = cache['experiment_id'] + '.pt'
-        cache.update(best_epoch=0, best_score=0.0, score_window=[])
+        cache.update(best_val_epoch=0, best_val_score=0.0, score_window=[])
         if cache['metric_direction'] == 'minimize':
-            cache['best_score'] = MAX_SIZE
+            cache['best_val_score'] = MAX_SIZE
 
     def _on_experiment_end(self, trainer, global_averages, global_metrics):
         with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:
