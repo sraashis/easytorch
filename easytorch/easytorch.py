@@ -31,6 +31,7 @@ class EasyTorch:
                  batch_size: int = _conf.default_args['batch_size'],
                  num_iterations: int = _conf.default_args['num_iterations'],
                  epochs: int = _conf.default_args['epochs'],
+                 validation_epochs: int = _conf.default_args['validation_epochs'],
                  learning_rate: float = _conf.default_args['learning_rate'],
                  gpus: _List[int] = _conf.default_args['gpus'],
                  pin_memory: bool = _conf.default_args['pin_memory'],
@@ -88,6 +89,7 @@ class EasyTorch:
         self.args.update(batch_size=batch_size)
         self.args.update(num_iterations=num_iterations)
         self.args.update(epochs=epochs)
+        self.args.update(validation_epochs=validation_epochs)
         self.args.update(learning_rate=learning_rate)
         self.args.update(gpus=gpus)
         self.args.update(pin_memory=pin_memory)
