@@ -13,8 +13,9 @@ METRICS_NUM_PRECISION = 5
 MAX_SIZE = _sys.maxsize
 DATA_SPLIT_RATIO = [0.6, 0.2, 0.2]
 CURRENT_SEED = _random.randint(0, 2 ** 24)
-SCORE_WINDOW_LEN = 0
 SCORE_DELTA = 0.0
+SCORE_LOW = 0.0
+SCORE_HIGH = 1.0
 
 MYSELF = 'easytorch'
 

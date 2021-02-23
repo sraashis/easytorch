@@ -307,12 +307,10 @@ class ETTrainer:
         if epoch - self.cache['best_val_epoch'] >= self.args.get('patience', 'epochs'):
             return True
 
-        score_window_len = self.args.get('score_window_len', SCORE_WINDOW_LEN)
-        self.cache['score_window'].append(val_metrics.attribute(self.cache['monitor_metric']))
-        if score_window_len > 0 and epoch % score_window_len == 0:
-            avg = sum(self.cache['score_window']) / len(self.cache['score_window'])
-            self.cache['score_window'] = []
-            return abs(avg - self.cache['best_val_score']) <= self.cache.get('score_delta', SCORE_DELTA)
+        if self.cache['metric_direction'] == 'maximize':
+            return self.cache['best_val_score'] == SCORE_HIGH
+        elif self.cache['metric_direction'] == 'minimize':
+            return self.cache['best_val_score'] == SCORE_LOW
 
         return False
 
