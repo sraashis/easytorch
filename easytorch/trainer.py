@@ -281,7 +281,7 @@ class ETTrainer:
         r"""
         Save the current model as best if it has better validation scores.
         """
-        sc = val_metrics.attribute(self.cache['monitor_metric'])
+        sc = val_metrics.extract(self.cache['monitor_metric'])
         improved = False
         delta = self.args.setdefault('score_delta', SCORE_DELTA)
         if self.cache['metric_direction'] == 'maximize':

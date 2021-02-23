@@ -93,7 +93,7 @@ class ETMetrics(SerializableMetrics):
     def time(self):
         return _time.time()
 
-    def attribute(self, name):
+    def extract(self, name):
         sc = getattr(self, name)
         if callable(sc):
             sc = sc()
