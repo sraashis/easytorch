@@ -315,8 +315,10 @@ class ETTrainer:
         return False
 
     def _save_progress(self, epoch):
+        _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'], plot_keys=[LogKey.TRAIN_LOG],
+                                 epoch=epoch)
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                 plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG], epoch=epoch)
+                                 plot_keys=[LogKey.VALIDATION_LOG], epoch=epoch//self.cache['validation_epochs'])
 
     def training_iteration(self, i, batch):
         r"""
