@@ -17,7 +17,7 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31, epoch=No
     Custom plot to plot data from the cache by keys.
     """
     for k in plot_keys:
-        D = cache.get(k, [])
+        D = _np.array(cache.get(k, []))
         if len(D) == 0 or cache.get('log_header') is None:
             continue
 
