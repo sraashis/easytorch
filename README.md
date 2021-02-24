@@ -23,17 +23,20 @@
 
 
 #### `Feature Higlights`
-
-* **For advanced training with multiple networks, and complex training steps,
-  click [here](assets/AdvancedTraining.md):**
-* **Implement custom metrics as [here](assets/CustomMetrics.md).**
 * Minimal configuration to setup a any simple/complex experiment.
+* Full support to split images into patches and rejoin/merge them to get back teh complete prediction like in U-Net(Usually needed when input images are large and of different shapes) (Thanks to sparse data loaders).
+* Limit data loading- Limit data to debug pipeline without moving data from the original place (Thanks to load_limit)
+* Lazy/modes of operations like train/test where we only load necessary data (Thanks to task modes like test/train where we only load necessary data).
+* Heterogeneous datasets handling-One can use many folders of dataset by just defining dataspecs and use in single experiment(Thanks to pooled run). 
 * Automatic k-fold cross validation/Auto dataset split.
 * Simple lightweight logger/plotter. 
   * **Plot:** set log_header = 'Loss,F1,Accuracy' to plot in same plot or set  log_header = 'Loss|F1,Accuracy' to plot Loss in one plot, and F1,Accuracy in another plot.
   * **Logs:** all logs/arguments will be in  logs.json file after the experiment finishes.
 * Gradient accumulation, automatic logging/plotting, model checkpointing
   [..more features](assets/Features.md)
+* **For advanced training with multiple networks, and complex training steps,
+  click [here](assets/AdvancedTraining.md):**
+* **Implement custom metrics as [here](assets/CustomMetrics.md).**
 
 #### General use case:
 #### 1. Define your trainer
