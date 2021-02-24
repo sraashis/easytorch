@@ -52,7 +52,7 @@ class MyTrainer(ETTrainer):
     return Prf1a()
 
   def init_experiment_cache(self):
-    self.cache['log_header'] = 'Loss,Accuracy,F1,Precision,Recall' # Will plot these
+    self.cache['log_header'] = 'Loss|Accuracy,F1_score' # Will plot Loss in one plot, and Accuracy,F1 in another.
     self.cache.update(monitor_metric='f1', metric_direction='maximize') # Model selection
 
 ````
@@ -175,10 +175,12 @@ if __name__ == "__main__":
 * **For advanced training with multiple networks, and complex training steps,
   click [here](assets/AdvancedTraining.md):**
 * **Implement custom metrics as [here](assets/CustomMetrics.md).**
-* Minimal configuration to setup a new experiment.
-* Use your choice of Neural Network architecture.
+* Minimal configuration to setup a any simple/complex experiment.
 * Automatic k-fold cross validation/Auto dataset split.
-* Grads accumulation, automatic logging/plotting, model checkpointing
+* Simple lightweight logger/plotter. 
+  * **Plot:** set log_header = 'Loss,F1,Accuracy' to plot in same plot or set  log_header = 'Loss|F1,Accuracy' to plot Loss in one plot, and F1,Accuracy in another plot.
+  * **Logs:** all logs/arguments will be in  logs.json file after the experiment finishes.
+* Gradient accumulation, automatic logging/plotting, model checkpointing
   [..more features](assets/Features.md)
 
 #### Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)

@@ -155,7 +155,6 @@ class ETTrainer:
 
     def init_experiment_cache(self):
         r"""What scores you want to plot."""
-        r"""By default it plots Loss,Accuracy,F1,Precision,Recall."""
         self.cache['log_header'] = 'Loss,Accuracy'
 
         r"""This is for best model selection: """
@@ -295,10 +294,10 @@ class ETTrainer:
             self.cache['best_val_epoch'] = epoch
             success(f"Best Model Saved!!! : {self.cache['best_val_score']}", self.args['verbose'])
         else:
-            warn(f"Not best: {sc}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
+            info(f"Not best: {sc}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
                  self.args['verbose'])
 
-    def _stop_early(self, epoch, val_metrics, **kw):
+    def _stop_early(self, epoch, **kw):
         r"""
         Stop the training based on some criteria.
          For example: the implementation below will stop training if the validation
@@ -315,10 +314,9 @@ class ETTrainer:
         return False
 
     def _save_progress(self, epoch):
-        _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'], plot_keys=[LogKey.TRAIN_LOG],
-                                 epoch=epoch)
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                 plot_keys=[LogKey.VALIDATION_LOG], epoch=epoch//self.args['validation_epochs'])
+                                 plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
+                                 epoch=epoch)
 
     def training_iteration(self, i, batch):
         r"""
@@ -327,16 +325,23 @@ class ETTrainer:
         """
         it = self.iteration(batch)
         it['loss'].backward()
-        if i % self.args.get('num_iterations', 1) == 0:
+        if i % self.args.get('grad_accum_iters', 1) == 0:
             for optim in self.optimizer:
                 self.optimizer[optim].step()
                 self.optimizer[optim].zero_grad()
         return it
 
+    def _validation(self, epoch, ep_avg, ep_metrics, dataset):
+        val_averages, val_metrics = self.evaluation(epoch=epoch, mode='validation', dataset_list=[dataset])
+        self.cache[LogKey.VALIDATION_LOG].append([*val_averages.get(), *val_metrics.get()])
+        self.save_if_better(epoch, val_metrics, val_averages=val_averages,
+                            ep_metrics=ep_metrics, epoch_averages=ep_avg)
+        return {'val_averages': val_averages, 'val_metrics': val_metrics}
+
     def train(self, dataset, val_dataset):
         info('Training ...', self.args['verbose'])
 
-        local_iter = self.args.get('num_iterations', 1)
+        local_iter = self.args.get('grad_accum_iters', 1)
         _args = {**self.args}
         _args['shuffle'] = True
         train_loader = _etdata.ETDataLoader.new(mode='train', dataset=dataset, **_args)
@@ -382,21 +387,17 @@ class ETTrainer:
                     self._on_iteration_end(i, ep, it)
 
             """Validation step"""
-            if ep % self.args['validation_epochs'] == 0:
-                val_averages, val_metric = self.evaluation(epoch=ep, mode='validation', dataset_list=[val_dataset])
-                self.cache[LogKey.VALIDATION_LOG].append([*val_averages.get(), *val_metric.get()])
-                self.save_if_better(ep, val_metric, val_averages=val_averages,
-                                    ep_metrics=ep_metrics, epoch_averages=ep_avg)
+            val_out = self._validation(ep, ep_avg, ep_metrics, val_dataset)
 
-                self._on_epoch_end(ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics,
-                                   validation_averages=val_averages, validation_metric=val_metric)
+            """Post epoch/validation"""
+            self._on_epoch_end(ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics, **val_out)
 
-                if lazy_debug(ep, _math.log(ep)):
-                    self._save_progress(epoch=ep)
+            """Plot progress lazily"""
+            if lazy_debug(ep, _math.log(ep)): self._save_progress(epoch=ep)
 
-                if self._stop_early(ep, val_metric, validation_averages=val_averages,
-                                    epoch_averages=ep_avg, epoch_metrics=ep_metrics):
-                    break
+            """Early stopping"""
+            if self._stop_early(ep, **val_out):
+                break
 
         """Plot at the end regardless."""
         self._save_progress(epoch=ep)

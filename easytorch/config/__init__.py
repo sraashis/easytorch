@@ -24,7 +24,7 @@ default_ap.add_argument('-ph', '--phase', default=None, choices=['train', 'test'
                         help='Can be train/test.')
 default_ap.add_argument("-b", "--batch_size", default=4, type=int, help="Mini-batch size.")
 default_ap.add_argument('-ep', '--epochs', default=31, type=int, help='Number of epochs.')
-default_ap.add_argument('-ni', '--num_iterations', default=1, type=int,
+default_ap.add_argument('-gi', '--grad_accum_iters', default=1, type=int,
                         help='Number of iterations for gradient accumulation.')
 default_ap.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
 default_ap.add_argument('-gpus', '--gpus', default=[0] if CUDA_AVAILABLE else [], nargs='*', type=int, help='How many gpus to use?')
@@ -43,7 +43,6 @@ default_ap.add_argument('-f', '--force', default=False, type=boolean_string, hel
 default_ap.add_argument('-pat', '--patience', default=11, type=int, help='Early Stopping patience epochs.')
 default_ap.add_argument('-lsp', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')
 default_ap.add_argument('-nf', '--num_folds', default=None, type=int, help='Number of folds.')
-default_ap.add_argument('-ve', '--validation_epochs', default=1, type=int, help='Validate after every epochs.')
 default_ap.add_argument('-spl', '--split_ratio', default=None, nargs='*', type=float,
                         help='Split ratio. Eg: 0.6 0.2 0.2 or 0.8 0.2. Exclusive to num_fold.')
 
