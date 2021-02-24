@@ -14,12 +14,29 @@
 2. `pip install easytorch`
 
 #### `'How to use?' you ask!`
-* [MNIST](./examples/MNIST_easytorch_CNN.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
+* Minimalist [MNIST](./examples/MNIST_easytorch_CNN.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
 * [Retinal blood vessel segmentation with U-Net.](https://github.com/sraashis/unet-vessel-segmentation-easytorch)
 * [Covid-19 chest x-ray classification.](https://github.com/sraashis/covidxfactory)
 * [DCGAN.](https://github.com/sraashis/gan-easytorch-celeb-faces)
 
 <hr>
+
+
+#### `Feature Higlights`
+* Minimal configuration to setup any simple/complex experiment.
+* Full support to split images into patches and rejoin/merge them to get back the complete prediction image like in U-Net(Usually needed when input images are large, and of different shapes) (Thanks to sparse data loaders).
+* Limit data loading- Limit data to debug the pipeline without moving data from the original place (Thanks to load_limit)
+* Lazy operations during data loading, and tensor storage for fast performance (Thanks to task modes like test/train where we only load necessary data).
+* Heterogeneous datasets handling-One can use many folders of dataset by just defining dataspecs and use in single experiment(Thanks to pooled run). 
+* Automatic k-fold cross validation/Auto dataset split (Example: num_folds=10, or split_ratio=[0.6, 0.2, 0.2])
+* Simple lightweight logger/plotter. 
+  * **Plot:** set log_header = 'Loss,F1,Accuracy' to plot in same plot or set  log_header = 'Loss|F1,Accuracy' to plot Loss in one plot, and F1,Accuracy in another plot.
+  * **Logs:** all logs/arguments will be in  logs.json file after the experiment finishes.
+* Gradient accumulation, automatic logging/plotting, model checkpointing
+  [..more features](assets/Features.md)
+* **For advanced training with multiple networks, and complex training steps,
+  click [here](assets/AdvancedTraining.md):**
+* **Implement custom metrics as [here](assets/CustomMetrics.md).**
 
 #### General use case:
 #### 1. Define your trainer
@@ -52,7 +69,7 @@ class MyTrainer(ETTrainer):
     return Prf1a()
 
   def init_experiment_cache(self):
-    self.cache['log_header'] = 'Loss,Accuracy,F1,Precision,Recall' # Will plot these
+    self.cache['log_header'] = 'Loss|Accuracy,F1_score' # Will plot Loss in one plot, and Accuracy,F1 in another.
     self.cache.update(monitor_metric='f1', metric_direction='maximize') # Model selection
 
 ````
@@ -113,7 +130,7 @@ class MyDataset(ETDataset):
     return image, label
 ```
 
-Note: If one proceeds with the above (by overriding the ETDataset), they can skip directly to point 3. below. Or, one can use any other custom datasets as follows:
+**Note: If one proceeds with the above (by overriding the ETDataset), they can skip directly to point 3. below. Or, one can use any other custom datasets as follows:**
 
 ```python
 from easytorch import EasyTorch
@@ -169,17 +186,6 @@ if __name__ == "__main__":
 ```
 
 <hr />
-
-#### `Feature Higlights`
-
-* **For advanced training with multiple networks, and complex training steps,
-  click [here](assets/AdvancedTraining.md):**
-* **Implement custom metrics as [here](assets/CustomMetrics.md).**
-* Minimal configuration to setup a new experiment.
-* Use your choice of Neural Network architecture.
-* Automatic k-fold cross validation/Auto dataset split.
-* Grads accumulation, automatic logging/plotting, model checkpointing
-  [..more features](assets/Features.md)
 
 #### Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)
 

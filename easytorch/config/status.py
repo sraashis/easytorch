@@ -4,6 +4,8 @@ from enum import Enum as _Enum
 
 import torch as _torch
 
+MYSELF = 'easytorch'
+
 CUDA_AVAILABLE = _torch.cuda.is_available()
 NUM_GPUS = _torch.cuda.device_count()
 
@@ -13,8 +15,9 @@ METRICS_NUM_PRECISION = 5
 MAX_SIZE = _sys.maxsize
 DATA_SPLIT_RATIO = [0.6, 0.2, 0.2]
 CURRENT_SEED = _random.randint(0, 2 ** 24)
-
-MYSELF = 'easytorch'
+SCORE_DELTA = 0.0
+SCORE_LOW = 0.0
+SCORE_HIGH = 1.0
 
 
 class Phase(str, _Enum):

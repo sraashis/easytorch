@@ -24,7 +24,7 @@ default_ap.add_argument('-ph', '--phase', default=None, choices=['train', 'test'
                         help='Can be train/test.')
 default_ap.add_argument("-b", "--batch_size", default=4, type=int, help="Mini-batch size.")
 default_ap.add_argument('-ep', '--epochs', default=31, type=int, help='Number of epochs.')
-default_ap.add_argument('-ni', '--num_iterations', default=1, type=int,
+default_ap.add_argument('-gi', '--grad_accum_iters', default=1, type=int,
                         help='Number of iterations for gradient accumulation.')
 default_ap.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
 default_ap.add_argument('-gpus', '--gpus', default=[0] if CUDA_AVAILABLE else [], nargs='*', type=int, help='How many gpus to use?')

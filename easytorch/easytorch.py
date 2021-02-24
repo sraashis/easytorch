@@ -29,7 +29,7 @@ class EasyTorch:
                  args: _Union[dict, _AP] = _conf.default_args,
                  phase: str = _conf.default_args['phase'],
                  batch_size: int = _conf.default_args['batch_size'],
-                 num_iterations: int = _conf.default_args['num_iterations'],
+                 grad_accum_iters: int = _conf.default_args['grad_accum_iters'],
                  epochs: int = _conf.default_args['epochs'],
                  learning_rate: float = _conf.default_args['learning_rate'],
                  gpus: _List[int] = _conf.default_args['gpus'],
@@ -60,6 +60,7 @@ class EasyTorch:
         @param phase: phase of operation; train/test. (Default: None)
                     train phase will run all train, validation, and test step.
         @param batch_size: Default is 32
+        @param grad_accum_iters: Number of iterations to accumulate gradients. (Default 1)
         @param epochs: Default is 21
         @param learning_rate: Default is 0.001
         @param gpus: Default [0]. But set to [](or cpu) if no gpus found.
@@ -86,7 +87,7 @@ class EasyTorch:
 
         self.args.update(phase=phase)
         self.args.update(batch_size=batch_size)
-        self.args.update(num_iterations=num_iterations)
+        self.args.update(grad_accum_iters=grad_accum_iters)
         self.args.update(epochs=epochs)
         self.args.update(learning_rate=learning_rate)
         self.args.update(gpus=gpus)
@@ -247,9 +248,9 @@ class EasyTorch:
 
         cache['experiment_id'] = split_file.split('.')[0]
         cache['checkpoint'] = cache['experiment_id'] + '.pt'
-        cache.update(best_epoch=0, best_score=0.0)
+        cache.update(best_val_epoch=0, best_val_score=0.0)
         if cache['metric_direction'] == 'minimize':
-            cache['best_score'] = MAX_SIZE
+            cache['best_val_score'] = MAX_SIZE
 
     def _on_experiment_end(self, trainer, global_averages, global_metrics):
         with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:

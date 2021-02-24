@@ -36,7 +36,7 @@ class ETMetrics(SerializableMetrics):
 
     @_abc.abstractmethod
     def update(self, *args, **kw):
-        raise NotImplementedError('Must be implemented.')
+        pass
 
     def update_all(self, kws: _typing.List[dict] = None):
         if kws is not None:
@@ -92,6 +92,12 @@ class ETMetrics(SerializableMetrics):
     @property
     def time(self):
         return _time.time()
+
+    def extract(self, name):
+        sc = getattr(self, name)
+        if callable(sc):
+            sc = sc()
+        return sc
 
 
 class ETAverages(ETMetrics):
