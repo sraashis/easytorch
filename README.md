@@ -21,6 +21,40 @@
 
 <hr>
 
+
+#### `Feature Higlights`
+
+* **For advanced training with multiple networks, and complex training steps,
+  click [here](assets/AdvancedTraining.md):**
+* **Implement custom metrics as [here](assets/CustomMetrics.md).**
+* Minimal configuration to setup a any simple/complex experiment.
+* Automatic k-fold cross validation/Auto dataset split.
+* Simple lightweight logger/plotter. 
+  * **Plot:** set log_header = 'Loss,F1,Accuracy' to plot in same plot or set  log_header = 'Loss|F1,Accuracy' to plot Loss in one plot, and F1,Accuracy in another plot.
+  * **Logs:** all logs/arguments will be in  logs.json file after the experiment finishes.
+* Gradient accumulation, automatic logging/plotting, model checkpointing
+  [..more features](assets/Features.md)
+
+#### Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)
+
+* **-ph/--phase** [Required]
+  * Which phase to run? 'train' (runs all train, validation, test steps) OR 'test' (runs only test step).
+* **-b/--batch_size** [4]
+* **-ep/--epochs** [51]
+* **-lr/--learning_rate** [0.001]
+* -**gpus/--gpus** [0]
+  * List of gpus to be used. Eg. [0], [1], [0, 1]
+* **-nw/--num_workers** [4]
+  * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
+* **-lim/--load-limit**[max]
+  * Specifies a limit on images/files to load for debug purpose for pipeline debugging.
+* **-nf/--num_folds** [None]
+  * Number of folds in k-fold cross validation(Integer value like 5, 10).
+* **-spl/--split_ratio** [0.6 0.2 0.2]
+  * Split ratio for train, validation, test set if two items given| train, test if three items given| train only if one
+    item given.
+* [...see more](assets/DefaultArgs.md)
+
 #### General use case:
 #### 1. Define your trainer
 ```python
@@ -113,7 +147,7 @@ class MyDataset(ETDataset):
     return image, label
 ```
 
-Note: If one proceeds with the above (by overriding the ETDataset), they can skip directly to point 3. below. Or, one can use any other custom datasets as follows:
+**Note: If one proceeds with the above (by overriding the ETDataset), they can skip directly to point 3. below. Or, one can use any other custom datasets as follows:**
 
 ```python
 from easytorch import EasyTorch
@@ -169,39 +203,6 @@ if __name__ == "__main__":
 ```
 
 <hr />
-
-#### `Feature Higlights`
-
-* **For advanced training with multiple networks, and complex training steps,
-  click [here](assets/AdvancedTraining.md):**
-* **Implement custom metrics as [here](assets/CustomMetrics.md).**
-* Minimal configuration to setup a any simple/complex experiment.
-* Automatic k-fold cross validation/Auto dataset split.
-* Simple lightweight logger/plotter. 
-  * **Plot:** set log_header = 'Loss,F1,Accuracy' to plot in same plot or set  log_header = 'Loss|F1,Accuracy' to plot Loss in one plot, and F1,Accuracy in another plot.
-  * **Logs:** all logs/arguments will be in  logs.json file after the experiment finishes.
-* Gradient accumulation, automatic logging/plotting, model checkpointing
-  [..more features](assets/Features.md)
-
-#### Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)
-
-* **-ph/--phase** [Required]
-  * Which phase to run? 'train' (runs all train, validation, test steps) OR 'test' (runs only test step).
-* **-b/--batch_size** [4]
-* **-ep/--epochs** [51]
-* **-lr/--learning_rate** [0.001]
-* -**gpus/--gpus** [0]
-  * List of gpus to be used. Eg. [0], [1], [0, 1]
-* **-nw/--num_workers** [4]
-  * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
-* **-lim/--load-limit**[max]
-  * Specifies a limit on images/files to load for debug purpose for pipeline debugging.
-* **-nf/--num_folds** [None]
-  * Number of folds in k-fold cross validation(Integer value like 5, 10).
-* **-spl/--split_ratio** [0.6 0.2 0.2]
-  * Split ratio for train, validation, test set if two items given| train, test if three items given| train only if one
-    item given.
-* [...see more](assets/DefaultArgs.md)
 
 ### All the best! for whatever you are working on. Cheers!
 
