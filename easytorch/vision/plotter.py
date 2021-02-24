@@ -8,8 +8,8 @@ import pandas as _pd
 _plt.switch_backend('agg')
 _plt.rcParams["figure.figsize"] = [16, 9]
 
-_COLORS = ['black', 'blue', 'maroon', 'magenta', 'teal', 'red', 'blueviolet', 'brown', 'cadetblue',
-           'chartreuse', 'coral', 'darkslateblue', 'cornflowerblue', 'indigo', 'cyan', 'navy']
+COLORS = ['blue', 'maroon', 'magenta', 'teal', 'red', 'blueviolet', 'brown', 'cadetblue',
+          'chartreuse', 'coral', 'darkslateblue', 'cornflowerblue', 'indigo', 'black', 'cyan', 'navy']
 
 
 def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31, epoch=None):
@@ -27,8 +27,6 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31, epoch=No
             header = header.split(',')
             j = i + len(header)
             data = D[:, i:j]
-            i = j
-
             if _np.sum(data) <= 0:
                 continue
 
@@ -36,7 +34,7 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31, epoch=No
             if len(df) == 0:
                 continue
 
-            color = _COLORS[:len(header)]
+            color = COLORS[i:j]
 
             rollin_window = max(df.shape[0] // num_points, 3)
             ax = df.plot(x_compat=True, alpha=0.11, legend=0, color=color)
@@ -58,3 +56,4 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31, epoch=No
             _plt.xlabel('Epochs')
             _plt.savefig(cache['log_dir'] + _os.sep + f"{experiment_id}_{k}_{plot_id}.png")
             _plt.close('all')
+            i = j
