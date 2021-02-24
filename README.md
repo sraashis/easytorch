@@ -25,7 +25,7 @@
 #### `Feature Higlights`
 * Minimal configuration to setup any simple/complex experiment.
 * Full support to split images into patches and rejoin/merge them to get back the complete prediction image like in U-Net(Usually needed when input images are large, and of different shapes) (Thanks to sparse data loaders).
-* Limit data loading- Limit data to debug pipeline without moving data from the original place (Thanks to load_limit)
+* Limit data loading- Limit data to debug the pipeline without moving data from the original place (Thanks to load_limit)
 * Lazy operation operations during data loading, and tensor storage for fast operations (Thanks to task modes like test/train where we only load necessary data).
 * Heterogeneous datasets handling-One can use many folders of dataset by just defining dataspecs and use in single experiment(Thanks to pooled run). 
 * Automatic k-fold cross validation/Auto dataset split.
