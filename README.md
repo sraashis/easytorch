@@ -14,7 +14,7 @@
 2. `pip install easytorch`
 
 #### `'How to use?' you ask!`
-* [MNIST](./examples/MNIST_easytorch_CNN.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
+* Minimalist [MNIST](./examples/MNIST_easytorch_CNN.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
 * [Retinal blood vessel segmentation with U-Net.](https://github.com/sraashis/unet-vessel-segmentation-easytorch)
 * [Covid-19 chest x-ray classification.](https://github.com/sraashis/covidxfactory)
 * [DCGAN.](https://github.com/sraashis/gan-easytorch-celeb-faces)
@@ -23,7 +23,7 @@
 
 
 #### `Feature Higlights`
-* Minimal configuration to setup a any simple/complex experiment.
+* Minimal configuration to setup any simple/complex experiment.
 * Full support to split images into patches and rejoin/merge them to get back teh complete prediction like in U-Net(Usually needed when input images are large and of different shapes) (Thanks to sparse data loaders).
 * Limit data loading- Limit data to debug pipeline without moving data from the original place (Thanks to load_limit)
 * Lazy/modes of operations like train/test where we only load necessary data (Thanks to task modes like test/train where we only load necessary data).
