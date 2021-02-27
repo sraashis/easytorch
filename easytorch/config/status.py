@@ -16,8 +16,11 @@ MAX_SIZE = _sys.maxsize
 DATA_SPLIT_RATIO = [0.6, 0.2, 0.2]
 CURRENT_SEED = _random.randint(0, 2 ** 24)
 SCORE_DELTA = 0.0
-SCORE_LOW = 0.0
-SCORE_HIGH = 1.0
+
+SCORE_MIN = 0.0
+SCORE_MAX = 1.0
+
+CHK_EXT = '.tar'
 
 
 class Phase(str, _Enum):

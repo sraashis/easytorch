@@ -5,7 +5,6 @@ import numpy as _np
 import torch as _torch
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
-import easytorch.config as _conf
 from easytorch.utils.logger import *
 
 
@@ -48,7 +47,7 @@ class ETDataLoader(_DataLoader):
 
 
 class ETDataset(_Dataset):
-    def __init__(self, mode='init', limit=_conf.MAX_SIZE, **kw):
+    def __init__(self, mode='init', limit=None, **kw):
         self.mode = mode
         self.limit = limit
         self.dataspecs = {}
@@ -67,7 +66,7 @@ class ETDataset(_Dataset):
         Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
         """
         for file in files:
-            if len(self) >= self.limit:
+            if self.limit and len(self) >= self.limit:
                 break
             self.load_index(dataset_name, file)
 
@@ -107,7 +106,7 @@ class ETDataset(_Dataset):
                 split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
                 if load_sparse:
                     for file in split[split_key]:
-                        if len(all_d) >= args['load_limit']:
+                        if args['load_limit'] and len(all_d) >= args['load_limit']:
                             break
                         d = cls(mode=split_key)
                         d.add(files=[file], debug=False, **dspec)
