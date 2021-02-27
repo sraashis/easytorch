@@ -38,8 +38,7 @@ class ETDataLoader(_DataLoader):
             'drop_last': False,
             'timeout': 0,
             'worker_init_fn': seed_worker if kw.get('seed_all') else None,
-            'multiprocessing_context': None,
-            'generator': None
+            'multiprocessing_context': None
         }
         for k in _kw.keys():
             _kw[k] = kw.get(k, _kw.get(k))
