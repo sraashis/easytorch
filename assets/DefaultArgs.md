@@ -15,16 +15,16 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
 * **-b/--batch_size** [4]
 * **-gi/--grad_accum_iters** [1]
     * Number of local iterations to accumulate gradients.
-* **-ep/--epochs** [51]
+* **-ep/--epochs** [11]
 * **-lr/--learning_rate** [0.001]
-* **gpus/--gpus** [0]
+* **gpus/--gpus** [all]
     * List of gpus to be used. Eg. [0], [1], [0, 1]
 * **-pin/--pin-memory** [True] if cuda available else False
-* **-nw/--num_workers** [4]
+* **-nw/--num_workers** [0]
     * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
 * **-data/--dataset_dir** ['.']
     * base path of the dataset where data_dir, labels, masks, and splits are.
-* **-lim/--load-limit**[max]
+* **-lim/--load-limit**[None]
     * Specifies a limit on images/files to load for debug purpose.
 * **-log/--log_dir** [net_logs]
     * Path where the results: plots, model checkpoint, etc are saved.
@@ -32,15 +32,15 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
     * Full path to a previously saved best model if one wishes to run test on any other model than the one in log_dir.
 * **-v/--verbose** [True]
     * enable/disable debug.
-* **-seed/--seed_all** [random()]
+* **-seed/--seed_all** [False]
     * Set deterministic everywhere.
 * **-f/--force** [False]
     * Overrides existing plots and results if true.
-* **-pat/--patience** [31]
+* **-pat/--patience** [None]
     * Early stopping patience epochs by monitoring validation score.
 * **-lsp/--load_sparse** [False]
     * Load all data from one image in single DataLoader so that it is easy to combine later to form a whole image.
 * **-nf/--num_folds** [None]
     * Number of folds in k-fold cross validation(Integer value like 5, 10).
-* **-spl/--split_ratio** [0.6 0.2 0.2]
+* **-spl/--split_ratio** [None]
     * Split ratio for train, validation, test set if 3 given| train, test if 2 given| train only if one give.
