@@ -143,17 +143,17 @@ can use any other custom datasets as follows:**
 
 ```python
 from easytorch import EasyTorch
-
+from torch.utils.data import Dataset
 
 class MyExperiment(EasyTorch):
     def _load_dataset(self, split_key, dataspec: dict, **kw):
         if split_key=='train':
-            return ...
+            return Dataset(...)
         elif split_key=='validation':
-            return ...
+            return Dataset(...)
         elif split_key=='test':
-          return ...
-        """Works with combination of datasets: train, train/validation, train/validation/test"""
+          return Dataset(...)
+        """Also works with combination of datasets: train, train/validation, train/test"""
         
 ```
 
@@ -182,17 +182,17 @@ if __name__ == "__main__":
 * **-ph/--phase** [Required]
     * Which phase to run? 'train' (runs all train, validation, test steps) OR 'test' (runs only test step).
 * **-b/--batch_size** [4]
-* **-ep/--epochs** [51]
+* **-ep/--epochs** [11]
 * **-lr/--learning_rate** [0.001]
 * -**gpus/--gpus** [0]
     * List of gpus to be used. Eg. [0], [1], [0, 1]
-* **-nw/--num_workers** [4]
+* **-nw/--num_workers** [0]
     * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
-* **-lim/--load-limit**[max]
+* **-lim/--load-limit**[None]
     * Specifies a limit on images/files to load for debug purpose for pipeline debugging.
 * **-nf/--num_folds** [None]
     * Number of folds in k-fold cross validation(Integer value like 5, 10).
-* **-spl/--split_ratio** [0.6 0.2 0.2]
+* **-spl/--split_ratio** [None]
     * Split ratio for train, validation, test set if two items given| train, test if three items given| train only if
       one item given.
 * [...see more](assets/DefaultArgs.md)
