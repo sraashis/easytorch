@@ -20,7 +20,7 @@ _sep = _os.sep
 
 
 class ETTrainer:
-    def __init__(self, args: dict):
+    def __init__(self, args: dict, dataloader_args: dict):
         r"""
         args: receives the arguments passed by the ArgsParser.
         cache: Initialize all immediate things here. Like scores, loss, accuracies...
@@ -28,6 +28,7 @@ class ETTrainer:
         optimizer: Initialize our optimizers.
         """
         self.args = _etutils.FrozenDict(args)
+        self.dataloader_args = _etutils.FrozenDict(dataloader_args if dataloader_args else {})
         self.cache = _ODict()
         self.nn = _ODict()
         self.device = _ODict()
@@ -204,6 +205,7 @@ class ETTrainer:
 
         _args = {**self.args}
         _args['shuffle'] = False
+        _args.update(**self.dataloader_args.get(mode, {}))
         loaders = [_etdata.ETDataLoader.new(mode=mode, dataset=d, **_args) for d in dataset_list if d is not None]
         with _torch.no_grad():
             for loader in loaders:
@@ -344,6 +346,7 @@ class ETTrainer:
         local_iter = self.args.get('grad_accum_iters', 1)
         _args = {**self.args}
         _args['shuffle'] = True
+        _args.update(**self.dataloader_args.get('train', {}))
         train_loader = _etdata.ETDataLoader.new(mode='train', dataset=dataset, **_args)
 
         tot_iter = len(train_loader) // local_iter

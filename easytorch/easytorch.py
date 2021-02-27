@@ -46,6 +46,7 @@ class EasyTorch:
                  load_sparse: bool = _conf.default_args['load_sparse'],
                  num_folds=_conf.default_args['num_folds'],
                  split_ratio=_conf.default_args['split_ratio'],
+                 dataloader_args: dict = None,
                  **kw):
         """
         Order of precedence of arguments is(Higher will override the lower):
@@ -81,6 +82,8 @@ class EasyTorch:
         @param split_ratio: Ratio to split files as specified in data_dir in dataspecs into. Default is 0.6, 0.2. 0.2.
                         However, if a custom json split(s) are provided with keys train, validation,
                         test is provided in split_dir folder as specified in dataspecs, it will be loaded.
+        @param dataloader_args: dict with keys train, test, and validation that will ovveride corresponding dataloader args.
+                For example, different batch size for validation loader.
         @param kw: Extra kwargs.
         """
         self._init_args(args)
@@ -105,6 +108,8 @@ class EasyTorch:
         self.args.update(num_folds=num_folds)
         self.args.update(split_ratio=split_ratio)
         self.args.update(**kw)
+
+        self.dataloader_args = dataloader_args if dataloader_args is not None else {}
         assert (self.args.get('phase') in self._MODES_), self._MODE_ERR_
 
         self._init_dataspecs(dataspecs)
@@ -262,7 +267,7 @@ class EasyTorch:
         r"""Run for individual datasets"""
         self._show_args()
         for dspec in self.dataspecs:
-            trainer = trainer_cls(self.args)
+            trainer = trainer_cls(self.args, self.dataloader_args)
             trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
 
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
@@ -317,7 +322,7 @@ class EasyTorch:
 
     def run_pooled(self, trainer_cls, dataset_cls=None):
         r"""  Run in pooled fashion. """
-        trainer = trainer_cls(self.args)
+        trainer = trainer_cls(self.args, self.dataloader_args)
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
 
         """ Create log-dir by concatenating all the involved dataset names.  """
