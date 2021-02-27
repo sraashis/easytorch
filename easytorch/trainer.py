@@ -16,11 +16,14 @@ from easytorch.utils.tensorutils import initialize_weights as _init_weights
 from .vision import plotter as _log_utils
 import math as _math
 
+from torch.utils.data import Dataset as _Dataset
+from typing import List as _List
+
 _sep = _os.sep
 
 
 class ETTrainer:
-    def __init__(self, args: dict):
+    def __init__(self, args: dict, dataloader_args: dict):
         r"""
         args: receives the arguments passed by the ArgsParser.
         cache: Initialize all immediate things here. Like scores, loss, accuracies...
@@ -28,6 +31,7 @@ class ETTrainer:
         optimizer: Initialize our optimizers.
         """
         self.args = _etutils.FrozenDict(args)
+        self.dataloader_args = _etutils.FrozenDict(dataloader_args if dataloader_args else {})
         self.cache = _ODict()
         self.nn = _ODict()
         self.device = _ODict()
@@ -48,8 +52,8 @@ class ETTrainer:
             for k, m in [(_k, _m) for _k, _m in self.nn.items() if isinstance(_m, _torch.nn.Module)]:
                 success(f'Total params in {k}:' f' {sum(p.numel() for p in m.parameters() if p.requires_grad)}')
 
-        if init_weights: self._init_nn_weights()
         if init_optimizer: self._init_optimizer()
+        if init_weights: self._init_nn_weights()
         if set_device: self._set_device()
 
     def _init_nn_weights(self):
@@ -58,13 +62,16 @@ class ETTrainer:
         If path to pretrained weights are given, it will be used instead.
         """
         if self.args['pretrained_path'] is not None:
-            self.load_checkpoint(self.args['pretrained_path'])
+            self.load_checkpoint(self.args['pretrained_path'],
+                                 self.args.get('load_model_state', True),
+                                 self.args.get('load_optimizer_state', True))
+
         elif self.args['phase'] == 'train':
             _torch.manual_seed(self.args['seed'])
             for mk in self.nn:
                 _init_weights(self.nn[mk])
 
-    def load_checkpoint(self, full_path, src=MYSELF):
+    def load_checkpoint(self, full_path, load_model_state=True, load_optimizer_state=True, src=MYSELF):
         r"""
         Load checkpoint from the given path:
             If it is an easytorch checkpoint, try loading all the models.
@@ -76,17 +83,19 @@ class ETTrainer:
             chk = _torch.load(full_path, map_location='cpu')
 
         if chk.get('_its_origin_', 'Unknown').lower() == src:
-            for m in chk['models']:
-                try:
-                    self.nn[m].module.load_state_dict(chk['models'][m])
-                except:
-                    self.nn[m].load_state_dict(chk['models'][m])
+            if load_model_state:
+                for m in chk['models']:
+                    try:
+                        self.nn[m].module.load_state_dict(chk['models'][m])
+                    except:
+                        self.nn[m].load_state_dict(chk['models'][m])
 
-            for m in chk['optimizers']:
-                try:
-                    self.optimizer[m].module.load_state_dict(chk['optimizers'][m])
-                except:
-                    self.optimizer[m].load_state_dict(chk['optimizers'][m])
+            if load_optimizer_state:
+                for m in chk['optimizers']:
+                    try:
+                        self.optimizer[m].module.load_state_dict(chk['optimizers'][m])
+                    except:
+                        self.optimizer[m].load_state_dict(chk['optimizers'][m])
         else:
             mkey = list(self.nn.keys())[0]
             try:
@@ -137,20 +146,24 @@ class ETTrainer:
         """
         return _base_metrics.ETAverages(num_averages=1)
 
-    def save_checkpoint(self, full_path, src=MYSELF):
+    def save_checkpoint(self, full_path, save_model_state=True, save_optimizer_state=True, src=MYSELF):
         checkpoint = {'_its_origin_': src}
-        for k in self.nn:
-            checkpoint['models'] = {}
-            try:
-                checkpoint['models'][k] = self.nn[k].module.state_dict()
-            except:
-                checkpoint['models'][k] = self.nn[k].state_dict()
-        for k in self.optimizer:
-            checkpoint['optimizers'] = {}
-            try:
-                checkpoint['optimizers'][k] = self.optimizer[k].module.state_dict()
-            except:
-                checkpoint['optimizers'][k] = self.optimizer[k].state_dict()
+
+        if save_model_state:
+            for k in self.nn:
+                checkpoint['models'] = {}
+                try:
+                    checkpoint['models'][k] = self.nn[k].module.state_dict()
+                except:
+                    checkpoint['models'][k] = self.nn[k].state_dict()
+
+        if save_optimizer_state:
+            for k in self.optimizer:
+                checkpoint['optimizers'] = {}
+                try:
+                    checkpoint['optimizers'][k] = self.optimizer[k].module.state_dict()
+                except:
+                    checkpoint['optimizers'][k] = self.optimizer[k].state_dict()
         _torch.save(checkpoint, full_path)
 
     def init_experiment_cache(self):
@@ -194,17 +207,21 @@ class ETTrainer:
         """
         pass
 
-    def evaluation(self, epoch=0, mode='eval', dataset_list=None, save_pred=False):
-        info(f'{mode} ...', self.args['verbose'])
-
+    def evaluation(self, epoch=1, mode='eval', dataset_list=None, save_pred=False):
         for k in self.nn:
             self.nn[k].eval()
 
         eval_avg, eval_metrics = self.new_averages(), self.new_metrics()
 
+        if dataset_list is None:
+            return eval_avg, eval_metrics
+
+        info(f'{mode} ...', self.args['verbose'])
+
         _args = {**self.args}
         _args['shuffle'] = False
-        loaders = [_etdata.ETDataLoader.new(mode=mode, dataset=d, **_args) for d in dataset_list if d is not None]
+        _args.update(**self.dataloader_args.get(mode, {}))
+        loaders = [_etdata.ETDataLoader.new(mode=mode, dataset=d, **_args) for d in dataset_list]
         with _torch.no_grad():
             for loader in loaders:
                 its = []
@@ -231,8 +248,8 @@ class ETTrainer:
                 if save_pred:
                     self.save_predictions(loader.dataset, self._reduce_iteration(its))
 
-        info(f" {self.cache['experiment_id']} {mode} metrics: {eval_avg.get()}, {eval_metrics.get()}",
-             self.args['verbose'])
+        success(f"{self.cache['experiment_id']} {mode} metrics: {eval_avg.get()}, {eval_metrics.get()}",
+                self.args['verbose'])
         return eval_avg, eval_metrics
 
     def _reduce_iteration(self, its):
@@ -276,26 +293,17 @@ class ETTrainer:
         """
         pass
 
-    def save_if_better(self, epoch, val_metrics, **kw):
+    def _check_validation_score(self, **kw):
         r"""
         Save the current model as best if it has better validation scores.
         """
-        sc = val_metrics.extract(self.cache['monitor_metric'])
+        sc = kw['val_metrics'].extract(self.cache['monitor_metric'])
         improved = False
-        delta = self.args.setdefault('score_delta', SCORE_DELTA)
         if self.cache['metric_direction'] == 'maximize':
-            improved = sc > self.cache['best_val_score'] + delta
+            improved = sc > self.cache['best_val_score'] + self.args.get('score_delta', SCORE_DELTA)
         elif self.cache['metric_direction'] == 'minimize':
-            improved = sc < self.cache['best_val_score'] - delta
-
-        if improved:
-            self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
-            self.cache['best_val_score'] = sc
-            self.cache['best_val_epoch'] = epoch
-            success(f"Best Model Saved!!! : {self.cache['best_val_score']}", self.args['verbose'])
-        else:
-            info(f"Not best: {sc}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
-                 self.args['verbose'])
+            improved = sc < self.cache['best_val_score'] - self.args.get('score_delta', SCORE_DELTA)
+        return {'improved': improved, 'score': sc}
 
     def _stop_early(self, epoch, **kw):
         r"""
@@ -303,13 +311,13 @@ class ETTrainer:
          For example: the implementation below will stop training if the validation
          scores does not improve within a 'patience' number of epochs.
         """
-        if epoch - self.cache['best_val_epoch'] >= self.args.get('patience', 'epochs'):
+        if self.args['patience'] and epoch - self.cache['best_val_epoch'] >= self.args['patience']:
             return True
 
         if self.cache['metric_direction'] == 'maximize':
-            return self.cache['best_val_score'] == SCORE_HIGH
+            return self.cache['best_val_score'] == self.args.get('score_max', SCORE_MAX)
         elif self.cache['metric_direction'] == 'minimize':
-            return self.cache['best_val_score'] == SCORE_LOW
+            return self.cache['best_val_score'] == self.args.get('score_min', SCORE_MIN)
 
         return False
 
@@ -318,7 +326,7 @@ class ETTrainer:
                                  plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
                                  epoch=epoch)
 
-    def training_iteration(self, i, batch):
+    def training_iteration(self, i, batch) -> dict:
         r"""
         Learning step for one batch.
         We decoupled it so that user could implement any complex/multi/alternate training strategies.
@@ -331,21 +339,31 @@ class ETTrainer:
                 self.optimizer[optim].zero_grad()
         return it
 
-    def _validation(self, epoch, ep_avg, ep_metrics, dataset):
-        val_averages, val_metrics = self.evaluation(epoch=epoch, mode='validation', dataset_list=[dataset])
+    def validation(self, epoch, train_averages, train_metrics, val_dataset_list: _List[_Dataset]) -> dict:
+        val_averages, val_metrics = self.evaluation(epoch=epoch, mode='validation', dataset_list=val_dataset_list)
         self.cache[LogKey.VALIDATION_LOG].append([*val_averages.get(), *val_metrics.get()])
-        self.save_if_better(epoch, val_metrics, val_averages=val_averages,
-                            ep_metrics=ep_metrics, epoch_averages=ep_avg)
-        return {'val_averages': val_averages, 'val_metrics': val_metrics}
+        val_out = self._check_validation_score(val_metrics=val_metrics, val_averages=val_averages,
+                                               train_averages=train_averages, train_metrics=train_metrics)
+        if val_out['improved']:
+            self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['best_checkpoint'])
+            self.cache['best_val_score'] = val_out['score']
+            self.cache['best_val_epoch'] = epoch
+            success(f" *** Best Model Saved!!! *** : {self.cache['best_val_score']}", self.args['verbose'])
+        else:
+            info(f"Not best: {val_out['score']}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
+                 self.args['verbose'])
 
-    def train(self, dataset, val_dataset):
+        return {'val_averages': val_averages, 'val_metrics': val_metrics, **val_out}
+
+    def train(self, train_dataset: _Dataset, val_dataset_list: _List[_Dataset]) -> None:
         info('Training ...', self.args['verbose'])
 
-        local_iter = self.args.get('grad_accum_iters', 1)
         _args = {**self.args}
         _args['shuffle'] = True
-        train_loader = _etdata.ETDataLoader.new(mode='train', dataset=dataset, **_args)
+        _args.update(**self.dataloader_args.get('train', {}))
+        train_loader = _etdata.ETDataLoader.new(mode='train', dataset=train_dataset, **_args)
 
+        local_iter = self.args.get('grad_accum_iters', 1)
         tot_iter = len(train_loader) // local_iter
         for ep in range(1, self.args['epochs'] + 1):
             for k in self.nn:
@@ -355,7 +373,7 @@ class ETTrainer:
             its = []
 
             """Collect epoch metrics and averages"""
-            ep_avg, ep_metrics = self.new_averages(), self.new_metrics()
+            train_avg, train_metrics = self.new_averages(), self.new_metrics()
 
             """Keep track of running metrics and averages for logging/plotting"""
             _metrics, _avg = self.new_metrics(), self.new_averages()
@@ -367,8 +385,8 @@ class ETTrainer:
                     it = self._reduce_iteration(its)
 
                     """Update global accumulators"""
-                    ep_avg.accumulate(it.get('averages'))
-                    ep_metrics.accumulate(it.get('metrics'))
+                    train_avg.accumulate(it.get('averages'))
+                    train_metrics.accumulate(it.get('metrics'))
 
                     """Update running accumulators."""
                     _avg.accumulate(it.get('averages'))
@@ -387,17 +405,19 @@ class ETTrainer:
                     self._on_iteration_end(i, ep, it)
 
             """Validation step"""
-            val_out = self._validation(ep, ep_avg, ep_metrics, val_dataset)
+            val_out = {}
+            if val_dataset_list:
+                val_out.update(**self.validation(ep, train_avg, train_metrics, val_dataset_list))
 
             """Post epoch/validation"""
-            self._on_epoch_end(ep, epoch_averages=ep_avg, epoch_metrics=ep_metrics, **val_out)
+            self._on_epoch_end(ep, train_averages=train_avg, train_metrics=train_metrics, **val_out)
+
+            """Early stopping"""
+            if self._stop_early(ep, train_averages=train_avg, train_metrics=train_metrics, **val_out):
+                break
 
             """Plot progress lazily"""
             if lazy_debug(ep, _math.log(ep)): self._save_progress(epoch=ep)
-
-            """Early stopping"""
-            if self._stop_early(ep, **val_out):
-                break
 
         """Plot at the end regardless."""
         self._save_progress(epoch=ep)

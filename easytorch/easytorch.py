@@ -3,7 +3,6 @@ import os as _os
 import pprint as _pp
 import random as _random
 from argparse import ArgumentParser as _AP
-from typing import List as _List, Union as _Union, Callable as _Callable
 
 import numpy as _np
 import torch as _torch
@@ -13,6 +12,9 @@ import easytorch.utils as _utils
 from easytorch.config.status import *
 from easytorch.data import datautils as _du
 from easytorch.utils.logger import *
+
+from torch.utils.data import Dataset as _Dataset
+from typing import Union as _Union, List as _List
 
 _sep = _os.sep
 
@@ -46,6 +48,7 @@ class EasyTorch:
                  load_sparse: bool = _conf.default_args['load_sparse'],
                  num_folds=_conf.default_args['num_folds'],
                  split_ratio=_conf.default_args['split_ratio'],
+                 dataloader_args: dict = None,
                  **kw):
         """
         Order of precedence of arguments is(Higher will override the lower):
@@ -81,6 +84,8 @@ class EasyTorch:
         @param split_ratio: Ratio to split files as specified in data_dir in dataspecs into. Default is 0.6, 0.2. 0.2.
                         However, if a custom json split(s) are provided with keys train, validation,
                         test is provided in split_dir folder as specified in dataspecs, it will be loaded.
+        @param dataloader_args: dict with keys train, test, and validation that will ovveride corresponding dataloader args.
+                For example, different batch size for validation loader.
         @param kw: Extra kwargs.
         """
         self._init_args(args)
@@ -105,6 +110,8 @@ class EasyTorch:
         self.args.update(num_folds=num_folds)
         self.args.update(split_ratio=split_ratio)
         self.args.update(**kw)
+
+        self.dataloader_args = dataloader_args if dataloader_args else {}
         assert (self.args.get('phase') in self._MODES_), self._MODE_ERR_
 
         self._init_dataspecs(dataspecs)
@@ -114,7 +121,7 @@ class EasyTorch:
         self._make_reproducible()
 
     def _device_check(self):
-        self.args['gpus'] = self.args['gpus'] if self.args.get('gpus') is not None else []
+        self.args['gpus'] = self.args['gpus'] if self.args.get('gpus') else []
         if self.args['verbose'] and len(self.args['gpus']) > NUM_GPUS:
             warn(f"{len(self.args['gpus'])} GPU(s) requested "
                  f"but {NUM_GPUS if CUDA_AVAILABLE else 'GPU(s) not'} detected. "
@@ -122,8 +129,10 @@ class EasyTorch:
             self.args['gpus'] = list(range(NUM_GPUS))
 
     def _show_args(self):
-        success('Starting with the following parameters:', self.args['verbose'])
+        info('Starting with the following parameters:')
         _pp.pprint(self.args)
+        if len(self.dataloader_args) > 0:
+            _pp.pprint(self.dataloader_args)
 
     def _init_args(self, args):
         if isinstance(args, _AP):
@@ -164,33 +173,35 @@ class EasyTorch:
     def _create_splits(self, dspec, log_dir):
         if _du.should_create_splits_(log_dir, dspec, self.args):
             _du.default_data_splitter_(dspec=dspec, args=self.args)
-            success(f"{len(_os.listdir(dspec['split_dir']))} split(s) created in '{dspec['split_dir']}' directory.",
-                    self.args['verbose'])
+            info(f"{len(_os.listdir(dspec['split_dir']))} split(s) created in '{dspec['split_dir']}' directory.",
+                 self.args['verbose'])
         else:
             splits_len = len(_os.listdir(dspec['split_dir']))
-            success(f"{splits_len} split(s) loaded from '{dspec['split_dir']}' directory.",
-                    self.args['verbose'] and splits_len > 0)
+            info(f"{splits_len} split(s) loaded from '{dspec['split_dir']}' directory.",
+                 self.args['verbose'] and splits_len > 0)
 
-    def _load_dataset(self, split_key, dataspec: dict, **kw):
+    def _load_dataset(self, split_key, dataspec: dict, **kw) -> _Dataset:
         with open(dataspec['split_dir'] + _sep + kw.get('split_file')) as file:
             split = _json.loads(file.read())
             dataset = kw.get('dataset_cls')(mode=split_key, limit=self.args['load_limit'], **self.args)
             dataset.add(files=split.get(split_key, []), verbose=self.args['verbose'], **dataspec)
             return dataset
 
-    def _get_train_dataset(self, dataspec: dict, **kw):
+    def _get_train_dataset(self, dataspec: dict, **kw) -> _Dataset:
         r"""Load the train data from current fold/split."""
         return self._load_dataset('train', dataspec,
                                   split_file=kw.get('split_file'),
                                   dataset_cls=kw.get('dataset_cls'))
 
-    def _get_validation_dataset(self, dataspec: dict, **kw):
+    def _get_validation_dataset_list(self, dataspec: dict, **kw) -> _List[_Dataset]:
         r""" Load the validation data from current fold/split."""
-        return self._load_dataset('validation', dataspec,
-                                  split_file=kw.get('split_file'),
-                                  dataset_cls=kw.get('dataset_cls'))
+        val_dataset = self._load_dataset('validation', dataspec,
+                                         split_file=kw.get('split_file'),
+                                         dataset_cls=kw.get('dataset_cls'))
+        if val_dataset and len(val_dataset) > 0:
+            return [val_dataset]
 
-    def _get_test_dataset(self, dataspec: dict, **kw):
+    def _get_test_dataset_list(self, dataspec: dict, **kw) -> _List[_Dataset]:
         r"""
         Load the test data from current fold/split.
         If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
@@ -200,7 +211,7 @@ class EasyTorch:
         if self.args.get('load_sparse'):
             with open(dataspec['split_dir'] + _sep + kw.get('split_file')) as file:
                 for f in _json.loads(file.read()).get('test', []):
-                    if len(test_dataset_list) >= self.args['load_limit']:
+                    if self.args['load_limit'] and len(test_dataset_list) >= self.args['load_limit']:
                         break
                     test_dataset = kw.get('dataset_cls')(mode='test', limit=self.args['load_limit'], **self.args)
                     test_dataset.add(files=[f], verbose=False, **dataspec)
@@ -210,7 +221,9 @@ class EasyTorch:
             test_dataset_list.append(self._load_dataset('test', dataspec,
                                                         split_file=kw.get('split_file'),
                                                         dataset_cls=kw.get('dataset_cls')))
-        return test_dataset_list
+
+        if sum([len(t) for t in test_dataset_list if t]) > 0:
+            return test_dataset_list
 
     def check_previous_logs(self, cache):
         r"""
@@ -247,29 +260,52 @@ class EasyTorch:
         cache[LogKey.TEST_METRICS] = []
 
         cache['experiment_id'] = split_file.split('.')[0]
-        cache['checkpoint'] = cache['experiment_id'] + '.pt'
+        cache['best_checkpoint'] = f"best_{cache['experiment_id']}_chk{CHK_EXT}"
+        cache['latest_checkpoint'] = f"latest_{cache['experiment_id']}_chk{CHK_EXT}"
         cache.update(best_val_epoch=0, best_val_score=0.0)
         if cache['metric_direction'] == 'minimize':
             cache['best_val_score'] = MAX_SIZE
 
-    def _on_experiment_end(self, trainer, global_averages, global_metrics):
+    @staticmethod
+    def _on_experiment_end(trainer, global_averages, global_metrics):
         with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:
             log = {'averages': vars(global_averages),
                    'metrics': vars(global_metrics)}
             f.write(_json.dumps(log))
 
+    def _test(self, split_file, trainer, test_dataset_list) -> dict:
+        best_exists = _os.path.exists(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
+        if best_exists and (self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None):
+            """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
+            trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
+
+        """########## Run test phase. ##############################"""
+        test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset_list)
+        """Accumulate global scores-scores of each fold to report single global score for each datasets."""
+
+        """Save the calculated scores in list so that later we can do extra things(Like save to a file.)"""
+        trainer.cache[LogKey.TEST_METRICS] = [[split_file, *test_averages.get(), *test_metrics.get()]]
+        trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
+            [split_file, *test_averages.get(), *test_metrics.get()])
+        _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
+                           file_keys=[LogKey.TEST_METRICS])
+        return {'test_averages': test_averages, 'test_metrics': test_metrics}
+
     def run(self, trainer_cls, dataset_cls=None):
         r"""Run for individual datasets"""
-        self._show_args()
+        if self.args['verbose']:
+            self._show_args()
+
         for dspec in self.dataspecs:
-            trainer = trainer_cls(self.args)
+            trainer = trainer_cls(self.args, self.dataloader_args)
             trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
 
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
             self._create_splits(dspec, trainer.cache['log_dir'])
 
             """We will save the global scores of all folds if any."""
-            global_metrics, global_averages = trainer.new_metrics(), trainer.new_averages()
+            global_averages = trainer.new_averages()
+            global_metrics = trainer.new_metrics()
             trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
 
             trainer.cache['log_header'] = 'Loss,Accuracy'
@@ -286,29 +322,19 @@ class EasyTorch:
                 """###########  Run training phase ########################"""
                 if self.args['phase'] == Phase.TRAIN:
                     trainset = self._get_train_dataset(dspec, split_file=split_file, dataset_cls=dataset_cls)
-                    valset = self._get_validation_dataset(dspec, split_file=split_file, dataset_cls=dataset_cls)
-                    trainer.train(trainset, valset)
+                    validation_dataset_list = self._get_validation_dataset_list(dspec, split_file=split_file,
+                                                                                dataset_cls=dataset_cls)
+                    trainer.train(trainset, validation_dataset_list)
+                    trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
                     _utils.save_cache({**self.args, **trainer.cache, **dspec},
                                       experiment_id=trainer.cache['experiment_id'])
                 """#########################################################"""
 
-                if self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None:
-                    """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
-                    trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['checkpoint'])
-
-                """########## Run test phase. ##############################"""
-                testset = self._get_test_dataset(dspec, split_file=split_file, dataset_cls=dataset_cls)
-                test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=testset)
-                """Accumulate global scores-scores of each fold to report single global score for each datasets."""
-                global_averages.accumulate(test_averages)
-                global_metrics.accumulate(test_metrics)
-
-                """Save the calculated scores in list so that later we can do extra things(Like save to a file.)"""
-                trainer.cache[LogKey.TEST_METRICS] = [[split_file, *test_averages.get(), *test_metrics.get()]]
-                trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
-                    [split_file, *test_averages.get(), *test_metrics.get()])
-                _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
-                                   file_keys=[LogKey.TEST_METRICS])
+                """Test phase"""
+                testset_list = self._get_test_dataset_list(dspec, split_file=split_file, dataset_cls=dataset_cls)
+                test = self._test(split_file, trainer, testset_list)
+                global_averages.accumulate(test['test_averages'])
+                global_metrics.accumulate(test['test_metrics'])
 
             """ Finally, save the global score to a file  """
             trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(['Global', *global_averages.get(), *global_metrics.get()])
@@ -317,7 +343,10 @@ class EasyTorch:
 
     def run_pooled(self, trainer_cls, dataset_cls=None):
         r"""  Run in pooled fashion. """
-        trainer = trainer_cls(self.args)
+        if self.args['verbose']:
+            self._show_args()
+
+        trainer = trainer_cls(self.args, self.dataloader_args)
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
 
         """ Create log-dir by concatenating all the involved dataset names.  """
@@ -335,6 +364,7 @@ class EasyTorch:
         """
         global_metrics = trainer.new_metrics()
         global_averages = trainer.new_averages()
+        trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
 
         trainer.cache['log_header'] = 'Loss,Accuracy'
         trainer.cache.update(monitor_metric='time', metric_direction='maximize')
@@ -355,21 +385,17 @@ class EasyTorch:
         if self.args['phase'] == Phase.TRAIN:
             train_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='train',
                                              load_sparse=False)[0]
-            val_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
-                                           load_sparse=False)[0]
-            trainer.train(train_dataset, val_dataset)
+            val_dataset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
+                                                load_sparse=False)
+            trainer.train(train_dataset, val_dataset_list)
+            trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
             _utils.save_cache({**self.args, **trainer.cache, 'dataspecs': self.dataspecs},
                               experiment_id=trainer.cache['experiment_id'])
 
-        if self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None:
-            """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
-            trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['checkpoint'])
+        testset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
+                                        load_sparse=self.args['load_sparse'])
 
-        test_dataset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
-                                             load_sparse=self.args['load_sparse'])
-        test_averages, test_score = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset_list)
-        global_averages.accumulate(test_averages)
-        global_metrics.accumulate(test_score)
-        trainer.cache[LogKey.TEST_METRICS] = [['Pooled', *global_averages.get(), *global_metrics.get()]]
-        _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'], file_keys=[LogKey.TEST_METRICS])
+        test = self._test('Pooled', trainer, testset_list)
+        global_averages.accumulate(test['test_averages'])
+        global_metrics.accumulate(test['test_metrics'])
         self._on_experiment_end(trainer, global_averages, global_metrics)
