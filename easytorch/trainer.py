@@ -17,7 +17,7 @@ from .vision import plotter as _log_utils
 import math as _math
 
 from torch.utils.data import Dataset as _Dataset
-from typing import Union as _Union, List as _List
+from typing import List as _List
 
 _sep = _os.sep
 
@@ -345,13 +345,12 @@ class ETTrainer:
         val_out = self._check_validation_score(val_metrics=val_metrics, val_averages=val_averages,
                                                train_averages=train_averages, train_metrics=train_metrics)
         if val_out['improved']:
-            self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['checkpoint'])
+            self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['best_checkpoint'])
             self.cache['best_val_score'] = val_out['score']
             self.cache['best_val_epoch'] = epoch
-
-            success(f"Best Model Saved!!! : {self.cache['best_val_score']}", self.args['verbose'])
+            success(f" *** Best Model Saved!!! *** : {self.cache['best_val_score']}", self.args['verbose'])
         else:
-            warn(f"Not best: {val_out['score']}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
+            info(f"Not best: {val_out['score']}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
                  self.args['verbose'])
 
         return {'val_averages': val_averages, 'val_metrics': val_metrics, **val_out}

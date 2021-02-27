@@ -28,6 +28,7 @@ def save_scores(cache, experiment_id='', file_keys=[]):
     for fk in file_keys:
         with open(cache['log_dir'] + _os.sep + f'{experiment_id}_{fk}.csv', 'w') as file:
             header = cache.get('log_header', '')
+            header = header.replace('|', ',')
             if isinstance(header, list):
                 header = ','.join(header)
             file.write('Scores,' + header + '\n')
