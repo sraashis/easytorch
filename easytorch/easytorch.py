@@ -18,6 +18,18 @@ from easytorch.utils.logger import *
 _sep = _os.sep
 
 
+def _ddp_worker(gpu, split_file, dspec, trainer, et_obj, dataset_cls=None):
+    import torch.distributed as _dist
+    et_obj.args['verbose'] = gpu == 0
+    world_size = et_obj.args['world_size']
+    if not world_size:
+        world_size = et_obj.args['num_gpus'] * et_obj.args['num_nodes']
+    world_rank = et_obj.args['node_rank'] * et_obj.args['num_gpus'] + gpu
+    _dist.init_process_group(backend=et_obj.args['dist_backend'],
+                             init_method=et_obj.args['dist_url'],
+                             world_size=world_size, rank=world_rank)
+
+
 class EasyTorch:
     _MODES_ = [Phase.TRAIN, Phase.TEST]
     _MODE_ERR_ = \
@@ -292,6 +304,28 @@ class EasyTorch:
                            file_keys=[LogKey.TEST_METRICS])
         return {'averages': test_averages, 'metrics': test_metrics}
 
+    def _experiment_run(self, split_file, dspec, trainer, dataset_cls=None):
+        self._init_fold_cache(split_file, trainer.cache)
+        self.check_previous_logs(trainer.cache)
+        trainer.init_nn()
+
+        """###########  Run training phase ########################"""
+        if self.args['phase'] == Phase.TRAIN:
+            trainset = self._get_train_dataset(dspec, split_file=split_file, dataset_cls=dataset_cls)
+            validation_dataset_list = self._get_validation_dataset_list(dspec, split_file=split_file,
+                                                                        dataset_cls=dataset_cls)
+            trainer.train(trainset, validation_dataset_list)
+            trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
+            _utils.save_cache({**self.args, **trainer.cache, **dspec},
+                              experiment_id=trainer.cache['experiment_id'])
+        """#########################################################"""
+        """Test phase"""
+        testset_list = self._get_test_dataset_list(dspec, split_file=split_file, dataset_cls=dataset_cls)
+        test_out = []
+        if testset_list:
+            test_out = self._test(split_file, trainer, testset_list)
+        return test_out
+
     def run(self, trainer_cls, dataset_cls=None):
         r"""Run for individual datasets"""
         if self.args['verbose']:  self._show_args()
@@ -311,29 +345,15 @@ class EasyTorch:
             trainer.init_experiment_cache()
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
             for split_file in _os.listdir(dspec['split_dir']):
-                self._init_fold_cache(split_file, trainer.cache)
-                self.check_previous_logs(trainer.cache)
-                trainer.init_nn()
-
-                """###########  Run training phase ########################"""
-                if self.args['phase'] == Phase.TRAIN:
-                    trainset = self._get_train_dataset(dspec, split_file=split_file, dataset_cls=dataset_cls)
-                    validation_dataset_list = self._get_validation_dataset_list(dspec, split_file=split_file,
-                                                                                dataset_cls=dataset_cls)
-                    trainer.train(trainset, validation_dataset_list)
-                    trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
-                    _utils.save_cache({**self.args, **trainer.cache, **dspec},
-                                      experiment_id=trainer.cache['experiment_id'])
-                """#########################################################"""
-
-                """Test phase"""
-                testset_list = self._get_test_dataset_list(dspec, split_file=split_file, dataset_cls=dataset_cls)
-                if testset_list:
-                    test_acc.append(self._test(split_file, trainer, testset_list))
+                test_acc.append(self._experiment_run(split_file, dspec, trainer, dataset_cls))
 
             scores = trainer.reduce_scores(test_acc, key='test')
             if self.args['is_master']:
                 self._global_experiment_end(trainer, scores)
+
+            if trainer.args.get('use_ddp'):
+                import torch.distributed as dist
+                dist.barrier()
 
     def run_pooled(self, trainer_cls, dataset_cls=None):
         r"""  Run in pooled fashion. """

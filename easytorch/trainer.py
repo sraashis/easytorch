@@ -2,10 +2,13 @@ r"""
 The main core of EasyTorch
 """
 
+import math as _math
 import os as _os
 from collections import OrderedDict as _ODict
+from typing import List as _List
 
 import torch as _torch
+from torch.utils.data import Dataset as _Dataset
 
 import easytorch.data as _etdata
 import easytorch.utils as _etutils
@@ -14,10 +17,6 @@ from easytorch.metrics import metrics as _base_metrics
 from easytorch.utils.logger import *
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
 from .vision import plotter as _log_utils
-import math as _math
-
-from torch.utils.data import Dataset as _Dataset
-from typing import List as _List
 
 _sep = _os.sep
 
@@ -351,8 +350,9 @@ class ETTrainer:
             self.cache['best_val_epoch'] = kw['epoch']
             success(f" *** Best Model Saved!!! *** : {self.cache['best_val_score']}", self.args['verbose'])
         else:
-            info(f"Not best: {val_check['score']}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
-                 self.args['verbose'])
+            info(
+                f"Not best: {val_check['score']}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
+                self.args['verbose'])
 
     def validation(self, epoch, val_dataset_list: _List[_Dataset]) -> dict:
         val_averages, val_metrics = self.evaluation(epoch=epoch, mode='validation', dataset_list=val_dataset_list)
@@ -440,3 +440,12 @@ class ETTrainer:
     def _on_epoch_end(self, **kw):
         """Local epoch end"""
         pass
+
+
+class DDPTrainer(ETTrainer):
+    def __init__(self, args: dict, dataloader_args: dict):
+        ddp_args = {**args}
+        ddp_args['use_ddp'] = args.get('use_ddp', True)
+        _os.environ['MASTER_ADDR'] = self.args.get('master_addr', '127.0.0.1')  #
+        _os.environ['MASTER_PORT'] = self.args.get('master_port', '12355')
+        super().__init__(ddp_args, dataloader_args)
