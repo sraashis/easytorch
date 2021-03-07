@@ -118,9 +118,9 @@ class EasyTorch:
         info('', self.args['verbose'])
         self._device_check()
         self._make_reproducible()
+        self.args.update(is_master=self.args.get('is_master', True))
 
     def _device_check(self):
-        self.args.update(is_master=self.args.get('is_master', True))
         self.args['gpus'] = self.args['gpus'] if self.args.get('gpus') else []
         if self.args['verbose'] and len(self.args['gpus']) > NUM_GPUS:
             warn(f"{len(self.args['gpus'])} GPU(s) requested "
