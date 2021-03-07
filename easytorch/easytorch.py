@@ -3,18 +3,17 @@ import os as _os
 import pprint as _pp
 import random as _random
 from argparse import ArgumentParser as _AP
+from typing import Union as _Union, List as _List
 
 import numpy as _np
 import torch as _torch
+from torch.utils.data import Dataset as _Dataset
 
 import easytorch.config as _conf
 import easytorch.utils as _utils
 from easytorch.config.status import *
 from easytorch.data import datautils as _du
 from easytorch.utils.logger import *
-
-from torch.utils.data import Dataset as _Dataset
-from typing import Union as _Union, List as _List
 
 _sep = _os.sep
 
@@ -121,6 +120,7 @@ class EasyTorch:
         self._make_reproducible()
 
     def _device_check(self):
+        self.args.update(is_master=self.args.get('is_master', True))
         self.args['gpus'] = self.args['gpus'] if self.args.get('gpus') else []
         if self.args['verbose'] and len(self.args['gpus']) > NUM_GPUS:
             warn(f"{len(self.args['gpus'])} GPU(s) requested "
@@ -266,12 +266,18 @@ class EasyTorch:
         if cache['metric_direction'] == 'minimize':
             cache['best_val_score'] = MAX_SIZE
 
-    @staticmethod
-    def _on_experiment_end(trainer, global_averages, global_metrics):
-        with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:
-            log = {'averages': vars(global_averages),
-                   'metrics': vars(global_metrics)}
-            f.write(_json.dumps(log))
+    def _global_experiment_end(self, trainer, scores: dict):
+        "Save reduced scores"
+        if self.args['is_master']:
+            """ Finally, save the global score to a file  """
+            trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
+                ['Global', *scores['averages'].get(), *scores['metrics'].get()])
+            _utils.save_scores(trainer.cache, file_keys=[LogKey.GLOBAL_TEST_METRICS])
+
+            with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:
+                log = {'averages': vars(scores['averages']),
+                       'metrics': vars(scores['metrics'])}
+                f.write(_json.dumps(log))
 
     def _test(self, split_file, trainer, test_dataset_list) -> dict:
         best_exists = _os.path.exists(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
@@ -279,39 +285,29 @@ class EasyTorch:
             """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
             trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
 
-        """########## Run test phase. ##############################"""
+        """ Run and save experiment test scores """
         test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset_list)
-        """Accumulate global scores-scores of each fold to report single global score for each datasets."""
-
-        """Save the calculated scores in list so that later we can do extra things(Like save to a file.)"""
         trainer.cache[LogKey.TEST_METRICS] = [[split_file, *test_averages.get(), *test_metrics.get()]]
-        trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
-            [split_file, *test_averages.get(), *test_metrics.get()])
         _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
                            file_keys=[LogKey.TEST_METRICS])
-        return {'test_averages': test_averages, 'test_metrics': test_metrics}
+        return {'averages': test_averages, 'metrics': test_metrics}
 
     def run(self, trainer_cls, dataset_cls=None):
         r"""Run for individual datasets"""
-        if self.args['verbose']:
-            self._show_args()
+        if self.args['verbose']:  self._show_args()
 
         for dspec in self.dataspecs:
             trainer = trainer_cls(self.args, self.dataloader_args)
             trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
-
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
             self._create_splits(dspec, trainer.cache['log_dir'])
 
-            """We will save the global scores of all folds if any."""
-            global_averages = trainer.new_averages()
-            global_metrics = trainer.new_metrics()
             trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
-
             trainer.cache['log_header'] = 'Loss,Accuracy'
             trainer.cache.update(monitor_metric='time', metric_direction='maximize')
 
             """ Init and Run for each splits. """
+            test_acc = []
             trainer.init_experiment_cache()
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
             for split_file in _os.listdir(dspec['split_dir']):
@@ -332,14 +328,12 @@ class EasyTorch:
 
                 """Test phase"""
                 testset_list = self._get_test_dataset_list(dspec, split_file=split_file, dataset_cls=dataset_cls)
-                test = self._test(split_file, trainer, testset_list)
-                global_averages.accumulate(test['test_averages'])
-                global_metrics.accumulate(test['test_metrics'])
+                if testset_list:
+                    test_acc.append(self._test(split_file, trainer, testset_list))
 
-            """ Finally, save the global score to a file  """
-            trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(['Global', *global_averages.get(), *global_metrics.get()])
-            _utils.save_scores(trainer.cache, file_keys=[LogKey.GLOBAL_TEST_METRICS])
-            self._on_experiment_end(trainer, global_averages, global_metrics)
+            scores = trainer.reduce_scores(test_acc, key='test')
+            if self.args['is_master']:
+                self._global_experiment_end(trainer, scores)
 
     def run_pooled(self, trainer_cls, dataset_cls=None):
         r"""  Run in pooled fashion. """
@@ -348,33 +342,16 @@ class EasyTorch:
 
         trainer = trainer_cls(self.args, self.dataloader_args)
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
-
-        """ Create log-dir by concatenating all the involved dataset names.  """
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + f'Pooled_{len(self.dataspecs)}'
-
-        """ Check if the splits are given. If not, create new.  """
         for dspec in self.dataspecs:
             self._create_splits(dspec, trainer.cache['log_dir'] + _sep + dspec['name'])
         warn('Pooling only uses first split from each datasets at the moment.', self.args['verbose'])
 
-        """
-        Default global score holder for each datasets.
-        Save the latest time(maximize current time.). One can also maximize/minimize any other score from
-        easytorch.metrics.ETMetrics() class by overriding _reset_dataset_cache.
-        """
-        global_metrics = trainer.new_metrics()
-        global_averages = trainer.new_averages()
         trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
-
         trainer.cache['log_header'] = 'Loss,Accuracy'
         trainer.cache.update(monitor_metric='time', metric_direction='maximize')
 
-        """
-        init_experiment_cache() is an intervention to set any specific needs for each dataset. For example:
-            - custom log_dir
-            - Monitor some other metrics
-            - Set metrics direction differently.
-        """
+        """Initialize experiment essentials"""
         trainer.init_experiment_cache()
         _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
 
@@ -394,8 +371,10 @@ class EasyTorch:
 
         testset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
                                         load_sparse=self.args['load_sparse'])
+        test_acc = []
+        if testset_list:
+            test_acc.append(self._test('Pooled', trainer, testset_list))
 
-        test = self._test('Pooled', trainer, testset_list)
-        global_averages.accumulate(test['test_averages'])
-        global_metrics.accumulate(test['test_metrics'])
-        self._on_experiment_end(trainer, global_averages, global_metrics)
+        scores = trainer.reduce_scores(test_acc, key='test')
+        if self.args['is_master']:
+            self._global_experiment_end(trainer, scores)
