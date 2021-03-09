@@ -22,18 +22,19 @@ _sep = _os.sep
 
 
 class ETTrainer:
-    def __init__(self, args: dict, dataloader_args: dict, device='cpu'):
+    def __init__(self, args: dict, dataloader_args: dict = None):
         r"""
         args: receives the arguments passed by the ArgsParser.
         cache: Initialize all immediate things here. Like scores, loss, accuracies...
         nn:  Initialize our models here.
         optimizer: Initialize our optimizers.
         """
+        self.data_handle = _etdata.ETDataHandle(args=args, dataloader_args=dataloader_args)
         self.args = _etutils.FrozenDict(args)
-        self.dataloader_args = _etutils.FrozenDict(dataloader_args if dataloader_args else {})
+        self.dataloader_args = _etutils.FrozenDict(dataloader_args)
         self.cache = _ODict()
         self.nn = _ODict()
-        self.device = _ODict({'gpu': device})
+        self.device = _ODict({'gpu': 'cpu'})
         self.optimizer = _ODict()
 
     def init_nn(self, init_models=True, init_weights=True, init_optimizer=True, set_device=True):
@@ -212,15 +213,14 @@ class ETTrainer:
 
         eval_avg, eval_metrics = self.new_averages(), self.new_metrics()
 
-        if dataset_list is None:
+        if dataset_list is None \
+                or len(dataset_list) <= 0 \
+                or all([d is None for d in dataset_list]) \
+                or all([len(d) <= 0 for d in dataset_list]):
             return eval_avg, eval_metrics
 
         info(f'{mode} ...', self.args['verbose'])
-
-        _args = {**self.args}
-        _args['shuffle'] = False
-        _args.update(**self.dataloader_args.get(mode, {}))
-        loaders = [_etdata.ETDataLoader.new(mode=mode, dataset=d, **_args) for d in dataset_list]
+        loaders = [self.data_handle.get_loader(mode, shuffle=False, dataset=d) for d in dataset_list]
         with _torch.no_grad():
             for loader in loaders:
                 its = []
@@ -333,14 +333,19 @@ class ETTrainer:
         return it
 
     def reduce_scores(self, accumlator, key=None) -> dict:
-        averages = self.new_averages()
-        metrics = self.new_metrics()
-        for acc in accumlator:
-            averages.accumulate(acc['averages'])
-            metrics.accumulate(acc['metrics'])
-        _key = key + '_' if key else ''
-        return {f"{_key}averages": averages,
-                f"{_key}metrics": metrics}
+        if self.args.get('use_ddp') is None:
+            averages = self.new_averages()
+            metrics = self.new_metrics()
+            for acc in accumlator:
+                averages.accumulate(acc['averages'])
+                metrics.accumulate(acc['metrics'])
+            _key = key + '_' if key else ''
+            return {f"{_key}averages": averages,
+                    f"{_key}metrics": metrics}
+        else:
+            """Reduce tensors"""
+            import torch.distributed as dist
+            dist.barrier()
 
     def save_if_better(self, **kw):
         val_check = self._check_validation_score(**kw)
@@ -375,11 +380,7 @@ class ETTrainer:
 
     def train(self, train_dataset: _Dataset, val_dataset_list: _List[_Dataset]) -> None:
         info('Training ...', self.args['verbose'])
-
-        _args = {**self.args}
-        _args['shuffle'] = True
-        _args.update(**self.dataloader_args.get('train', {}))
-        train_loader = _etdata.ETDataLoader.new(mode='train', dataset=train_dataset, **_args)
+        train_loader = self.data_handle.get_loader(handle_key='train', shuffle=True, dataset=train_dataset)
 
         tot_iter = len(train_loader) // self.args['grad_accum_iters']
         for ep in range(1, self.args['epochs'] + 1):
@@ -417,7 +418,8 @@ class ETTrainer:
             reduced_epoch = self.reduce_scores([{'averages': epoch_avg, 'metrics': epoch_metrics}], key='train')
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
             if val_dataset_list:
-                epoch_out['validation'] = self.reduce_scores([self.validation(ep, val_dataset_list)], key='validation')
+                val_out = self.validation(ep, val_dataset_list)
+                epoch_out['validation'] = self.reduce_scores([val_out], key='validation')
 
             if self.args['is_master']:
                 self._global_epoch_end(**epoch_out)
@@ -425,8 +427,10 @@ class ETTrainer:
             self._on_epoch_end(**epoch_out)
             if self._stop_early(**epoch_out):
                 break
+
         """Plot at the end regardless."""
-        self._save_progress(epoch=ep)
+        if self.args['is_master']:
+            self._save_progress(epoch=ep)
 
     def _global_epoch_end(self, **kw):
         self.cache[LogKey.VALIDATION_LOG].append(
