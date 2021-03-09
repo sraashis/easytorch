@@ -29,6 +29,10 @@ class SerializableMetrics:
         else:
             return object.__getattribute__(self, attribute)
 
+    def serialize(self, **kw):
+        """The order of serialization reduction and update method should be same"""
+        pass
+
 
 class ETMetrics(SerializableMetrics):
     def __init__(self, **kw):
@@ -155,17 +159,8 @@ class ETAverages(ETMetrics):
             return round(sum(avgs) / len(avgs), self.num_precision)
         return avgs
 
-    @property
-    def eps(self):
-        return METRICS_EPS
-
-    @property
-    def num_precision(self):
-        return METRICS_NUM_PRECISION
-
-    @property
-    def time(self):
-        return _time.time()
+    def serialize(self, **kw):
+        return [self.values, self.counts]
 
 
 class Prf1a(ETMetrics):
@@ -240,6 +235,9 @@ class Prf1a(ETMetrics):
         o = self.tp / max(self.tp + self.fp + self.fn, self.eps)
         return round(o, self.num_precision)
 
+    def serialize(self, **kw):
+        return [self.tn, self.fp, self.fm, self.tp]
+
 
 class ConfusionMatrix(ETMetrics):
     """
@@ -300,3 +298,6 @@ class ConfusionMatrix(ETMetrics):
     def get(self):
         return [round(self.accuracy(), self.num_precision), round(self.f1(), self.num_precision),
                 round(self.precision(), self.num_precision), round(self.recall(), self.num_precision)]
+
+    def serialize(self, **kw):
+        return self.matrix

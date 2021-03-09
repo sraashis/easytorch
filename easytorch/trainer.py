@@ -17,7 +17,7 @@ from easytorch.metrics import metrics as _base_metrics
 from easytorch.utils.logger import *
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
 from .vision import plotter as _log_utils
-
+import torch.distributed as _dist
 _sep = _os.sep
 
 
@@ -337,15 +337,21 @@ class ETTrainer:
     def reduce_scores(self, accumlator, key=None) -> dict:
         averages = self.new_averages()
         metrics = self.new_metrics()
+        for acc in accumlator:
+            averages.accumulate(acc['averages'])
+            metrics.accumulate(acc['metrics'])
 
-        if self.args['use_ddp']:
-            """Reduce tensors"""
-            import torch.distributed as dist
-            dist.barrier()
-        else:
-            for acc in accumlator:
-                averages.accumulate(acc['averages'])
-                metrics.accumulate(acc['metrics'])
+        if self.args['use_ddp'] and self.args['is_master']:
+            avg_serial = _torch.tensor(averages.serialize())
+            _dist.reduce(avg_serial, dst=_dist.get_rank(), op=_dist.ReduceOp.SUM)
+            metrics_serial = _torch.tensor(metrics.serialize())
+            _dist.reduce(metrics_serial, dst=_dist.get_rank(), op=_dist.ReduceOp.SUM)
+
+            averages.reset()
+            averages.update(*avg_serial.cpu().numpy().tolist())
+
+            metrics.reset()
+            metrics.update(*metrics_serial.cpu().numpy().tolist())
 
         _key = key + '_' if key else ''
         return {f"{_key}averages": averages,
@@ -400,6 +406,10 @@ class ETTrainer:
 
             """Keep track of running metrics and averages for logging/plotting"""
             _metrics, _avg = self.new_metrics(), self.new_averages()
+
+            if self.args.get('use_ddp'):
+                train_loader.sampler.set_epoch(ep)
+
             for i, batch in enumerate(train_loader, 1):
                 its.append(self.training_iteration(i, batch))
                 """When end of iteration"""

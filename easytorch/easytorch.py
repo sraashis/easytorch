@@ -66,7 +66,7 @@ class EasyTorch:
                  load_sparse: bool = _conf.default_args['load_sparse'],
                  num_folds=_conf.default_args['num_folds'],
                  split_ratio=_conf.default_args['split_ratio'],
-                 use_ddp=True,
+                 use_ddp=_conf.default_args['use_ddp'],
                  dataloader_args: dict = None,
                  **kw):
         """
@@ -300,9 +300,6 @@ class EasyTorch:
 
         """ Run and save experiment test scores """
         test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset)
-        trainer.cache[LogKey.TEST_METRICS] = [[split_file, *test_averages.get(), *test_metrics.get()]]
-        _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
-                           file_keys=[LogKey.TEST_METRICS])
         return {'averages': test_averages, 'metrics': test_metrics}
 
     def run(self, trainer_cls, dataset_cls=None):
@@ -338,11 +335,19 @@ class EasyTorch:
                     self._train(split_file, dspec, trainer, dataset_cls)
 
                 test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
-                test_accum.append(self._test(split_file, trainer, test_dataset))
+                test_out = self._test(split_file, trainer, test_dataset)
+                test_accum.append(test_out)
+                test_scores = trainer.reduce_scores([test_out], key='test')
+                if self.args['is_master']:
+                    trainer.cache[LogKey.TEST_METRICS] = [[split_file,
+                                                           *test_scores['test_averages'].get(),
+                                                           *test_scores['test_metrics'].get()]]
+                    _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
+                                       file_keys=[LogKey.TEST_METRICS])
 
-            scores = trainer.reduce_scores(test_accum, key='test')
+            global_scores = trainer.reduce_scores(test_accum, key='test')
             if self.args['is_master']:
-                self._global_experiment_end(trainer, scores)
+                self._global_experiment_end(trainer, global_scores)
 
             if trainer.args.get('use_ddp'):
                 import torch.distributed as dist
@@ -353,10 +358,10 @@ class EasyTorch:
             _mp.spawn(_ddp_worker, nprocs=self.args['num_gpus'],
                       args=(self, trainer_cls, dataset_cls, True))
         else:
-            self._run(trainer_cls, dataset_cls)
+            self._run_pooled(trainer_cls, dataset_cls)
 
     def _run_pooled(self, trainer_cls, dataset_cls=None):
-        assert not self.args['use_ddp'], "Pooled run is not setup for distributed setting"
+        # assert not self.args['use_ddp'], "Pooled run is not setup for distributed setting"
 
         r"""  Run in pooled fashion. """
         if self.args['verbose']:
