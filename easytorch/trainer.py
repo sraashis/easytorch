@@ -334,7 +334,7 @@ class ETTrainer:
                 self.optimizer[optim].zero_grad()
         return it
 
-    def reduce_scores(self, accumlator, key=None) -> dict:
+    def reduce_scores(self, accumlator) -> dict:
         averages = self.new_averages()
         metrics = self.new_metrics()
         for acc in accumlator:
@@ -353,9 +353,8 @@ class ETTrainer:
             metrics.reset()
             metrics.update(*metrics_serial.cpu().numpy().tolist())
 
-        _key = key + '_' if key else ''
-        return {f"{_key}averages": averages,
-                f"{_key}metrics": metrics}
+        return {f"averages": averages,
+                f"metrics": metrics}
 
     def save_if_better(self, **kw):
         val_check = self._check_validation_score(**kw)
@@ -374,7 +373,7 @@ class ETTrainer:
         val_averages, val_metrics = self.evaluation(epoch=epoch, mode='validation', dataset_list=val_dataset_list)
         return {'averages': val_averages, 'metrics': val_metrics}
 
-    def _local_debug(self, running_averages, running_metrics, **kw):
+    def _global_debug(self, running_averages, running_metrics, **kw):
         """Update running accumulators."""
         running_averages.accumulate(kw.get('averages'))
         running_metrics.accumulate(kw.get('metrics'))
@@ -382,11 +381,16 @@ class ETTrainer:
         """Reset iteration accumulator"""
         N = kw['tot_iter']
         i, e = kw['i'], kw['epoch']
+
         if lazy_debug(i, add=e) or i == N:
             info(f"Ep:{e}/{self.args['epochs']},Itr:{i}/{N}, {running_averages.get()},{running_metrics.get()}",
                  self.args['verbose'])
             r"""Debug and reset running accumulators"""
-            self.cache[LogKey.TRAIN_LOG].append([*running_averages.get(), *running_averages.get()])
+
+            if not self.args['use_ddp']:
+                """Plot only in non-ddp mode to maintain consistency"""
+                self.cache[LogKey.TRAIN_LOG].append([*running_averages.get(), *running_metrics.get()])
+
             running_averages.reset(), running_metrics.reset()
 
     def train(self, train_dataset: _Dataset, val_dataset_list: _List[_Dataset]) -> None:
@@ -426,15 +430,15 @@ class ETTrainer:
                     epoch_metrics.accumulate(it.get('metrics'))
 
                     if self.args['is_master']:
-                        self._local_debug(_avg, _metrics, **it)
+                        self._global_debug(_avg, _metrics, **it)
                     self._on_iteration_end(i=i, ep=ep, it=it)
 
             """Validation step"""
-            reduced_epoch = self.reduce_scores([{'averages': epoch_avg, 'metrics': epoch_metrics}], key='train')
+            reduced_epoch = self.reduce_scores([{'averages': epoch_avg, 'metrics': epoch_metrics}])
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
             if val_dataset_list:
                 val_out = self.validation(ep, val_dataset_list)
-                epoch_out['validation'] = self.reduce_scores([val_out], key='validation')
+                epoch_out['validation'] = self.reduce_scores([val_out])
 
             if self.args['is_master']:
                 self._global_epoch_end(**epoch_out)

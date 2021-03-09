@@ -337,15 +337,15 @@ class EasyTorch:
                 test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
                 test_out = self._test(split_file, trainer, test_dataset)
                 test_accum.append(test_out)
-                test_scores = trainer.reduce_scores([test_out], key='test')
+                test_scores = trainer.reduce_scores([test_out])
                 if self.args['is_master']:
                     trainer.cache[LogKey.TEST_METRICS] = [[split_file,
-                                                           *test_scores['test_averages'].get(),
-                                                           *test_scores['test_metrics'].get()]]
+                                                           *test_scores['averages'].get(),
+                                                           *test_scores['metrics'].get()]]
                     _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
                                        file_keys=[LogKey.TEST_METRICS])
 
-            global_scores = trainer.reduce_scores(test_accum, key='test')
+            global_scores = trainer.reduce_scores(test_accum)
             if self.args['is_master']:
                 self._global_experiment_end(trainer, global_scores)
 
