@@ -448,7 +448,7 @@ class ETTrainer:
                 break
 
         """Plot at the end regardless."""
-        if self.args['is_master']:
+        if not self.args['use_ddp'] and self.args['is_master']:
             self._save_progress(epoch=ep)
 
     def _global_epoch_end(self, **kw):
