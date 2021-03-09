@@ -40,7 +40,8 @@ default_ap.add_argument('-pt', '--pretrained_path', default=None, type=str,
                         help='Full path to pretrained weights(It will be loaded before training.)')
 default_ap.add_argument('-v', '--verbose', default=True, type=boolean_string,
                         help='Prints information on different steps.')
-default_ap.add_argument('-seed', '--seed_all', default=False, type=boolean_string, help='Seed everything.')
+default_ap.add_argument('-seed-all', '--seed_all', default=False, type=boolean_string, help='Seed everything.')
+default_ap.add_argument('-seed', '--seed', default=None, type=int, help='Seed everything.')
 default_ap.add_argument('-f', '--force', default=False, type=boolean_string, help='Force')
 default_ap.add_argument('-pat', '--patience', default=None, type=int, help='Early Stopping patience epochs.')
 default_ap.add_argument('-lsp', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')

@@ -60,6 +60,7 @@ class EasyTorch:
                  pretrained_path: str = _conf.default_args['pretrained_path'],
                  verbose: bool = _conf.default_args['verbose'],
                  seed_all: int = _conf.default_args['seed_all'],
+                 seed: int = _conf.default_args['seed'],
                  force: bool = _conf.default_args['force'],
                  patience: int = _conf.default_args['patience'],
                  load_sparse: bool = _conf.default_args['load_sparse'],
@@ -122,6 +123,7 @@ class EasyTorch:
         self.args.update(pretrained_path=pretrained_path)
         self.args.update(verbose=verbose)
         self.args.update(seed_all=seed_all)
+        self.args.update(seed=seed)
         self.args.update(force=force)
         self.args.update(patience=patience)
         self.args.update(load_sparse=load_sparse)
@@ -172,7 +174,12 @@ class EasyTorch:
             raise ValueError('2nd Argument of EasyTorch could be only one of :ArgumentParser, dict')
 
     def _make_reproducible(self):
-        self.args['seed'] = CURRENT_SEED
+        if self.args['use_ddp'] and self.args['seed'] is None:
+            raise ValueError('Seed must be explicitly given as seed=<seed> (Eg.1, 2, 101, 102) in DDP.')
+
+        if self.args['seed'] is None:
+            self.args['seed'] = CURRENT_SEED
+
         if self.args.get('seed_all'):
             _torch.manual_seed(self.args['seed'])
             _torch.cuda.manual_seed_all(self.args['seed'])
