@@ -30,7 +30,7 @@ default_ap.add_argument('-gi', '--grad_accum_iters', default=1, type=int,
 default_ap.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
 default_ap.add_argument('-gpus', '--gpus', default=list(range(NUM_GPUS)), nargs='*', type=int,
                         help='How many gpus to use?')
-default_ap.add_argument('-pin', '--pin_memory', default=CUDA_AVAILABLE, type=boolean_string, help='Pin Memory.')
+default_ap.add_argument('-pin', '--pin_memory', default=False, type=boolean_string, help='Pin Memory.')
 default_ap.add_argument('-nw', '--num_workers', default=0, type=int,
                         help='Number of workers to work on data loading.')
 default_ap.add_argument('-data', '--dataset_dir', default='', type=str, help='Root path to Datasets.')
@@ -47,6 +47,19 @@ default_ap.add_argument('-lsp', '--load_sparse', default=False, type=boolean_str
 default_ap.add_argument('-nf', '--num_folds', default=None, type=int, help='Number of folds.')
 default_ap.add_argument('-spl', '--split_ratio', default=None, nargs='*', type=float,
                         help='Split ratio. Eg: 0.6 0.2 0.2 or 0.8 0.2. Exclusive to num_fold.')
+
+default_ap.add_argument('-ddp', '--use_ddp', default=NUM_GPUS > 1, type=boolean_string, help='Load sparse dataset.')
+
+default_ap.add_argument('--node-rank', default=0, type=int,
+                          help='Node rank for distributed training')
+default_ap.add_argument('--num-nodes', default=1, type=int,
+                          help='Number of nodes for distributed training')
+default_ap.add_argument('--world-size', default=None, type=int,
+                          help='Number of nodes for distributed training')
+default_ap.add_argument('--dist-url', default='env://', type=str,
+                          help='Url used to set up distributed training')
+default_ap.add_argument('--dist-backend', default='nccl', type=str,
+                          help='Distributed backend')
 
 _known, _unknown = default_ap.parse_known_args()
 default_args = vars(_known)

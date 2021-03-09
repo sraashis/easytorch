@@ -34,7 +34,7 @@ class ETTrainer:
         self.dataloader_args = _etutils.FrozenDict(dataloader_args)
         self.cache = _ODict()
         self.nn = _ODict()
-        self.device = _ODict({'gpu': 'cpu'})
+        self.device = _ODict({'gpu': args.get('gpu', 'cpu')})
         self.optimizer = _ODict()
 
     def init_nn(self, init_models=True, init_weights=True, init_optimizer=True, set_device=True):
@@ -115,14 +115,19 @@ class ETTrainer:
         Expects list of GPUS as [0, 1, 2, 3]., list of GPUS will make it use DataParallel.
         If no GPU is present, CPU is used.
         """
-        self.device['gpu'] = _torch.device("cpu")
-        if CUDA_AVAILABLE and len(self.args['gpus']) >= 1:
+        if self.args.get('use_ddp'):
+            for model_key in self.nn:
+                self.nn[model_key] = self.nn[model_key].to(self.device['gpu'])
+            for model_key in self.nn:
+                self.nn[model_key] = _torch.nn.parallel.DistributedDataParallel(self.nn[model_key],
+                                                                                device_ids=[self.device['gpu']])
+        elif len(self.args['gpus']) >= 1:
             self.device['gpu'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
             if len(self.args['gpus']) >= 2:
                 for model_key in self.nn:
                     self.nn[model_key] = _torch.nn.DataParallel(self.nn[model_key], self.args['gpus'])
-        for model_key in self.nn:
-            self.nn[model_key] = self.nn[model_key].to(self.device['gpu'])
+            for model_key in self.nn:
+                self.nn[model_key] = self.nn[model_key].to(self.device['gpu'])
 
     def _init_optimizer(self):
         r"""
@@ -213,10 +218,7 @@ class ETTrainer:
 
         eval_avg, eval_metrics = self.new_averages(), self.new_metrics()
 
-        if dataset_list is None \
-                or len(dataset_list) <= 0 \
-                or all([d is None for d in dataset_list]) \
-                or all([len(d) <= 0 for d in dataset_list]):
+        if dataset_list is None:
             return eval_avg, eval_metrics
 
         info(f'{mode} ...', self.args['verbose'])
@@ -333,19 +335,21 @@ class ETTrainer:
         return it
 
     def reduce_scores(self, accumlator, key=None) -> dict:
-        if self.args.get('use_ddp') is None:
-            averages = self.new_averages()
-            metrics = self.new_metrics()
-            for acc in accumlator:
-                averages.accumulate(acc['averages'])
-                metrics.accumulate(acc['metrics'])
-            _key = key + '_' if key else ''
-            return {f"{_key}averages": averages,
-                    f"{_key}metrics": metrics}
-        else:
+        averages = self.new_averages()
+        metrics = self.new_metrics()
+
+        if self.args['use_ddp']:
             """Reduce tensors"""
             import torch.distributed as dist
             dist.barrier()
+        else:
+            for acc in accumlator:
+                averages.accumulate(acc['averages'])
+                metrics.accumulate(acc['metrics'])
+
+        _key = key + '_' if key else ''
+        return {f"{_key}averages": averages,
+                f"{_key}metrics": metrics}
 
     def save_if_better(self, **kw):
         val_check = self._check_validation_score(**kw)
@@ -360,6 +364,7 @@ class ETTrainer:
                 self.args['verbose'])
 
     def validation(self, epoch, val_dataset_list: _List[_Dataset]) -> dict:
+
         val_averages, val_metrics = self.evaluation(epoch=epoch, mode='validation', dataset_list=val_dataset_list)
         return {'averages': val_averages, 'metrics': val_metrics}
 
@@ -372,7 +377,7 @@ class ETTrainer:
         N = kw['tot_iter']
         i, e = kw['i'], kw['epoch']
         if lazy_debug(i, add=e) or i == N:
-            info(f"Ep:{e}/{self.args['epochs']},Itr:{i}/{N}, {running_averages.get()},{running_averages.get()}",
+            info(f"Ep:{e}/{self.args['epochs']},Itr:{i}/{N}, {running_averages.get()},{running_metrics.get()}",
                  self.args['verbose'])
             r"""Debug and reset running accumulators"""
             self.cache[LogKey.TRAIN_LOG].append([*running_averages.get(), *running_averages.get()])
@@ -444,12 +449,3 @@ class ETTrainer:
     def _on_epoch_end(self, **kw):
         """Local epoch end"""
         pass
-
-
-class DDPTrainer(ETTrainer):
-    def __init__(self, args: dict, dataloader_args: dict):
-        ddp_args = {**args}
-        ddp_args['use_ddp'] = args.get('use_ddp', True)
-        _os.environ['MASTER_ADDR'] = self.args.get('master_addr', '127.0.0.1')  #
-        _os.environ['MASTER_PORT'] = self.args.get('master_port', '12355')
-        super().__init__(ddp_args, dataloader_args)

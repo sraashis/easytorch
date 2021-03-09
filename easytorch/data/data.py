@@ -10,6 +10,7 @@ from os import sep as _sep
 from typing import List as _List
 import json as _json
 
+
 def safe_collate(batch):
     r"""
     Savely select batches/skip errors in file loading.
@@ -24,8 +25,7 @@ def seed_worker(worker_id):
 
 class ETDataHandle:
 
-    def __init__(self, args:dict, dataloader_args:dict=None):
-        super(ETDataHandle, self).__init__(args)
+    def __init__(self, args: dict, dataloader_args: dict = None):
         self.args = {**args}
         self.dataset = {}
         self.dataloader = {}
@@ -35,8 +35,11 @@ class ETDataHandle:
 
     def get_loader(self, handle_key, **kw) -> _DataLoader:
         _args = {**self.args}
-        _args.update(self.dataloader_args.get(handle_key))
         _args.update(**kw)
+        _args.update(self.dataloader_args.get(handle_key, {}))
+
+        if _args.get('dataset') is None:
+            _args['dataset'] = self.dataset.get(handle_key)
 
         _kw = {
             'dataset': None,
@@ -53,32 +56,28 @@ class ETDataHandle:
         for k in _kw.keys():
             _kw[k] = _args.get(k, _kw.get(k))
 
-        self.dataset[handle_key] = _kw['dataset']
         self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **_kw)
         return self.dataloader[handle_key]
 
-    def load_dataset(self, split_key, dataspec: dict, **kw) -> _Dataset:
-        with open(dataspec['split_dir'] + _sep + kw.get('split_file')) as file:
+    def load_dataset(self, split_key, split_file, dataspec: dict, dataset_cls=None) -> _Dataset:
+        with open(dataspec['split_dir'] + _sep + split_file) as file:
             split = _json.loads(file.read())
-            dataset = kw.get('dataset_cls')(mode=split_key, limit=self.args['load_limit'], **self.args)
+            dataset = dataset_cls(mode=split_key, limit=self.args['load_limit'], **self.args)
             dataset.add(files=split.get(split_key, []), verbose=self.args['verbose'], **dataspec)
+            self.dataset[split_key] = dataset
             return dataset
 
-    def get_train_dataset(self, dataspec: dict, **kw) -> _Dataset:
+    def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Dataset:
         r"""Load the train data from current fold/split."""
-        return self.load_dataset('train', dataspec,
-                                  split_file=kw.get('split_file'),
-                                  dataset_cls=kw.get('dataset_cls'))
+        return self.load_dataset('train', split_file, dataspec, dataset_cls=dataset_cls)
 
-    def get_validation_dataset(self, dataspec: dict, **kw) -> _List[_Dataset]:
+    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
         r""" Load the validation data from current fold/split."""
-        val_dataset = self.load_dataset('validation', dataspec,
-                                         split_file=kw.get('split_file'),
-                                         dataset_cls=kw.get('dataset_cls'))
+        val_dataset = self.load_dataset('validation', split_file, dataspec, dataset_cls=dataset_cls)
         if val_dataset and len(val_dataset) > 0:
             return [val_dataset]
 
-    def get_test_dataset(self, dataspec: dict, **kw) -> _List[_Dataset]:
+    def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
         r"""
         Load the test data from current fold/split.
         If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
@@ -86,18 +85,16 @@ class ETDataHandle:
         """
         test_dataset_list = []
         if self.args.get('load_sparse'):
-            with open(dataspec['split_dir'] + _sep + kw.get('split_file')) as file:
+            with open(dataspec['split_dir'] + _sep + split_file) as file:
                 for f in _json.loads(file.read()).get('test', []):
                     if self.args['load_limit'] and len(test_dataset_list) >= self.args['load_limit']:
                         break
-                    test_dataset = kw.get('dataset_cls')(mode='test', limit=self.args['load_limit'], **self.args)
+                    test_dataset = dataset_cls(mode='test', limit=self.args['load_limit'], **self.args)
                     test_dataset.add(files=[f], verbose=False, **dataspec)
                     test_dataset_list.append(test_dataset)
                 success(f'{len(test_dataset_list)} sparse dataset loaded.', self.args['verbose'])
         else:
-            test_dataset_list.append(self.load_dataset('test', dataspec,
-                                                        split_file=kw.get('split_file'),
-                                                        dataset_cls=kw.get('dataset_cls')))
+            test_dataset_list.append(self.load_dataset('test', split_file, dataspec, dataset_cls=dataset_cls))
 
         if sum([len(t) for t in test_dataset_list if t]) > 0:
             return test_dataset_list

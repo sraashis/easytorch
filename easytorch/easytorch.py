@@ -7,7 +7,7 @@ from typing import Union as _Union, List as _List
 
 import numpy as _np
 import torch as _torch
-from torch.utils.data import Dataset as _Dataset
+import torch.multiprocessing as _mp
 
 import easytorch.config as _conf
 import easytorch.utils as _utils
@@ -18,9 +18,11 @@ from easytorch.utils.logger import *
 _sep = _os.sep
 
 
-def _ddp_worker(gpu, split_file, dspec, trainer, et_obj, dataset_cls=None):
+def _ddp_worker(gpu, et_obj, trainer_cls, dataset_cls, pooled):
     import torch.distributed as _dist
+    et_obj.args['gpu'] = gpu
     et_obj.args['verbose'] = gpu == 0
+    et_obj.args['is_master'] = gpu == 0
     world_size = et_obj.args['world_size']
     if not world_size:
         world_size = et_obj.args['num_gpus'] * et_obj.args['num_nodes']
@@ -28,6 +30,10 @@ def _ddp_worker(gpu, split_file, dspec, trainer, et_obj, dataset_cls=None):
     _dist.init_process_group(backend=et_obj.args['dist_backend'],
                              init_method=et_obj.args['dist_url'],
                              world_size=world_size, rank=world_rank)
+    if pooled:
+        et_obj.run_pooled(trainer_cls, dataset_cls)
+    else:
+        et_obj.run(trainer_cls, dataset_cls)
 
 
 class EasyTorch:
@@ -59,6 +65,7 @@ class EasyTorch:
                  load_sparse: bool = _conf.default_args['load_sparse'],
                  num_folds=_conf.default_args['num_folds'],
                  split_ratio=_conf.default_args['split_ratio'],
+                 use_ddp=True,
                  dataloader_args: dict = None,
                  **kw):
         """
@@ -120,6 +127,7 @@ class EasyTorch:
         self.args.update(load_sparse=load_sparse)
         self.args.update(num_folds=num_folds)
         self.args.update(split_ratio=split_ratio)
+        self.args.update(use_ddp=use_ddp)
         self.args.update(**kw)
 
         self.dataloader_args = dataloader_args if dataloader_args else {}
@@ -129,6 +137,7 @@ class EasyTorch:
 
         info('', self.args['verbose'])
         self._device_check()
+        self._ddp_setup()
         self._make_reproducible()
         self.args.update(is_master=self.args.get('is_master', True))
 
@@ -139,6 +148,14 @@ class EasyTorch:
                  f"but {NUM_GPUS if CUDA_AVAILABLE else 'GPU(s) not'} detected. "
                  f"Using {str(NUM_GPUS) + ' GPU(s)' if CUDA_AVAILABLE else 'CPU(Much slower)'}.")
             self.args['gpus'] = list(range(NUM_GPUS))
+
+    def _ddp_setup(self):
+        if all([self.args['use_ddp'], NUM_GPUS > 1, len(self.args['gpus']) > 1]):
+            self.args['num_gpus'] = len(self.args['gpus'])
+            _os.environ['MASTER_ADDR'] = self.args.get('master_addr', '127.0.0.1')  #
+            _os.environ['MASTER_PORT'] = self.args.get('master_port', '12355')
+        else:
+            self.args['use_ddp'] = False
 
     def _show_args(self):
         info('Starting with the following parameters:')
@@ -247,35 +264,48 @@ class EasyTorch:
                 f.write(_json.dumps(log))
 
     def _train(self, split_file, dspec, trainer, dataset_cls=None):
-        self._init_fold_cache(split_file, trainer.cache)
-        self.check_previous_logs(trainer.cache)
-        trainer.init_nn()
-
         """###########  Run training phase ########################"""
-        if self.args['phase'] == Phase.TRAIN:
-            train_dataset = trainer.get_train_dataset(dspec, split_file=split_file, dataset_cls=dataset_cls)
-            validation_dataset = trainer.get_validation_dataset(dspec, split_file=split_file,
-                                                                     dataset_cls=dataset_cls)
-            validation_dataset = validation_dataset if isinstance(validation_dataset, list) else [validation_dataset]
-            trainer.train(train_dataset, validation_dataset)
-            trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
-            _utils.save_cache({**self.args, **trainer.cache, **dspec},
-                              experiment_id=trainer.cache['experiment_id'])
+        train_dataset = trainer.data_handle.get_train_dataset(split_file, dspec, dataset_cls=dataset_cls)
+        validation_dataset = trainer.data_handle.get_validation_dataset(split_file, dspec, dataset_cls=dataset_cls)
+        validation_dataset = validation_dataset if isinstance(validation_dataset, list) else [validation_dataset]
+        if len(validation_dataset) <= 0 \
+                or all([d is None for d in validation_dataset]) \
+                or all([len(d) <= 0 for d in validation_dataset]):
+            validation_dataset = None
 
-    def _test(self, split_file, test_dataset_list, trainer) -> dict:
+        trainer.train(train_dataset, validation_dataset)
+        trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
+        _utils.save_cache({**self.args, **trainer.cache, **dspec},
+                          experiment_id=trainer.cache['experiment_id'])
+
+    def _test(self, split_file, trainer, test_dataset) -> dict:
+
+        test_dataset = test_dataset if isinstance(test_dataset, list) else [test_dataset]
+        if len(test_dataset) <= 0 \
+                or all([d is None for d in test_dataset]) \
+                or all([len(d) <= 0 for d in test_dataset]):
+            test_dataset = None
+
         best_exists = _os.path.exists(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
         if best_exists and (self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None):
             """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
             trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
 
         """ Run and save experiment test scores """
-        test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset_list)
+        test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset)
         trainer.cache[LogKey.TEST_METRICS] = [[split_file, *test_averages.get(), *test_metrics.get()]]
         _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
-                             file_keys=[LogKey.TEST_METRICS])
+                           file_keys=[LogKey.TEST_METRICS])
         return {'averages': test_averages, 'metrics': test_metrics}
 
     def run(self, trainer_cls, dataset_cls=None):
+        if self.args.get('use_ddp'):
+            _mp.spawn(_ddp_worker, nprocs=self.args['num_gpus'],
+                      args=(self, trainer_cls, dataset_cls, False))
+        else:
+            self._run(trainer_cls, dataset_cls)
+
+    def _run(self, trainer_cls, dataset_cls=None):
         r"""Run for individual datasets"""
         if self.args['verbose']:  self._show_args()
 
@@ -294,10 +324,14 @@ class EasyTorch:
             trainer.init_experiment_cache()
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
             for split_file in _os.listdir(dspec['split_dir']):
-                self._train(split_file, dspec, trainer, dataset_cls)
-                test_dataset = trainer.get_test_dataset(dspec, split_file=split_file, dataset_cls=dataset_cls)
-                test_dataset = test_dataset if isinstance(test_dataset, list) else [test_dataset]
-                test_accum.append(self._test(split_file, test_dataset, trainer))
+                self._init_fold_cache(split_file, trainer.cache)
+                self.check_previous_logs(trainer.cache)
+                trainer.init_nn()
+                if self.args['phase'] == Phase.TRAIN:
+                    self._train(split_file, dspec, trainer, dataset_cls)
+
+                test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
+                test_accum.append(self._test(split_file, trainer, test_dataset))
 
             scores = trainer.reduce_scores(test_accum, key='test')
             if self.args['is_master']:
@@ -308,6 +342,15 @@ class EasyTorch:
                 dist.barrier()
 
     def run_pooled(self, trainer_cls, dataset_cls=None):
+        if self.args.get('use_ddp'):
+            _mp.spawn(_ddp_worker, nprocs=self.args['num_gpus'],
+                      args=(self, trainer_cls, dataset_cls, True))
+        else:
+            self._run(trainer_cls, dataset_cls)
+
+    def _run_pooled(self, trainer_cls, dataset_cls=None):
+        assert not self.args['use_ddp'], "Pooled run is not setup for distributed setting"
+
         r"""  Run in pooled fashion. """
         if self.args['verbose']:
             self._show_args()
@@ -341,11 +384,11 @@ class EasyTorch:
             _utils.save_cache({**self.args, **trainer.cache, 'dataspecs': self.dataspecs},
                               experiment_id=trainer.cache['experiment_id'])
 
-        testset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
+        test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
                                         load_sparse=self.args['load_sparse'])
         test_acc = []
-        if testset_list:
-            test_acc.append(self._test('Pooled', trainer, testset_list))
+        if test_dataset:
+            test_acc.append(self._test('Pooled', trainer, test_dataset))
 
         scores = trainer.reduce_scores(test_acc, key='test')
         if self.args['is_master']:
