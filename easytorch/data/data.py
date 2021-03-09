@@ -8,7 +8,7 @@ from torch.utils.data._utils.collate import default_collate as _default_collate
 from easytorch.utils.logger import *
 from os import sep as _sep
 from typing import List as _List
-import json as _json
+import torch.utils.data as _data
 
 
 def safe_collate(batch):
@@ -36,10 +36,11 @@ class ETDataHandle:
     def get_loader(self, handle_key, **kw) -> _DataLoader:
         _args = {**self.args}
         _args.update(**kw)
-        _args.update(self.dataloader_args.get(handle_key, {}))
 
         if _args.get('dataset') is None:
             _args['dataset'] = self.dataset.get(handle_key)
+
+        _args.update(self.dataloader_args.get(handle_key, {}))
 
         _kw = {
             'dataset': None,
@@ -56,6 +57,13 @@ class ETDataHandle:
         for k in _kw.keys():
             _kw[k] = _args.get(k, _kw.get(k))
 
+        if self.args.get('use_ddp'):
+            if kw.get('mode') == 'train':
+                _kw['sampler'] = _data.distributed.DistributedSampler(_kw['dataset'], shuffle=_kw['shuffle'])
+                _kw['shuffle'] = False  # Shuffle is mutually exclusive with sampler
+            _kw['num_workers'] = (_kw['num_workers'] + kw['num_gpus'] - 1) // kw['num_gpus']
+            _kw['batch_size'] = _kw['batch_size'] // kw['num_gpus']
+
         self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **_kw)
         return self.dataloader[handle_key]
 
@@ -68,16 +76,27 @@ class ETDataHandle:
             return dataset
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Dataset:
+        if self.dataloader_args.get('train', {}).get('dataset') is not None:
+            return self.dataloader_args.get('train', {}).get('dataset')
+
         r"""Load the train data from current fold/split."""
-        return self.load_dataset('train', split_file, dataspec, dataset_cls=dataset_cls)
+        train_dataset = self.load_dataset('train', split_file, dataspec, dataset_cls=dataset_cls)
+        return train_dataset
 
     def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
+        if self.dataloader_args.get('validation', {}).get('dataset') is not None:
+            return self.dataloader_args.get('validation', {}).get('dataset')
+
         r""" Load the validation data from current fold/split."""
         val_dataset = self.load_dataset('validation', split_file, dataspec, dataset_cls=dataset_cls)
         if val_dataset and len(val_dataset) > 0:
             return [val_dataset]
+        return self.dataloader_args.get('validation', {}).get('dataset')
 
     def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
+        if self.dataloader_args.get('test', {}).get('dataset') is not None:
+            return self.dataloader_args.get('test', {}).get('dataset')
+
         r"""
         Load the test data from current fold/split.
         If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
@@ -98,6 +117,7 @@ class ETDataHandle:
 
         if sum([len(t) for t in test_dataset_list if t]) > 0:
             return test_dataset_list
+        return self.dataloader_args.get('validation', {}).get('dataset')
 
 
 class ETDataset(_Dataset):
