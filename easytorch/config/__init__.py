@@ -52,8 +52,8 @@ default_ap.add_argument('-spl', '--split_ratio', default=None, nargs='*', type=f
 default_ap.add_argument('-ddp', '--use_ddp', default=NUM_GPUS > 1, type=boolean_string, help='Load sparse dataset.')
 
 _im, _ = default_ap.parse_known_args()
-default_args = vars(_im)
-if default_args.get('use_ddp'):
+_args = vars(_im)
+if _args.get('use_ddp'):
     default_ap.add_argument('--node-rank', default=0, type=int,
                             help='Node rank for distributed training')
     default_ap.add_argument('--num-nodes', default=1, type=int,
