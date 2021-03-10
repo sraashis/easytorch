@@ -61,8 +61,8 @@ class ETDataHandle:
             if kw.get('mode') == 'train':
                 _kw['sampler'] = _data.distributed.DistributedSampler(_kw['dataset'], shuffle=_kw['shuffle'])
                 _kw['shuffle'] = False  # Shuffle is mutually exclusive with sampler
-            _kw['num_workers'] = (_kw['num_workers'] + kw['num_gpus'] - 1) // kw['num_gpus']
-            _kw['batch_size'] = _kw['batch_size'] // kw['num_gpus']
+            _kw['num_workers'] = (_kw['num_workers'] + self.args['num_gpus'] - 1) // self.args['num_gpus']
+            _kw['batch_size'] = _kw['batch_size'] // self.args['num_gpus']
 
         self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **_kw)
         return self.dataloader[handle_key]
