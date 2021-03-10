@@ -128,7 +128,6 @@ class EasyTorch:
         self.args.update(load_sparse=load_sparse)
         self.args.update(num_folds=num_folds)
         self.args.update(split_ratio=split_ratio)
-        self.args.update(use_ddp=use_ddp)
         self.args.update(**kw)
 
         self.dataloader_args = dataloader_args if dataloader_args else {}
