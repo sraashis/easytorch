@@ -283,7 +283,7 @@ class EasyTorch:
         _utils.save_cache({**self.args, **trainer.cache, **dspec},
                           experiment_id=trainer.cache['experiment_id'])
 
-    def _test(self, split_file, trainer, test_dataset) -> dict:
+    def _test(self, trainer, test_dataset) -> dict:
 
         test_dataset = test_dataset if isinstance(test_dataset, list) else [test_dataset]
         if len(test_dataset) <= 0 \
@@ -335,7 +335,7 @@ class EasyTorch:
                     self._train(split_file, dspec, trainer, dataset_cls)
 
                 test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
-                test_out = self._test(split_file, trainer, test_dataset)
+                test_out = self._test(trainer, test_dataset)
                 test_accum.append(test_out)
                 test_scores = trainer.reduce_scores([test_out])
                 if self.args['is_master']:
@@ -400,7 +400,7 @@ class EasyTorch:
                                         load_sparse=self.args['load_sparse'])
         test_acc = []
         if test_dataset:
-            test_acc.append(self._test('Pooled', trainer, test_dataset))
+            test_acc.append(self._test(trainer, test_dataset))
 
         scores = trainer.reduce_scores(test_acc, key='test')
         if self.args['is_master']:

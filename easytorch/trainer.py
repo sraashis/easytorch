@@ -334,14 +334,14 @@ class ETTrainer:
                 self.optimizer[optim].zero_grad()
         return it
 
-    def reduce_scores(self, accumlator) -> dict:
+    def reduce_scores(self, accumulator: list) -> dict:
         averages = self.new_averages()
         metrics = self.new_metrics()
-        for acc in accumlator:
+        for acc in accumulator:
             averages.accumulate(acc['averages'])
             metrics.accumulate(acc['metrics'])
 
-        if self.args['use_ddp']:
+        if self.args['use_ddp'] and len(accumulator) > 0:
             avg_serial = _torch.tensor(averages.serialize()).to(self.device['gpu'])
             _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
 

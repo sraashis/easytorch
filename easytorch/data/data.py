@@ -67,31 +67,35 @@ class ETDataHandle:
         self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **_kw)
         return self.dataloader[handle_key]
 
-    def load_dataset(self, split_key, split_file, dataspec: dict, dataset_cls=None) -> _Dataset:
-        with open(dataspec['split_dir'] + _sep + split_file) as file:
-            split = _json.loads(file.read())
-            dataset = dataset_cls(mode=split_key, limit=self.args['load_limit'], **self.args)
-            dataset.add(files=split.get(split_key, []), verbose=self.args['verbose'], **dataspec)
-            self.dataset[split_key] = dataset
-            return dataset
+    def get_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None) -> _Dataset:
+        dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
+        dataset.add(files=files, verbose=self.args['verbose'], **dataspec)
+        self.dataset[handle_key] = dataset
+        return dataset
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Dataset:
         if self.dataloader_args.get('train', {}).get('dataset') is not None:
             return self.dataloader_args.get('train', {}).get('dataset')
 
         r"""Load the train data from current fold/split."""
-        train_dataset = self.load_dataset('train', split_file, dataspec, dataset_cls=dataset_cls)
-        return train_dataset
+        with open(dataspec['split_dir'] + _sep + split_file) as file:
+            split = _json.loads(file.read())
+            train_dataset = self.get_dataset('train', split.get('train', []),
+                                             dataspec, dataset_cls=dataset_cls)
+            return train_dataset
 
     def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
         if self.dataloader_args.get('validation', {}).get('dataset') is not None:
-            return self.dataloader_args.get('validation', {}).get('dataset')
+            return [self.dataloader_args.get('validation', {}).get('dataset')]
 
         r""" Load the validation data from current fold/split."""
-        val_dataset = self.load_dataset('validation', split_file, dataspec, dataset_cls=dataset_cls)
-        if val_dataset and len(val_dataset) > 0:
-            return [val_dataset]
-        return self.dataloader_args.get('validation', {}).get('dataset')
+        r"""Load the train data from current fold/split."""
+        with open(dataspec['split_dir'] + _sep + split_file) as file:
+            split = _json.loads(file.read())
+            val_dataset = self.get_dataset('validation', split.get('validation', []),
+                                           dataspec, dataset_cls=dataset_cls)
+            if val_dataset and len(val_dataset) > 0:
+                return [val_dataset]
 
     def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
         if self.dataloader_args.get('test', {}).get('dataset') is not None:
@@ -103,21 +107,21 @@ class ETDataHandle:
         So that we can correctly gather components of one image(components like output patches)
         """
         test_dataset_list = []
-        if self.args.get('load_sparse'):
-            with open(dataspec['split_dir'] + _sep + split_file) as file:
-                for f in _json.loads(file.read()).get('test', []):
+        with open(dataspec['split_dir'] + _sep + split_file) as file:
+            files = _json.loads(file.read()).get('test', [])
+            if self.args.get('load_sparse'):
+                for f in files:
                     if self.args['load_limit'] and len(test_dataset_list) >= self.args['load_limit']:
                         break
                     test_dataset = dataset_cls(mode='test', limit=self.args['load_limit'], **self.args)
                     test_dataset.add(files=[f], verbose=False, **dataspec)
                     test_dataset_list.append(test_dataset)
                 success(f'{len(test_dataset_list)} sparse dataset loaded.', self.args['verbose'])
-        else:
-            test_dataset_list.append(self.load_dataset('test', split_file, dataspec, dataset_cls=dataset_cls))
+            else:
+                test_dataset_list.append(self.get_dataset('test', files, dataspec, dataset_cls=dataset_cls))
 
         if sum([len(t) for t in test_dataset_list if t]) > 0:
             return test_dataset_list
-        return self.dataloader_args.get('validation', {}).get('dataset')
 
 
 class ETDataset(_Dataset):
