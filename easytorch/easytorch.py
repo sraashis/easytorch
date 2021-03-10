@@ -21,8 +21,8 @@ _sep = _os.sep
 def _ddp_worker(gpu, et_obj, trainer_cls, dataset_cls, pooled):
     import torch.distributed as _dist
     et_obj.args['gpu'] = gpu
-    et_obj.args['verbose'] = gpu == 0
-    et_obj.args['is_master'] = gpu == 0
+    et_obj.args['verbose'] = gpu == MASTER_RANK
+    et_obj.args['is_master'] = gpu == MASTER_RANK
     world_size = et_obj.args['world_size']
     if not world_size:
         world_size = et_obj.args['num_gpus'] * et_obj.args['num_nodes']

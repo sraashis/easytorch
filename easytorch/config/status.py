@@ -22,6 +22,8 @@ SCORE_MAX = 1.0
 
 CHK_EXT = '.tar'
 
+MASTER_RANK = 0
+
 
 class Phase(str, _Enum):
     TRAIN = 'train'
