@@ -135,7 +135,6 @@ class EasyTorch:
 
         self._init_dataspecs(dataspecs)
 
-        info('', self.args['verbose'])
         self._device_check()
         self._ddp_setup()
         self._make_reproducible()
@@ -327,7 +326,9 @@ class EasyTorch:
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
             for split_file in _os.listdir(dspec['split_dir']):
                 self._init_fold_cache(split_file, trainer.cache)
-                self.check_previous_logs(trainer.cache)
+                if self.args['is_master']:
+                    self.check_previous_logs(trainer.cache)
+
                 trainer.init_nn()
                 if self.args['phase'] == Phase.TRAIN:
                     self._train(split_file, dspec, trainer, dataset_cls)
