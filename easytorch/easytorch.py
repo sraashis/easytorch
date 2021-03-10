@@ -14,26 +14,27 @@ import easytorch.utils as _utils
 from easytorch.config.status import *
 from easytorch.data import datautils as _du
 from easytorch.utils.logger import *
+from easytorch.data import ETDataHandle as _ETDataHandle, ETDataset as _ETDataset
 
 _sep = _os.sep
 
 
-def _ddp_worker(gpu, et_obj, trainer_cls, dataset_cls, pooled):
+def _ddp_worker(gpu, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled):
     import torch.distributed as _dist
-    et_obj.args['gpu'] = gpu
-    et_obj.args['verbose'] = gpu == MASTER_RANK
-    et_obj.args['is_master'] = gpu == MASTER_RANK
-    world_size = et_obj.args['world_size']
+    self.args['gpu'] = gpu
+    self.args['verbose'] = gpu == MASTER_RANK
+    self.args['is_master'] = gpu == MASTER_RANK
+    world_size = self.args['world_size']
     if not world_size:
-        world_size = et_obj.args['num_gpus'] * et_obj.args['num_nodes']
-    world_rank = et_obj.args['node_rank'] * et_obj.args['num_gpus'] + gpu
-    _dist.init_process_group(backend=et_obj.args['dist_backend'],
-                             init_method=et_obj.args['dist_url'],
+        world_size = self.args['num_gpus'] * self.args['num_nodes']
+    world_rank = self.args['node_rank'] * self.args['num_gpus'] + gpu
+    _dist.init_process_group(backend=self.args['dist_backend'],
+                             init_method=self.args['dist_url'],
                              world_size=world_size, rank=world_rank)
-    if pooled:
-        et_obj._run_pooled(trainer_cls, dataset_cls)
+    if is_pooled:
+        self._run_pooled(trainer_cls, dataset_cls, data_handle_cls)
     else:
-        et_obj._run(trainer_cls, dataset_cls)
+        self._run(trainer_cls, dataset_cls, data_handle_cls)
 
 
 class EasyTorch:
@@ -300,19 +301,22 @@ class EasyTorch:
         test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset)
         return {'averages': test_averages, 'metrics': test_metrics}
 
-    def run(self, trainer_cls, dataset_cls=None):
+    def run(self, trainer_cls, dataset_cls=None, data_handle_cls: _ETDataHandle = _ETDataHandle):
         if self.args.get('use_ddp'):
             _mp.spawn(_ddp_worker, nprocs=self.args['num_gpus'],
-                      args=(self, trainer_cls, dataset_cls, False))
+                      args=(self, trainer_cls, dataset_cls, data_handle_cls, False))
         else:
-            self._run(trainer_cls, dataset_cls)
+            self._run(trainer_cls, dataset_cls, data_handle_cls)
 
-    def _run(self, trainer_cls, dataset_cls=None):
+    def _run(self, trainer_cls, dataset_cls, data_handle_cls):
         r"""Run for individual datasets"""
         if self.args['verbose']:  self._show_args()
 
         for dspec in self.dataspecs:
-            trainer = trainer_cls(self.args, self.dataloader_args)
+
+            data_handle = data_handle_cls(args={**self.args}, dataloader_args={**self.dataloader_args})
+            trainer = trainer_cls(args=self.args, data_handle=data_handle)
+
             trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
             self._create_splits(dspec, trainer.cache['log_dir'])
@@ -353,20 +357,25 @@ class EasyTorch:
                 import torch.distributed as dist
                 dist.barrier()
 
-    def run_pooled(self, trainer_cls, dataset_cls=None):
+    def run_pooled(self, trainer_cls,
+                   dataset_cls: _ETDataset = None,
+                   data_handle_cls: _ETDataHandle = _ETDataHandle):
+
         if self.args.get('use_ddp'):
             _mp.spawn(_ddp_worker, nprocs=self.args['num_gpus'],
-                      args=(self, trainer_cls, dataset_cls, True))
+                      args=(self, trainer_cls, dataset_cls, data_handle_cls, True))
         else:
-            self._run_pooled(trainer_cls, dataset_cls)
+            self._run_pooled(trainer_cls, dataset_cls, data_handle_cls)
 
-    def _run_pooled(self, trainer_cls, dataset_cls=None):
+    def _run_pooled(self, trainer_cls, dataset_cls, data_handle_cls):
         # assert not self.args['use_ddp'], "Pooled run is not setup for distributed setting"
 
         r"""  Run in pooled fashion. """
         self._show_args()
 
-        trainer = trainer_cls(self.args, self.dataloader_args)
+        data_handle = data_handle_cls(args={**self.args}, dataloader_args={**self.dataloader_args})
+        trainer = trainer_cls(args=self.args, data_handle=data_handle)
+
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + f'Pooled_{len(self.dataspecs)}'
         for dspec in self.dataspecs:
@@ -402,6 +411,6 @@ class EasyTorch:
         if test_dataset:
             test_acc.append(self._test(trainer, test_dataset))
 
-        scores = trainer.reduce_scores(test_acc, key='test')
+        scores = trainer.reduce_scores(test_acc)
         if self.args['is_master']:
             self._global_experiment_end(trainer, scores)

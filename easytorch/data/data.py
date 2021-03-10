@@ -25,13 +25,14 @@ def seed_worker(worker_id):
 
 class ETDataHandle:
 
-    def __init__(self, args: dict, dataloader_args: dict = None):
+    def __init__(self, args=None, dataloader_args=None, **kw):
         self.args = {**args}
         self.dataset = {}
         self.dataloader = {}
         self.dataloader_args = {}
         if dataloader_args is not None:
             self.dataloader_args.update(**dataloader_args)
+        self.args.update(**kw)
 
     def get_loader(self, handle_key='', **kw) -> _DataLoader:
         _args = {**self.args}

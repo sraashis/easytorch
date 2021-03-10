@@ -10,7 +10,6 @@ from typing import List as _List
 import torch as _torch
 from torch.utils.data import Dataset as _Dataset
 
-import easytorch.data as _etdata
 import easytorch.utils as _etutils
 from easytorch.config.status import *
 from easytorch.metrics import metrics as _base_metrics
@@ -22,22 +21,26 @@ _sep = _os.sep
 
 
 class ETTrainer:
-    def __init__(self, args: dict, dataloader_args: dict = None):
+    def __init__(self, args=None, data_handle=None, **kw):
         r"""
         args: receives the arguments passed by the ArgsParser.
         cache: Initialize all immediate things here. Like scores, loss, accuracies...
         nn:  Initialize our models here.
         optimizer: Initialize our optimizers.
         """
-        self.data_handle = _etdata.ETDataHandle(args=args, dataloader_args=dataloader_args)
         self.args = _etutils.FrozenDict(args)
-        self.dataloader_args = _etutils.FrozenDict(dataloader_args)
+        self.data_handle = data_handle
+
         self.cache = _ODict()
         self.nn = _ODict()
         self.device = _ODict({'gpu': args.get('gpu', 'cpu')})
         self.optimizer = _ODict()
 
-    def init_nn(self, init_models=True, init_weights=True, init_optimizer=True, set_device=True):
+    def init_nn(self,
+                init_models=True,
+                init_weights=True,
+                init_optimizer=True,
+                set_device=True):
         r"""
         Call to user implementation of:
             Initialize models.
@@ -71,7 +74,11 @@ class ETTrainer:
             for mk in self.nn:
                 _init_weights(self.nn[mk])
 
-    def load_checkpoint(self, full_path, load_model_state=True, load_optimizer_state=True, src=MYSELF):
+    def load_checkpoint(self,
+                        full_path,
+                        load_model_state=True,
+                        load_optimizer_state=True,
+                        src=MYSELF):
         r"""
         Load checkpoint from the given path:
             If it is an easytorch checkpoint, try loading all the models.
@@ -151,7 +158,12 @@ class ETTrainer:
         """
         return _base_metrics.ETAverages(num_averages=1)
 
-    def save_checkpoint(self, full_path, save_model_state=True, save_optimizer_state=True, src=MYSELF):
+    def save_checkpoint(self,
+                        full_path,
+                        save_model_state=True,
+                        save_optimizer_state=True,
+                        src=MYSELF):
+
         checkpoint = {'_its_origin_': src}
 
         if save_model_state:
@@ -212,7 +224,12 @@ class ETTrainer:
         """
         pass
 
-    def evaluation(self, epoch=1, mode='eval', dataset_list=None, save_pred=False):
+    def evaluation(self,
+                   epoch=1,
+                   mode='eval',
+                   dataset_list=None,
+                   save_pred=False):
+
         for k in self.nn:
             self.nn[k].eval()
 
@@ -239,7 +256,7 @@ class ETTrainer:
                         its.append(it)
 
                     if self.args['verbose'] and len(dataset_list) <= 1 and lazy_debug(i, add=epoch):
-                        info(f" Itr:{i}/{len(loader)},{it.get('averages').get()},{it.get('metrics').get()}")
+                        info(f" Itr:{i}/{len(loader)}, Averages:{it.get('averages').get()}, Metrics:{it.get('metrics').get()}")
 
                 eval_metrics.accumulate(metrics)
                 eval_avg.accumulate(avg)
@@ -249,7 +266,7 @@ class ETTrainer:
                 if save_pred:
                     self.save_predictions(loader.dataset, self._reduce_iteration(its))
 
-        success(f"{self.cache['experiment_id']} {mode} metrics: {eval_avg.get()}, {eval_metrics.get()}",
+        success(f"{self.cache['experiment_id']} {mode} Averages:{eval_avg.get()}, Metrics:{eval_metrics.get()}",
                 self.args['verbose'])
         return eval_avg, eval_metrics
 
@@ -384,7 +401,7 @@ class ETTrainer:
         i, e = kw['i'], kw['epoch']
 
         if lazy_debug(i, add=e) or i == N:
-            info(f"Ep:{e}/{self.args['epochs']},Itr:{i}/{N}, {running_averages.get()},{running_metrics.get()}",
+            info(f"Ep:{e}/{self.args['epochs']},Itr:{i}/{N}, Averages:{running_averages.get()}, Metrics:{running_metrics.get()}",
                  self.args['verbose'])
             r"""Debug and reset running accumulators"""
 
