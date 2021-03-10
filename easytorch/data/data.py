@@ -33,7 +33,7 @@ class ETDataHandle:
         if dataloader_args is not None:
             self.dataloader_args.update(**dataloader_args)
 
-    def get_loader(self, handle_key, **kw) -> _DataLoader:
+    def get_loader(self, handle_key='', **kw) -> _DataLoader:
         _args = {**self.args}
         _args.update(**kw)
 
@@ -58,7 +58,7 @@ class ETDataHandle:
             _kw[k] = _args.get(k, _kw.get(k))
 
         if self.args.get('use_ddp'):
-            if kw.get('mode') == 'train':
+            if 'train' in handle_key.lower():
                 _kw['sampler'] = _data.distributed.DistributedSampler(_kw['dataset'], shuffle=_kw['shuffle'])
                 _kw['shuffle'] = False  # Shuffle is mutually exclusive with sampler
             _kw['num_workers'] = (_kw['num_workers'] + self.args['num_gpus'] - 1) // self.args['num_gpus']

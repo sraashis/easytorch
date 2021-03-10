@@ -222,7 +222,7 @@ class ETTrainer:
             return eval_avg, eval_metrics
 
         info(f'{mode} ...', self.args['verbose'])
-        loaders = [self.data_handle.get_loader(mode, shuffle=False, dataset=d) for d in dataset_list]
+        loaders = [self.data_handle.get_loader(handle_key=mode, shuffle=False, dataset=d) for d in dataset_list]
         with _torch.no_grad():
             for loader in loaders:
                 its = []
