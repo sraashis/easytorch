@@ -66,7 +66,6 @@ class EasyTorch:
                  load_sparse: bool = _conf.default_args['load_sparse'],
                  num_folds=_conf.default_args['num_folds'],
                  split_ratio=_conf.default_args['split_ratio'],
-                 use_ddp=_conf.default_args['use_ddp'],
                  dataloader_args: dict = None,
                  **kw):
         """
