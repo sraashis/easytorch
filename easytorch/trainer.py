@@ -342,9 +342,10 @@ class ETTrainer:
             metrics.accumulate(acc['metrics'])
 
         if self.args['use_ddp'] and self.args['is_master']:
-            avg_serial = _torch.tensor(averages.serialize())
+            avg_serial = _torch.tensor(averages.serialize()).to(self.device['gpu'])
             _dist.reduce(avg_serial, dst=_dist.get_rank(), op=_dist.ReduceOp.SUM)
-            metrics_serial = _torch.tensor(metrics.serialize())
+
+            metrics_serial = _torch.tensor(metrics.serialize()).to(self.device['gpu'])
             _dist.reduce(metrics_serial, dst=_dist.get_rank(), op=_dist.ReduceOp.SUM)
 
             averages.reset()
