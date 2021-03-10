@@ -31,9 +31,9 @@ def _ddp_worker(gpu, et_obj, trainer_cls, dataset_cls, pooled):
                              init_method=et_obj.args['dist_url'],
                              world_size=world_size, rank=world_rank)
     if pooled:
-        et_obj.run_pooled(trainer_cls, dataset_cls)
+        et_obj._run_pooled(trainer_cls, dataset_cls)
     else:
-        et_obj.run(trainer_cls, dataset_cls)
+        et_obj._run(trainer_cls, dataset_cls)
 
 
 class EasyTorch:
