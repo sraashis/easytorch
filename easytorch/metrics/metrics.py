@@ -236,7 +236,7 @@ class Prf1a(ETMetrics):
         return round(o, self.num_precision)
 
     def serialize(self, **kw):
-        return [self.tn, self.fp, self.fm, self.tp]
+        return [self.tn, self.fp, self.fn, self.tp]
 
 
 class ConfusionMatrix(ETMetrics):
