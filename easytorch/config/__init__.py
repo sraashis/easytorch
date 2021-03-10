@@ -1,6 +1,6 @@
 import argparse as _ap
 from collections import OrderedDict as _ODict
-from .status import *
+from easytorch.config.status import *
 
 
 def boolean_string(s):

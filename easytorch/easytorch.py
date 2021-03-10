@@ -3,7 +3,6 @@ import os as _os
 import pprint as _pp
 import random as _random
 from argparse import ArgumentParser as _AP
-from typing import Union as _Union, List as _List
 
 import numpy as _np
 import torch as _torch
@@ -14,7 +13,9 @@ import easytorch.utils as _utils
 from easytorch.config.status import *
 from easytorch.data import datautils as _du
 from easytorch.utils.logger import *
-from easytorch.data import ETDataHandle as _ETDataHandle, ETDataset as _ETDataset
+from easytorch.data import ETDataset, ETDataHandle
+from easytorch.trainer import ETTrainer
+import typing
 
 _sep = _os.sep
 
@@ -45,14 +46,14 @@ class EasyTorch:
         '\n\t2). runtime arguments 2). python main.py -ph <value> ...' \
         f'\nPossible values are:{_MODES_}'
 
-    def __init__(self, dataspecs: _List[dict] = None,
-                 args: _Union[dict, _AP] = _conf.default_args,
+    def __init__(self, dataspecs: typing.List[dict] = None,
+                 args: typing.Union[dict, _AP] = _conf.default_args,
                  phase: str = _conf.default_args['phase'],
                  batch_size: int = _conf.default_args['batch_size'],
                  grad_accum_iters: int = _conf.default_args['grad_accum_iters'],
                  epochs: int = _conf.default_args['epochs'],
                  learning_rate: float = _conf.default_args['learning_rate'],
-                 gpus: _List[int] = _conf.default_args['gpus'],
+                 gpus: typing.List[int] = _conf.default_args['gpus'],
                  pin_memory: bool = _conf.default_args['pin_memory'],
                  num_workers: int = _conf.default_args['num_workers'],
                  dataset_dir: str = _conf.default_args['dataset_dir'],
@@ -301,7 +302,9 @@ class EasyTorch:
         test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset)
         return {'averages': test_averages, 'metrics': test_metrics}
 
-    def run(self, trainer_cls, dataset_cls=None, data_handle_cls: _ETDataHandle = _ETDataHandle):
+    def run(self, trainer_cls: typing.Type[ETTrainer],
+            dataset_cls: typing.Type[ETDataset] = None,
+            data_handle_cls: typing.Type[ETDataHandle] = ETDataHandle):
         if self.args.get('use_ddp'):
             _mp.spawn(_ddp_worker, nprocs=self.args['num_gpus'],
                       args=(self, trainer_cls, dataset_cls, data_handle_cls, False))
@@ -357,9 +360,9 @@ class EasyTorch:
                 import torch.distributed as dist
                 dist.barrier()
 
-    def run_pooled(self, trainer_cls,
-                   dataset_cls: _ETDataset = None,
-                   data_handle_cls: _ETDataHandle = _ETDataHandle):
+    def run_pooled(self, trainer_cls: typing.Type[ETTrainer],
+                   dataset_cls: typing.Type[ETDataset] = None,
+                   data_handle_cls: typing.Type[ETDataHandle] = ETDataHandle):
 
         if self.args.get('use_ddp'):
             _mp.spawn(_ddp_worker, nprocs=self.args['num_gpus'],
