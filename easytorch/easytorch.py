@@ -149,7 +149,7 @@ class EasyTorch:
             self.args['gpus'] = list(range(NUM_GPUS))
 
     def _ddp_setup(self):
-        if all([self.args['use_ddp'], NUM_GPUS > 1, len(self.args['gpus']) > 1]):
+        if all([self.args['use_ddp'], NUM_GPUS >= 1, len(self.args['gpus']) >= 1]):
             self.args['num_gpus'] = len(self.args['gpus'])
             _os.environ['MASTER_ADDR'] = self.args.get('master_addr', '127.0.0.1')  #
             _os.environ['MASTER_PORT'] = self.args.get('master_port', '12355')
