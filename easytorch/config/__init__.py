@@ -67,7 +67,7 @@ if _args.get('use_ddp'):
 
     default_ap.add_argument('--master-addr', default='127.0.0.1', type=str,
                             help='Master node address.')
-    default_ap.add_argument('--master-port', default='8888', type=str,
+    default_ap.add_argument('--master-port', default='8998', type=str,
                             help='Master node address.')
 
 _known, _unknown = default_ap.parse_known_args()
