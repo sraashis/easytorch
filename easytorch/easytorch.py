@@ -157,10 +157,11 @@ class EasyTorch:
             self.args['use_ddp'] = False
 
     def _show_args(self):
-        info('Starting with the following parameters:')
-        _pp.pprint(self.args)
-        if len(self.dataloader_args) > 0:
-            _pp.pprint(self.dataloader_args)
+        info('Starting with the following parameters:', self.args['verbose'])
+        if self.args['verbose']:
+            _pp.pprint(self.args)
+            if len(self.dataloader_args) > 0:
+                _pp.pprint(self.dataloader_args)
 
     def _init_args(self, args):
         if isinstance(args, _AP):
@@ -363,8 +364,7 @@ class EasyTorch:
         # assert not self.args['use_ddp'], "Pooled run is not setup for distributed setting"
 
         r"""  Run in pooled fashion. """
-        if self.args['verbose']:
-            self._show_args()
+        self._show_args()
 
         trainer = trainer_cls(self.args, self.dataloader_args)
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
@@ -382,7 +382,8 @@ class EasyTorch:
         _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
 
         self._init_fold_cache('pooled.dummy', trainer.cache)
-        self.check_previous_logs(trainer.cache)
+        if self.args['is_master']:
+            self.check_previous_logs(trainer.cache)
         trainer.init_nn()
 
         if self.args['phase'] == Phase.TRAIN:
