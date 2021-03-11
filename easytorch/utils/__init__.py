@@ -5,7 +5,7 @@ import json as _json
 
 class FrozenDict(dict):
     def __init__(self, _dict):
-        super().__init__(_dict)
+        super().__init__(_dict if _dict is not None else {})
 
     def prompt(self, key, value):
         raise ValueError(f'*** '

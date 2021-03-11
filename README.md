@@ -24,7 +24,7 @@
 
 #### `Feature Higlights`
 
-* Minimal configuration to setup any simple/complex experiment.
+* **Minimal configuration to setup any simple/complex experiment(Single GPU, DP, and DDP)**.
 * Full support to split images into patches and rejoin/merge them to get back the complete prediction image like in
   U-Net(Usually needed when input images are large, and of different shapes) (Thanks to sparse data loaders).
 * Limit data loading- Limit data to debug the pipeline without moving data from the original place (Thanks to
@@ -138,27 +138,8 @@ class MyDataset(ETDataset):
         return image, label
 ```
 
-**Note: If one proceeds with the above (by overriding the ETDataset), they can skip directly to point 3. below. Or, one
-can use any other custom datasets as follows:**
-
-```python
-from easytorch import EasyTorch
-from torch.utils.data import Dataset
-
-class MyExperiment(EasyTorch):
-    def _load_dataset(self, split_key, dataspec: dict, **kw):
-        if split_key=='train':
-            return Dataset(...)
-        elif split_key=='validation':
-            return Dataset(...)
-        elif split_key=='test':
-          return Dataset(...)
-        """Also works with combination of datasets: train, train/validation, train/test"""
-        
-```
-
 #### 3. Entry point
-
+**Easytorch automatically splits the data/images in 'data_dir' of dataspec as specified (split_ratio, or num_folds), and runs accordingly**
 ```python
 from easytorch import EasyTorch
 
@@ -173,6 +154,21 @@ if __name__ == "__main__":
   
     """Runs by pooling all dataspecs as a single experiment"""
     # runner.run_pooled(MyTrainer, MyDataset)
+```
+
+#### Or can give any custom datasets(as in MNIST example above):
+```python
+train_dataset = datasets.MNIST('../data', train=True, download=True,
+                               transform=transform)
+val_dataset = datasets.MNIST('../data', train=False,
+                             transform=transform)
+              
+dataloader_args = {'train': {'dataset': train_dataset},
+                   'validation': {'dataset': val_dataset}}
+runner = EasyTorch(phase='train',
+                   batch_size=128, epochs=5, gpus=[0],
+                   dataloader_args=dataloader_args)
+runner.run(MNISTTrainer)
 ```
 
 <hr />
