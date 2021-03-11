@@ -268,7 +268,7 @@ class ETTrainer:
                 if save_pred:
                     self.save_predictions(loader.dataset, self._reduce_iteration(its))
 
-        success(f"{self.cache['experiment_id']} {mode} Averages:{eval_avg.get()}, Metrics:{eval_metrics.get()}",
+        info(f"{self.cache['experiment_id']} {mode} Averages:{eval_avg.get()}, Metrics:{eval_metrics.get()}",
                 self.args['verbose'])
 
         return {'averages': eval_avg, 'metrics': eval_metrics}
