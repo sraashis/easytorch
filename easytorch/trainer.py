@@ -17,6 +17,7 @@ from easytorch.utils.logger import *
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
 from .vision import plotter as _log_utils
 import torch.distributed as _dist
+
 _sep = _os.sep
 
 
@@ -228,7 +229,7 @@ class ETTrainer:
                    epoch=1,
                    mode='eval',
                    dataset_list=None,
-                   save_pred=False):
+                   save_pred=False) -> dict:
 
         for k in self.nn:
             self.nn[k].eval()
@@ -236,7 +237,7 @@ class ETTrainer:
         eval_avg, eval_metrics = self.new_averages(), self.new_metrics()
 
         if dataset_list is None:
-            return eval_avg, eval_metrics
+            return {'averages': eval_avg, 'metrics': eval_metrics}
 
         info(f'{mode} ...', self.args['verbose'])
         loaders = [self.data_handle.get_loader(handle_key=mode, shuffle=False, dataset=d) for d in dataset_list]
@@ -256,7 +257,8 @@ class ETTrainer:
                         its.append(it)
 
                     if self.args['verbose'] and len(dataset_list) <= 1 and lazy_debug(i, add=epoch):
-                        info(f" Itr:{i}/{len(loader)}, Averages:{it.get('averages').get()}, Metrics:{it.get('metrics').get()}")
+                        info(
+                            f" Itr:{i}/{len(loader)}, Averages:{it.get('averages').get()}, Metrics:{it.get('metrics').get()}")
 
                 eval_metrics.accumulate(metrics)
                 eval_avg.accumulate(avg)
@@ -268,7 +270,8 @@ class ETTrainer:
 
         success(f"{self.cache['experiment_id']} {mode} Averages:{eval_avg.get()}, Metrics:{eval_metrics.get()}",
                 self.args['verbose'])
-        return eval_avg, eval_metrics
+
+        return {'averages': eval_avg, 'metrics': eval_metrics}
 
     def _reduce_iteration(self, its):
         reduced = {}.fromkeys(its[0].keys(), None)
@@ -354,11 +357,15 @@ class ETTrainer:
     def reduce_scores(self, accumulator: list) -> dict:
         averages = self.new_averages()
         metrics = self.new_metrics()
+        if all([a is None for a in accumulator]):
+            return {f"averages": averages,
+                    f"metrics": metrics}
+
         for acc in accumulator:
             averages.accumulate(acc['averages'])
             metrics.accumulate(acc['metrics'])
 
-        if self.args['use_ddp'] and len(accumulator) > 0:
+        if self.args['use_ddp']:
             avg_serial = _torch.tensor(averages.serialize()).to(self.device['gpu'])
             _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
 
@@ -387,9 +394,7 @@ class ETTrainer:
                 self.args['verbose'])
 
     def validation(self, epoch, val_dataset_list: _List[_Dataset]) -> dict:
-
-        val_averages, val_metrics = self.evaluation(epoch=epoch, mode='validation', dataset_list=val_dataset_list)
-        return {'averages': val_averages, 'metrics': val_metrics}
+        return self.evaluation(epoch=epoch, mode='validation', dataset_list=val_dataset_list)
 
     def _global_debug(self, running_averages, running_metrics, **kw):
         """Update running accumulators."""
@@ -401,8 +406,9 @@ class ETTrainer:
         i, e = kw['i'], kw['epoch']
 
         if lazy_debug(i, add=e) or i == N:
-            info(f"Ep:{e}/{self.args['epochs']},Itr:{i}/{N}, Averages:{running_averages.get()}, Metrics:{running_metrics.get()}",
-                 self.args['verbose'])
+            info(
+                f"Ep:{e}/{self.args['epochs']},Itr:{i}/{N}, Averages:{running_averages.get()}, Metrics:{running_metrics.get()}",
+                self.args['verbose'])
             r"""Debug and reset running accumulators"""
 
             if not self.args['use_ddp']:
@@ -466,17 +472,20 @@ class ETTrainer:
                 break
 
         """Plot at the end regardless."""
-        if not self.args['use_ddp'] and self.args['is_master']:
-            self._save_progress(epoch=ep)
+        self._save_progress(epoch=ep)
 
     def _global_epoch_end(self, **kw):
-        self.cache[LogKey.VALIDATION_LOG].append(
-            [*kw['validation']['averages'].get(), *kw['validation']['metrics'].get()]
-        )
-        self.save_if_better(**kw)
+        if kw.get('train') is not None:
+            self.cache[LogKey.TRAIN_LOG].append(
+                [*kw['train']['averages'].get(), *kw['train']['metrics'].get()]
+            )
+        if kw.get('validation') is not None:
+            self.save_if_better(**kw)
+            self.cache[LogKey.VALIDATION_LOG].append(
+                [*kw['validation']['averages'].get(), *kw['validation']['metrics'].get()]
+            )
         if lazy_debug(kw['epoch'], _math.log(kw['epoch'])):
             self._save_progress(epoch=kw['epoch'])
-        pass
 
     def _on_epoch_end(self, **kw):
         """Local epoch end"""

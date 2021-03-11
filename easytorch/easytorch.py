@@ -162,8 +162,6 @@ class EasyTorch:
         info('Starting with the following parameters:', self.args['verbose'])
         if self.args['verbose']:
             _pp.pprint(self.args)
-            if len(self.dataloader_args) > 0:
-                _pp.pprint(self.dataloader_args)
 
     def _init_args(self, args):
         if isinstance(args, _AP):
@@ -259,7 +257,7 @@ class EasyTorch:
 
     def _global_experiment_end(self, trainer, scores: dict):
         "Save reduced scores"
-        if self.args['is_master']:
+        if self.args['is_master'] and scores is not None:
             """ Finally, save the global score to a file  """
             trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
                 ['Global', *scores['averages'].get(), *scores['metrics'].get()])
@@ -285,7 +283,7 @@ class EasyTorch:
         _utils.save_cache({**self.args, **trainer.cache, **dspec},
                           experiment_id=trainer.cache['experiment_id'])
 
-    def _test(self, trainer, test_dataset) -> dict:
+    def _test(self, split_file, trainer, test_dataset) -> dict:
 
         test_dataset = test_dataset if isinstance(test_dataset, list) else [test_dataset]
         if len(test_dataset) <= 0 \
@@ -299,8 +297,16 @@ class EasyTorch:
             trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
 
         """ Run and save experiment test scores """
-        test_averages, test_metrics = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset)
-        return {'averages': test_averages, 'metrics': test_metrics}
+        if test_dataset is not None:
+            test_out = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset)
+            test_scores = trainer.reduce_scores([test_out])
+            if self.args['is_master']:
+                trainer.cache[LogKey.TEST_METRICS] = [[split_file,
+                                                       *test_scores['averages'].get(),
+                                                       *test_scores['metrics'].get()]]
+                _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
+                                   file_keys=[LogKey.TEST_METRICS])
+            return test_out
 
     def run(self, trainer_cls: typing.Type[ETTrainer],
             dataset_cls: typing.Type[ETDataset] = None,
@@ -342,15 +348,7 @@ class EasyTorch:
                     self._train(split_file, dspec, trainer, dataset_cls)
 
                 test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
-                test_out = self._test(trainer, test_dataset)
-                test_accum.append(test_out)
-                test_scores = trainer.reduce_scores([test_out])
-                if self.args['is_master']:
-                    trainer.cache[LogKey.TEST_METRICS] = [[split_file,
-                                                           *test_scores['averages'].get(),
-                                                           *test_scores['metrics'].get()]]
-                    _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
-                                       file_keys=[LogKey.TEST_METRICS])
+                test_accum.append(self._test(split_file, trainer, test_dataset))
 
             global_scores = trainer.reduce_scores(test_accum)
             if self.args['is_master']:
@@ -410,10 +408,7 @@ class EasyTorch:
 
         test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
                                         load_sparse=self.args['load_sparse'])
-        test_acc = []
-        if test_dataset:
-            test_acc.append(self._test(trainer, test_dataset))
 
-        scores = trainer.reduce_scores(test_acc)
+        scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)])
         if self.args['is_master']:
             self._global_experiment_end(trainer, scores)

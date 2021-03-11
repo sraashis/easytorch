@@ -75,7 +75,7 @@ class ETDataHandle:
         return dataset
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Dataset:
-        if self.dataloader_args.get('train', {}).get('dataset') is not None:
+        if dataset_cls is None or self.dataloader_args.get('train', {}).get('dataset'):
             return self.dataloader_args.get('train', {}).get('dataset')
 
         r"""Load the train data from current fold/split."""
@@ -86,11 +86,10 @@ class ETDataHandle:
             return train_dataset
 
     def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
-        if self.dataloader_args.get('validation', {}).get('dataset') is not None:
-            return [self.dataloader_args.get('validation', {}).get('dataset')]
+        if dataset_cls is None or self.dataloader_args.get('validation', {}).get('dataset'):
+            return self.dataloader_args.get('validation', {}).get('dataset')
 
         r""" Load the validation data from current fold/split."""
-        r"""Load the train data from current fold/split."""
         with open(dataspec['split_dir'] + _sep + split_file) as file:
             split = _json.loads(file.read())
             val_dataset = self.get_dataset('validation', split.get('validation', []),
@@ -99,7 +98,7 @@ class ETDataHandle:
                 return [val_dataset]
 
     def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
-        if self.dataloader_args.get('test', {}).get('dataset') is not None:
+        if dataset_cls is None or self.dataloader_args.get('test', {}).get('dataset'):
             return self.dataloader_args.get('test', {}).get('dataset')
 
         r"""
