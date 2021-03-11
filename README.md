@@ -24,7 +24,7 @@
 
 #### `Feature Higlights`
 
-* Minimal configuration to setup any simple/complex experiment.
+* **Minimal configuration to setup any simple/complex experiment(Single GPU, DP, and DDP)**.
 * Full support to split images into patches and rejoin/merge them to get back the complete prediction image like in
   U-Net(Usually needed when input images are large, and of different shapes) (Thanks to sparse data loaders).
 * Limit data loading- Limit data to debug the pipeline without moving data from the original place (Thanks to
