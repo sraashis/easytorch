@@ -43,7 +43,7 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
 * **-nf/--num_folds** [None]
     * Number of folds in k-fold cross validation(Integer value like 5, 10).
 * **-spl/--split_ratio** [None]
-    * Split ratio for train, validation, test set if 3 given| train, test if 2 given| train only if one give. Eg: 0.8 0.2, 0.6 0.2 0.2
+    * Split ratio for train, validation, test set if 3 given| train, test if 2 given| train only if one give(Eg: 0.8 0.2, 0.6 0.2 0.2)
 * **-ddp/--use_ddp** [False]
     * Use pytorch DDP engine for multi GPU training(use_ddp=False, and more than one gpus in -gpus arg will use DataParallel)
 * **--node_rank** [0]
