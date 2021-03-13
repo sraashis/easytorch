@@ -43,4 +43,23 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
 * **-nf/--num_folds** [None]
     * Number of folds in k-fold cross validation(Integer value like 5, 10).
 * **-spl/--split_ratio** [None]
-    * Split ratio for train, validation, test set if 3 given| train, test if 2 given| train only if one give.
+    * Split ratio for train, validation, test set if 3 given| train, test if 2 given| train only if one give(Eg: 0.8 0.2, 0.6 0.2 0.2)
+* **-ddp/--use_ddp** [False]
+    * Use pytorch DDP engine for multi GPU training(use_ddp=False, and more than one gpus in -gpus arg will use DataParallel)
+* **--node_rank** [0]
+    * Rank of current node (ranges from 0 to N-1)
+* **--num_nodes** [1]
+    * Total nodes (N)
+* **--world_size** [None]
+    * Total participating processes (optional).
+* **--dist_url** [env://]
+    * Url to set up distributed training.
+* **--dist_backend** [nccl]
+    * Backend for distributed training.
+* **--master-addr** [127.0.0.1]
+    * Address of the master node.
+* **--master-port** [8998]
+    * Port to the master node.
+  
+  
+

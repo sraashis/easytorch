@@ -24,7 +24,7 @@
 
 #### `Feature Higlights`
 
-* Minimal configuration to setup any simple/complex experiment **(Single GPU, DP, and DDP)**.
+* Minimal configuration to setup any simple/complex experiment (Single GPU, DP, and [DDP usage](assets/DefaultArgs.md)).
 * Full support to split images into patches and rejoin/merge them to get back the complete prediction image like in
   U-Net(Usually needed when input images are large, and of different shapes) (Thanks to sparse data loaders).
 * Limit data loading- Limit data to debug the pipeline without moving data from the original place (Thanks to
@@ -139,7 +139,7 @@ class MyDataset(ETDataset):
 ```
 
 #### 3. Entry point
-Easytorch automatically splits the data/images in 'data_dir' of dataspec as specified (split_ratio, or num_folds), and runs accordingly
+EasyTorch automatically splits the data/images in 'data_dir' of dataspec as specified (split_ratio, or num_folds), and runs accordingly. One can also provide custom splits(json files with train, validation, test data list) in the directory specified by split_dir in dataspec.
 ```python
 from easytorch import EasyTorch
 
@@ -191,7 +191,7 @@ runner.run(MNISTTrainer)
 * **-spl/--split_ratio** [None]
     * Split ratio for train, validation, test set if two items given| train, test if three items given| train only if
       one item given.
-* [...see more](assets/DefaultArgs.md)
+* [...see more (ddp args)](assets/DefaultArgs.md)
 
 ### All the best! for whatever you are working on. Cheers!
 
