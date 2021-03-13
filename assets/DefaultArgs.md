@@ -45,7 +45,7 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
 * **-spl/--split_ratio** [None]
     * Split ratio for train, validation, test set if 3 given| train, test if 2 given| train only if one give.
 * **-ddp/--use_ddp** [False]
-    * Use pytorch DDP engine for multi GPU training(use_ddp=False, and more than one gou in -gpus uses DataParallel)
+    * Use pytorch DDP engine for multi GPU training(use_ddp=False, and more than one gpus in -gpus arg will use DataParallel)
 * **--node_rank** [0]
     * Rank of current node (ranges from 0-n-1)
 * **--num_nodes** [1]
