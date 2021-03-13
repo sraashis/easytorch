@@ -1,4 +1,4 @@
-![Logo](assets/easypytorch.png)
+![Logo](assets/easytorchlogo.png)
 
 ### A quick and easy way to start running pytorch experiments within few minutes.
 
