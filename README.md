@@ -30,8 +30,6 @@
   U-Net(Usually needed when input images are large, and of different shapes) (Thanks to sparse data loaders).
 * Limit data loading- Limit data to debug the pipeline without moving data from the original place (Thanks to
   load_limit)
-* Lazy operations during data loading, and tensor storage for fast performance (Thanks to task modes like test/train
-  where we only load necessary data).
 * Heterogeneous datasets handling-One can use many folders of dataset by just defining dataspecs and use in single
   experiment(Thanks to pooled run).
 * Automatic k-fold cross validation/Auto dataset split (Example: num_folds=10, or split_ratio=[0.6, 0.2, 0.2])
