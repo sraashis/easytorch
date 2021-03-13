@@ -47,11 +47,11 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
 * **-ddp/--use_ddp** [False]
     * Use pytorch DDP engine for multi GPU training(use_ddp=False, and more than one gpus in -gpus arg will use DataParallel)
 * **--node_rank** [0]
-    * Rank of current node (ranges from 0-n-1)
+    * Rank of current node (ranges from 0 to N-1)
 * **--num_nodes** [1]
-    * Total nodes (ranges from n)
+    * Total nodes (N)
 * **--world_size** [None]
-    * Rank of current node (Total participating processes (optional))
+    * Total participating processes (optional).
 * **--dist_utl** [env://]
     * Url to set up distributed training.
 * **--dist_backend** [nccl]
