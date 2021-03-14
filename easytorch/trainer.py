@@ -460,7 +460,7 @@ class ETTrainer:
             """Validation step"""
             reduced_epoch = self.reduce_scores([{'averages': epoch_avg, 'metrics': epoch_metrics}])
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
-            if self.args['is_master'] and val_dataset_list:
+            if val_dataset_list:
                 val_out = self.validation(ep, val_dataset_list)
                 epoch_out['validation'] = self.reduce_scores([val_out])
 
