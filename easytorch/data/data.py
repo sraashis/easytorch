@@ -59,7 +59,7 @@ class ETDataHandle:
             _kw[k] = _args.get(k, _kw.get(k))
 
         if self.args.get('use_ddp'):
-            if 'train' in handle_key.lower():
+            if 'test' not in handle_key.lower():
                 _kw['sampler'] = _data.distributed.DistributedSampler(_kw['dataset'], shuffle=_kw['shuffle'])
                 _kw['shuffle'] = False  # Shuffle is mutually exclusive with sampler
             _kw['num_workers'] = (_kw['num_workers'] + self.args['num_gpus'] - 1) // self.args['num_gpus']
