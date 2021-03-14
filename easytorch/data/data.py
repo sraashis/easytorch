@@ -7,8 +7,11 @@ from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 from easytorch.utils.logger import *
 from os import sep as _sep
-from typing import List as _List
+from typing import List as _List, Sized
 import torch.utils.data as _data
+import torch.distributed as _dist
+import math as _math
+import torch.utils.data.sampler
 
 
 def safe_collate(batch):
@@ -37,10 +40,6 @@ class ETDataHandle:
     def get_loader(self, handle_key='', **kw) -> _DataLoader:
         _args = {**self.args}
         _args.update(**kw)
-
-        if _args.get('dataset') is None:
-            _args['dataset'] = self.dataset.get(handle_key)
-
         _args.update(self.dataloader_args.get(handle_key, {}))
 
         _kw = {
@@ -53,17 +52,29 @@ class ETDataHandle:
             'pin_memory': False,
             'drop_last': False,
             'timeout': 0,
-            'worker_init_fn': seed_worker if self.args.get('seed_all') else None
+            'worker_init_fn': seed_worker if _args.get('seed_all') else None
         }
         for k in _kw.keys():
             _kw[k] = _args.get(k, _kw.get(k))
 
-        if self.args.get('use_ddp'):
-            if 'test' not in handle_key.lower():
-                _kw['sampler'] = _data.distributed.DistributedSampler(_kw['dataset'], shuffle=_kw['shuffle'])
+        if _args.get('use_ddp'):
+            sampler_args = {
+                'num_replicas': _args.get('replicas'),
+                'rank': _args.get('rank'),
+                'shuffle': _args.get('shuffle'),
+                'seed': _args.get('seed')
+            }
+
+            if _kw.get('sampler') is None:
+                _kw['sampler'] = _data.distributed.DistributedSampler(_kw['dataset'], **sampler_args)
                 _kw['shuffle'] = False  # Shuffle is mutually exclusive with sampler
-            _kw['num_workers'] = (_kw['num_workers'] + self.args['num_gpus'] - 1) // self.args['num_gpus']
-            _kw['batch_size'] = _kw['batch_size'] // self.args['num_gpus']
+
+            if _kw.get('sampler') is None and kw.get('use_unpadded_sampler'):
+                _kw['sampler'] = UnPaddedDDPSampler(_kw['dataset'], **sampler_args)
+                _kw['shuffle'] = False
+
+            _kw['num_workers'] = (_kw['num_workers'] + _args['num_gpus'] - 1) // _args['num_gpus']
+            _kw['batch_size'] = _kw['batch_size'] // _args['num_gpus']
 
         self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **_kw)
         return self.dataloader[handle_key]
@@ -199,3 +210,103 @@ class ETDataset(_Dataset):
                 break
 
         return all_d
+
+
+class UnPaddedDDPSampler(_data.Sampler):
+    r"""fork from official pytorch repo: torch.data.distributed.DistributedSampler where padding is off"""
+    r"""https://github.com/pytorch/"""
+
+    r"""Sampler that restricts data loading to a subset of the dataset.
+
+    It is especially useful in conjunction with
+    :class:`torch.nn.parallel.DistributedDataParallel`. In such a case, each
+    process can pass a :class`~torch.utils.data.DistributedSampler` instance as a
+    :class:`~torch.utils.data.DataLoader` sampler, and load a subset of the
+    original dataset that is exclusive to it.
+
+    .. note::
+        Dataset is assumed to be of constant size.
+
+    Arguments:
+        dataset: Dataset used for sampling.
+        num_replicas (int, optional): Number of processes participating in
+            distributed training. By default, :attr:`rank` is retrieved from the
+            current distributed group.
+        rank (int, optional): Rank of the current process within :attr:`num_replicas`.
+            By default, :attr:`rank` is retrieved from the current distributed
+            group.
+        shuffle (bool, optional): If ``True`` (default), sampler will shuffle the
+            indices.
+        seed (int, optional): random seed used to shuffle the sampler if
+            :attr:`shuffle=True`. This number should be identical across all
+            processes in the distributed group. Default: ``0``.
+
+    .. warning::
+        In distributed mode, calling the :meth`set_epoch(epoch) <set_epoch>` method at
+        the beginning of each epoch **before** creating the :class:`DataLoader` iterator
+        is necessary to make shuffling work properly across multiple epochs. Otherwise,
+        the same ordering will be always used.
+
+    Example::
+
+        >>> sampler = DistributedSampler(dataset) if is_distributed else None
+        >>> loader = DataLoader(dataset, shuffle=(sampler is None),
+        ...                     sampler=sampler)
+        >>> for epoch in range(start_epoch, n_epochs):
+        ...     if is_distributed:
+        ...         sampler.set_epoch(epoch)
+        ...     train(loader)
+    """
+
+    def __init__(self, dataset, num_replicas=None, rank=None, shuffle=True, seed=0):
+        if num_replicas is None:
+            if not _dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
+            num_replicas = _dist.get_world_size()
+        if rank is None:
+            if not _dist.is_available():
+                raise RuntimeError("Requires distributed package to be available")
+            rank = _dist.get_rank()
+        self.dataset = dataset
+        self.num_replicas = num_replicas
+        self.rank = rank
+        self.epoch = 0
+        self.num_samples = int(_math.ceil(len(self.dataset) * 1.0 / self.num_replicas))
+        self.total_size = self.num_samples * self.num_replicas
+        self.shuffle = shuffle
+        self.seed = seed
+
+    def __iter__(self):
+        if self.shuffle:
+            # deterministically shuffle based on epoch and seed
+            g = _torch.Generator()
+            g.manual_seed(self.seed + self.epoch)
+            indices = _torch.randperm(len(self.dataset), generator=g).tolist()
+        else:
+            indices = list(range(len(self.dataset)))
+
+        """Do not pad anything"""
+        # add extra samples to make it evenly divisible
+        # indices += indices[:(self.total_size - len(indices))]
+
+        assert len(indices) == self.total_size
+
+        # subsample
+        indices = indices[self.rank:self.total_size:self.num_replicas]
+        assert len(indices) == self.num_samples
+
+        return iter(indices)
+
+    def __len__(self):
+        return self.num_samples
+
+    def set_epoch(self, epoch):
+        r"""
+        Sets the epoch for this sampler. When :attr:`shuffle=True`, this ensures all replicas
+        use a different random ordering for each epoch. Otherwise, the next iteration of this
+        sampler will yield the same ordering.
+
+        Arguments:
+            epoch (int): Epoch number.
+        """
+        self.epoch = epoch

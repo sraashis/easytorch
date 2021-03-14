@@ -240,7 +240,9 @@ class ETTrainer:
             return {'averages': eval_avg, 'metrics': eval_metrics}
 
         info(f'{mode} ...', self.args['verbose'])
-        loaders = [self.data_handle.get_loader(handle_key=mode, shuffle=False, dataset=d) for d in dataset_list]
+        loaders = [self.data_handle.get_loader(handle_key=mode, shuffle=False,
+                                               dataset=d, use_unpadded_sampler=True)
+                   for d in dataset_list]
         with _torch.no_grad():
             for loader in loaders:
                 its = []
@@ -338,8 +340,8 @@ class ETTrainer:
 
     def _save_progress(self, epoch):
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                     plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
-                                     epoch=epoch)
+                                 plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
+                                 epoch=epoch)
 
     def training_iteration(self, i, batch) -> dict:
         r"""
@@ -458,12 +460,13 @@ class ETTrainer:
             """Validation step"""
             reduced_epoch = self.reduce_scores([{'averages': epoch_avg, 'metrics': epoch_metrics}])
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
-            if val_dataset_list:
+            if self.args['is_master'] and val_dataset_list:
                 val_out = self.validation(ep, val_dataset_list)
                 epoch_out['validation'] = self.reduce_scores([val_out])
 
             if self.args['is_master']:
                 self._global_epoch_end(**epoch_out)
+                _dist.barrier()
 
             self._on_epoch_end(**epoch_out)
             if self._stop_early(**epoch_out):
