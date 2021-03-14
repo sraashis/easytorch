@@ -402,7 +402,7 @@ class ETTrainer:
         running_metrics.accumulate(kw.get('metrics'))
 
         """Reset iteration accumulator"""
-        N = kw['tot_iter']
+        N = kw['num_iters']
         i, e = kw['i'], kw['epoch']
 
         if lazy_debug(i, add=e) or i == N:
@@ -437,6 +437,7 @@ class ETTrainer:
             if self.args.get('use_ddp'):
                 train_loader.sampler.set_epoch(ep)
 
+            num_iters = len(train_loader) // self.args['grad_accum_iters']
             for i, batch in enumerate(train_loader, 1):
                 its.append(self.training_iteration(i, batch))
                 """When end of iteration"""
@@ -445,11 +446,13 @@ class ETTrainer:
 
                     """Update global accumulators"""
                     its = []
+                    it['num_iters'] = num_iters
+                    it['i'] = i // self.args['grad_accum_iters']
                     epoch_avg.accumulate(it.get('averages'))
                     epoch_metrics.accumulate(it.get('metrics'))
 
                     if self.args['is_master']:
-                        self._global_debug(_avg, _metrics, **it)
+                        self._global_debug(_avg, _metrics, epoch=ep, **it)
                     self._on_iteration_end(i=i, epoch=ep, it=it)
 
             """Validation step"""

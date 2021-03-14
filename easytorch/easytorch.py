@@ -268,16 +268,11 @@ class EasyTorch:
                        'metrics': vars(scores['metrics'])}
                 f.write(_json.dumps(log))
 
-    def _train(self, split_file, dspec, trainer, dataset_cls=None):
-        """###########  Run training phase ########################"""
-        train_dataset = trainer.data_handle.get_train_dataset(split_file, dspec, dataset_cls=dataset_cls)
-        validation_dataset = trainer.data_handle.get_validation_dataset(split_file, dspec, dataset_cls=dataset_cls)
-        validation_dataset = validation_dataset if isinstance(validation_dataset, list) else [validation_dataset]
+    def _train(self, trainer, train_dataset, validation_dataset, dspec):
         if len(validation_dataset) <= 0 \
                 or all([d is None for d in validation_dataset]) \
                 or all([len(d) <= 0 for d in validation_dataset]):
             validation_dataset = None
-
         trainer.train(train_dataset, validation_dataset)
         trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
         _utils.save_cache({**self.args, **trainer.cache, **dspec},
@@ -345,7 +340,13 @@ class EasyTorch:
 
                 trainer.init_nn()
                 if self.args['phase'] == Phase.TRAIN:
-                    self._train(split_file, dspec, trainer, dataset_cls)
+                    train_dataset = trainer.data_handle.get_train_dataset(split_file, dspec,
+                                                                          dataset_cls=dataset_cls)
+                    validation_dataset = trainer.data_handle.get_validation_dataset(split_file, dspec,
+                                                                                    dataset_cls=dataset_cls)
+                    validation_dataset = validation_dataset if isinstance(validation_dataset, list) else [
+                        validation_dataset]
+                    self._train(trainer, train_dataset, validation_dataset, dspec)
 
                 test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
                 test_accum.append(self._test(split_file, trainer, test_dataset))
@@ -369,8 +370,6 @@ class EasyTorch:
             self._run_pooled(trainer_cls, dataset_cls, data_handle_cls)
 
     def _run_pooled(self, trainer_cls, dataset_cls, data_handle_cls):
-        # assert not self.args['use_ddp'], "Pooled run is not setup for distributed setting"
-
         r"""  Run in pooled fashion. """
         self._show_args()
 
@@ -401,14 +400,10 @@ class EasyTorch:
                                              load_sparse=False)[0]
             val_dataset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
                                                 load_sparse=False)
-            trainer.train(train_dataset, val_dataset_list)
-            trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
-            _utils.save_cache({**self.args, **trainer.cache, 'dataspecs': self.dataspecs},
-                              experiment_id=trainer.cache['experiment_id'])
+            self._train(trainer, train_dataset, val_dataset_list, {'dataspecs': self.dataspecs})
 
         test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
                                         load_sparse=self.args['load_sparse'])
-
         scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)])
         if self.args['is_master']:
             self._global_experiment_end(trainer, scores)
