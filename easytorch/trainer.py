@@ -11,7 +11,7 @@ import torch as _torch
 from torch.utils.data import Dataset as _Dataset
 
 import easytorch.utils as _etutils
-from easytorch.config.status import *
+from easytorch.config.state import *
 from easytorch.metrics import metrics as _base_metrics
 from easytorch.utils.logger import *
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
@@ -269,7 +269,7 @@ class ETTrainer:
                     self.save_predictions(loader.dataset, self._reduce_iteration(its))
 
         info(f"{self.cache['experiment_id']} {mode} Averages:{eval_avg.get()}, Metrics:{eval_metrics.get()}",
-                self.args['verbose'])
+             self.args['verbose'])
 
         return {'averages': eval_avg, 'metrics': eval_metrics}
 
@@ -338,8 +338,8 @@ class ETTrainer:
 
     def _save_progress(self, epoch):
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                 plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
-                                 epoch=epoch)
+                                     plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
+                                     epoch=epoch)
 
     def training_iteration(self, i, batch) -> dict:
         r"""
@@ -421,7 +421,6 @@ class ETTrainer:
         info('Training ...', self.args['verbose'])
         train_loader = self.data_handle.get_loader(handle_key='train', shuffle=True, dataset=train_dataset)
 
-        tot_iter = len(train_loader) // self.args['grad_accum_iters']
         for ep in range(1, self.args['epochs'] + 1):
             for k in self.nn:
                 self.nn[k].train()
@@ -444,18 +443,14 @@ class ETTrainer:
                 if i % self.args['grad_accum_iters'] == 0:
                     it = self._reduce_iteration(its)
 
-                    its = []
-                    it['epoch'] = ep
-                    it['i0'], it['tot_iter'] = i, tot_iter
-                    it['i'] = i // self.args['grad_accum_iters']
-
                     """Update global accumulators"""
+                    its = []
                     epoch_avg.accumulate(it.get('averages'))
                     epoch_metrics.accumulate(it.get('metrics'))
 
                     if self.args['is_master']:
                         self._global_debug(_avg, _metrics, **it)
-                    self._on_iteration_end(i=i, ep=ep, it=it)
+                    self._on_iteration_end(i=i, epoch=ep, it=it)
 
             """Validation step"""
             reduced_epoch = self.reduce_scores([{'averages': epoch_avg, 'metrics': epoch_metrics}])

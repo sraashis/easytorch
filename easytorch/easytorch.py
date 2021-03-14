@@ -10,7 +10,7 @@ import torch.multiprocessing as _mp
 
 import easytorch.config as _conf
 import easytorch.utils as _utils
-from easytorch.config.status import *
+from easytorch.config.state import *
 from easytorch.data import datautils as _du
 from easytorch.utils.logger import *
 from easytorch.data import ETDataset, ETDataHandle

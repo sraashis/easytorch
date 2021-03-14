@@ -10,7 +10,7 @@ import typing as _typing
 import numpy as _np
 import torch as _torch
 
-from easytorch.config.status import *
+from easytorch.config.state import *
 
 
 class SerializableMetrics:
