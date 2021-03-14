@@ -19,8 +19,8 @@ def safe_collate(batch):
 
 
 def seed_worker(worker_id):
-    worker_seed = _torch.initial_seed() % 2 ** 32
-    _np.random.seed(worker_seed)
+    seed = (int(_torch.initial_seed()) + worker_id) % (2 ** 32 - 1)
+    _np.random.seed(seed)
 
 
 class ETDataHandle:
