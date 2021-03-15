@@ -380,9 +380,6 @@ class ETTrainer:
 
         if self.args['use_ddp']:
 
-            import torch.distributed as dist
-            dist.barrier()
-
             avg_serial = _torch.tensor(averages.serialize()).to(self.device['gpu'])
             _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
 
@@ -482,6 +479,9 @@ class ETTrainer:
                     self._on_iteration_end(i=i, epoch=ep, it=it)
 
             """Validation step"""
+            if self.args['use_ddp']:
+                _dist.barrier()
+
             reduced_epoch = self.reduce_scores([{'averages': epoch_avg, 'metrics': epoch_metrics}])
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
             if val_dataset_list:
