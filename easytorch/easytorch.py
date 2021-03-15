@@ -257,7 +257,7 @@ class EasyTorch:
 
     def _global_experiment_end(self, trainer, scores: dict):
         "Save reduced scores"
-        if self.args['is_master'] and scores is not None:
+        if scores is not None:
             """ Finally, save the global score to a file  """
             trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
                 ['Global', *scores['averages'].get(), *scores['metrics'].get()])
@@ -293,14 +293,13 @@ class EasyTorch:
 
         """ Run and save experiment test scores """
         if test_dataset is not None:
-            test_out = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset)
+            test_out = trainer.evaluation(mode='test', save_pred=True, distributed=False, dataset_list=test_dataset)
             test_scores = trainer.reduce_scores([test_out])
-            if self.args['is_master']:
-                trainer.cache[LogKey.TEST_METRICS] = [[split_file,
-                                                       *test_scores['averages'].get(),
-                                                       *test_scores['metrics'].get()]]
-                _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
-                                   file_keys=[LogKey.TEST_METRICS])
+            trainer.cache[LogKey.TEST_METRICS] = [[split_file,
+                                                   *test_scores['averages'].get(),
+                                                   *test_scores['metrics'].get()]]
+            _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
+                               file_keys=[LogKey.TEST_METRICS])
             return test_out
 
     def run(self, trainer_cls: typing.Type[ETTrainer],
@@ -348,11 +347,12 @@ class EasyTorch:
                         validation_dataset]
                     self._train(trainer, train_dataset, validation_dataset, dspec)
 
-                test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
-                test_accum.append(self._test(split_file, trainer, test_dataset))
+                if self.args['is_master']:
+                    test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
+                    test_accum.append(self._test(split_file, trainer, test_dataset))
 
-            global_scores = trainer.reduce_scores(test_accum)
             if self.args['is_master']:
+                global_scores = trainer.reduce_scores(test_accum)
                 self._global_experiment_end(trainer, global_scores)
 
             if trainer.args.get('use_ddp'):
@@ -402,8 +402,9 @@ class EasyTorch:
                                                 load_sparse=False)
             self._train(trainer, train_dataset, val_dataset_list, {'dataspecs': self.dataspecs})
 
-        test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
-                                        load_sparse=self.args['load_sparse'])
-        scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)])
+        """Only do test in master rank node"""
         if self.args['is_master']:
+            test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
+                                            load_sparse=self.args['load_sparse'])
+            scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)])
             self._global_experiment_end(trainer, scores)

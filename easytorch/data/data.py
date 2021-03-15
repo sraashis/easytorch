@@ -57,7 +57,7 @@ class ETDataHandle:
         for k in _kw.keys():
             _kw[k] = _args.get(k, _kw.get(k))
 
-        if _args.get('use_ddp'):
+        if _args.get('distributed'):
             sampler_args = {
                 'num_replicas': _args.get('replicas'),
                 'rank': _args.get('rank'),
@@ -66,13 +66,12 @@ class ETDataHandle:
             }
 
             if _kw.get('sampler') is None:
-                _kw['sampler'] = _data.distributed.DistributedSampler(_kw['dataset'], **sampler_args)
                 _kw['shuffle'] = False  # Shuffle is mutually exclusive with sampler
-
-            if _kw.get('sampler') is None and kw.get('use_unpadded_sampler'):
-                _kw['sampler'] = UnPaddedDDPSampler(_kw['dataset'], **sampler_args)
-                _kw['shuffle'] = False
-
+                if _kw.get('use_unpadded_sampler'):
+                    _kw['sampler'] = UnPaddedDDPSampler(_kw['dataset'], **sampler_args)
+                else:
+                    _kw['sampler'] = _data.distributed.DistributedSampler(_kw['dataset'], **sampler_args)
+                    
             _kw['num_workers'] = (_kw['num_workers'] + _args['num_gpus'] - 1) // _args['num_gpus']
             _kw['batch_size'] = _kw['batch_size'] // _args['num_gpus']
 

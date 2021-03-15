@@ -229,7 +229,9 @@ class ETTrainer:
                    epoch=1,
                    mode='eval',
                    dataset_list=None,
-                   save_pred=False) -> dict:
+                   save_pred=False,
+                   distributed: bool = False,
+                   use_unpadded_sampler: bool = False) -> dict:
 
         for k in self.nn:
             self.nn[k].eval()
@@ -240,9 +242,18 @@ class ETTrainer:
             return {'averages': eval_avg, 'metrics': eval_metrics}
 
         info(f'{mode} ...', self.args['verbose'])
-        loaders = [self.data_handle.get_loader(handle_key=mode, shuffle=False,
-                                               dataset=d, use_unpadded_sampler=True)
-                   for d in dataset_list]
+
+        loaders = []
+        for d in dataset_list:
+            loaders.append(
+                self.data_handle.get_loader(
+                    handle_key=mode,
+                    shuffle=False, dataset=d,
+                    distributed=distributed,
+                    use_unpadded_sampler=use_unpadded_sampler
+                )
+            )
+
         with _torch.no_grad():
             for loader in loaders:
                 its = []
@@ -396,7 +407,10 @@ class ETTrainer:
                 self.args['verbose'])
 
     def validation(self, epoch, val_dataset_list: _List[_Dataset]) -> dict:
-        return self.evaluation(epoch=epoch, mode='validation', dataset_list=val_dataset_list)
+        return self.evaluation(epoch=epoch, mode='validation',
+                               dataset_list=val_dataset_list,
+                               distributed=True,
+                               use_unpadded_sampler=True)
 
     def _global_debug(self, running_averages, running_metrics, **kw):
         """Update running accumulators."""
@@ -421,7 +435,13 @@ class ETTrainer:
 
     def train(self, train_dataset: _Dataset, val_dataset_list: _List[_Dataset]) -> None:
         info('Training ...', self.args['verbose'])
-        train_loader = self.data_handle.get_loader(handle_key='train', shuffle=True, dataset=train_dataset)
+
+        train_loader = self.data_handle.get_loader(
+            handle_key='train',
+            shuffle=True,
+            dataset=train_dataset,
+            distributed=self.args['use_ddp']
+        )
 
         for ep in range(1, self.args['epochs'] + 1):
             for k in self.nn:
