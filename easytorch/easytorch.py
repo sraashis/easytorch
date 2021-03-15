@@ -408,3 +408,7 @@ class EasyTorch:
                                             load_sparse=self.args['load_sparse'])
             scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)])
             self._global_experiment_end(trainer, scores)
+
+        if trainer.args.get('use_ddp'):
+            import torch.distributed as dist
+            dist.barrier()
