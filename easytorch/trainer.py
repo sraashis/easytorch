@@ -379,6 +379,11 @@ class ETTrainer:
             metrics.accumulate(acc['metrics'])
 
         if self.args['use_ddp']:
+
+            if self.args.get('use_ddp'):
+                import torch.distributed as dist
+                dist.barrier()
+
             avg_serial = _torch.tensor(averages.serialize()).to(self.device['gpu'])
             _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
 
@@ -486,7 +491,6 @@ class ETTrainer:
 
             if self.args['is_master']:
                 self._global_epoch_end(**epoch_out)
-                _dist.barrier()
 
             self._on_epoch_end(**epoch_out)
             if self._stop_early(**epoch_out):
