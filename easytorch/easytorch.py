@@ -16,6 +16,7 @@ from easytorch.utils.logger import *
 from easytorch.data import ETDataset, ETDataHandle
 from easytorch.trainer import ETTrainer
 import typing
+import torch.distributed as _dist
 
 _sep = _os.sep
 
@@ -332,7 +333,7 @@ class EasyTorch:
             test_accum = []
             trainer.init_experiment_cache()
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
-            for split_file in _os.listdir(dspec['split_dir']):
+            for split_file in sorted(_os.listdir(dspec['split_dir'])):
                 self._init_fold_cache(split_file, trainer.cache)
                 if self.args['is_master']:
                     self.check_previous_logs(trainer.cache)
@@ -351,13 +352,15 @@ class EasyTorch:
                     test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
                     test_accum.append(self._test(split_file, trainer, test_dataset))
 
+                if trainer.args.get('use_ddp'):
+                    _dist.barrier()
+
             if self.args['is_master']:
                 global_scores = trainer.reduce_scores(test_accum, distributed=False)
                 self._global_experiment_end(trainer, global_scores)
 
             if trainer.args.get('use_ddp'):
-                import torch.distributed as dist
-                dist.barrier()
+                _dist.barrier()
 
     def run_pooled(self, trainer_cls: typing.Type[ETTrainer],
                    dataset_cls: typing.Type[ETDataset] = None,
@@ -408,7 +411,3 @@ class EasyTorch:
                                             load_sparse=self.args['load_sparse'])
             scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)], distributed=False)
             self._global_experiment_end(trainer, scores)
-
-        if trainer.args.get('use_ddp'):
-            import torch.distributed as dist
-            dist.barrier()
