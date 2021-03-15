@@ -411,4 +411,4 @@ class EasyTorch:
 
         if trainer.args.get('use_ddp'):
             import torch.distributed as dist
-            dist.barrier(True)
+            dist.barrier()
