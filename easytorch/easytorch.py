@@ -270,25 +270,12 @@ class EasyTorch:
                 f.write(_json.dumps(log))
 
     def _train(self, trainer, train_dataset, validation_dataset, dspec):
-        if len(validation_dataset) <= 0 \
-                or all([d is None for d in validation_dataset]) \
-                or all([len(d) <= 0 for d in validation_dataset]):
-            validation_dataset = None
         trainer.train(train_dataset, validation_dataset)
         trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
         _utils.save_cache({**self.args, **trainer.cache, **dspec},
                           experiment_id=trainer.cache['experiment_id'])
 
     def _test(self, split_file, trainer, test_dataset) -> dict:
-
-        if not isinstance(test_dataset, list):
-            test_dataset = [test_dataset]
-            
-        if len(test_dataset) <= 0 \
-                or all([d is None for d in test_dataset]) \
-                or all([len(d) <= 0 for d in test_dataset]):
-            test_dataset = None
-
         best_exists = _os.path.exists(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
         if best_exists and (self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None):
             """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
@@ -296,7 +283,7 @@ class EasyTorch:
 
         """ Run and save experiment test scores """
         if test_dataset is not None:
-            test_out = trainer.evaluation(mode='test', save_pred=True, distributed=False, dataset_list=test_dataset)
+            test_out = trainer.evaluation(mode='test', save_pred=True, distributed=False, dataset=test_dataset)
             test_scores = trainer.reduce_scores([test_out], distributed=False)
             trainer.cache[LogKey.TEST_METRICS] = [[split_file,
                                                    *test_scores['averages'].get(),
@@ -320,7 +307,8 @@ class EasyTorch:
 
         for dspec in self.dataspecs:
 
-            data_handle = data_handle_cls(args={**self.args}, dataloader_args={**self.dataloader_args})
+            data_handle = data_handle_cls(args={**self.args},
+                                          dataloader_args={**self.dataloader_args})
             trainer = trainer_cls(args=self.args, data_handle=data_handle)
 
             trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
@@ -346,9 +334,6 @@ class EasyTorch:
                                                                           dataset_cls=dataset_cls)
                     validation_dataset = trainer.data_handle.get_validation_dataset(split_file, dspec,
                                                                                     dataset_cls=dataset_cls)
-                    if not isinstance(validation_dataset, list):
-                        validation_dataset = [validation_dataset]
-
                     self._train(trainer, train_dataset, validation_dataset, dspec)
 
                 if self.args['is_master']:
@@ -379,7 +364,8 @@ class EasyTorch:
         r"""  Run in pooled fashion. """
         self._show_args()
 
-        data_handle = data_handle_cls(args={**self.args}, dataloader_args={**self.dataloader_args})
+        data_handle = data_handle_cls(args={**self.args},
+                                      dataloader_args={**self.dataloader_args})
         trainer = trainer_cls(args=self.args, data_handle=data_handle)
 
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
@@ -404,9 +390,9 @@ class EasyTorch:
         if self.args['phase'] == Phase.TRAIN:
             train_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='train',
                                              load_sparse=False)[0]
-            val_dataset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
+            val_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
                                                 load_sparse=False)
-            self._train(trainer, train_dataset, val_dataset_list, {'dataspecs': self.dataspecs})
+            self._train(trainer, train_dataset, val_dataset, {'dataspecs': self.dataspecs})
 
         """Only do test in master rank node"""
         if self.args['is_master']:

@@ -71,7 +71,8 @@ class ETDataHandle:
                 if args['use_unpadded_sampler']:
                     loader_args['sampler'] = UnPaddedDDPSampler(loader_args['dataset'], **sampler_args)
                 else:
-                    loader_args['sampler'] = _data.distributed.DistributedSampler(loader_args['dataset'], **sampler_args)
+                    loader_args['sampler'] = _data.distributed.DistributedSampler(loader_args['dataset'],
+                                                                                  **sampler_args)
 
             loader_args['num_workers'] = (loader_args['num_workers'] + args['num_gpus'] - 1) // args['num_gpus']
             loader_args['batch_size'] = loader_args['batch_size'] // args['num_gpus']
@@ -96,7 +97,7 @@ class ETDataHandle:
                                              dataspec, dataset_cls=dataset_cls)
             return train_dataset
 
-    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
+    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Dataset:
         if dataset_cls is None or self.dataloader_args.get('validation', {}).get('dataset'):
             return self.dataloader_args.get('validation', {}).get('dataset')
 
@@ -106,7 +107,7 @@ class ETDataHandle:
             val_dataset = self.get_dataset('validation', split.get('validation', []),
                                            dataspec, dataset_cls=dataset_cls)
             if val_dataset and len(val_dataset) > 0:
-                return [val_dataset]
+                return val_dataset
 
     def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
         if dataset_cls is None or self.dataloader_args.get('test', {}).get('dataset'):
@@ -131,7 +132,7 @@ class ETDataHandle:
             else:
                 test_dataset_list.append(self.get_dataset('test', files, dataspec, dataset_cls=dataset_cls))
 
-        if sum([len(t) for t in test_dataset_list if t]) > 0:
+        if len(test_dataset_list) > 0 and sum([len(t) for t in test_dataset_list if t]) > 0:
             return test_dataset_list
 
 

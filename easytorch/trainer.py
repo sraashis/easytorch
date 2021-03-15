@@ -5,7 +5,7 @@ The main core of EasyTorch
 import math as _math
 import os as _os
 from collections import OrderedDict as _ODict
-from typing import List as _List
+from typing import List as _List, Union as _Union
 
 import torch as _torch
 from torch.utils.data import Dataset as _Dataset
@@ -228,7 +228,7 @@ class ETTrainer:
     def evaluation(self,
                    epoch=1,
                    mode='eval',
-                   dataset_list=None,
+                   dataset=_Union[_List[_Dataset], _Dataset],
                    save_pred=False,
                    distributed: bool = False,
                    use_unpadded_sampler: bool = False) -> dict:
@@ -238,13 +238,15 @@ class ETTrainer:
 
         eval_avg, eval_metrics = self.new_averages(), self.new_metrics()
 
-        if dataset_list is None:
+        if dataset is None:
             return {'averages': eval_avg, 'metrics': eval_metrics}
 
         info(f'{mode} ...', self.args['verbose'])
+        if not isinstance(dataset, list):
+            dataset = [dataset]
 
         loaders = []
-        for d in dataset_list:
+        for d in dataset:
             loaders.append(
                 self.data_handle.get_loader(
                     handle_key=mode,
@@ -269,14 +271,14 @@ class ETTrainer:
                     if save_pred:
                         its.append(it)
 
-                    if self.args['verbose'] and len(dataset_list) <= 1 and lazy_debug(i, add=epoch):
+                    if self.args['verbose'] and len(dataset) <= 1 and lazy_debug(i, add=epoch):
                         info(
                             f" Itr:{i}/{len(loader)}, Averages:{it.get('averages').get()}, Metrics:{it.get('metrics').get()}")
 
                 eval_metrics.accumulate(metrics)
                 eval_avg.accumulate(avg)
 
-                if self.args['verbose'] and len(dataset_list) > 1:
+                if self.args['verbose'] and len(dataset) > 1:
                     info(f" {mode}, {avg.get()}, {metrics.get()}")
                 if save_pred:
                     self.save_predictions(loader.dataset, self._reduce_iteration(its))
@@ -379,7 +381,6 @@ class ETTrainer:
             metrics.accumulate(acc['metrics'])
 
         if distributed:
-
             avg_serial = _torch.tensor(averages.serialize()).to(self.device['gpu'])
             _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
 
@@ -407,9 +408,9 @@ class ETTrainer:
                 f"Not best: {val_check['score']}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
                 self.args['verbose'])
 
-    def validation(self, epoch, val_dataset_list: _List[_Dataset]) -> dict:
+    def validation(self, epoch, dataset: _Union[_List[_Dataset], _Dataset]) -> dict:
         return self.evaluation(epoch=epoch, mode='validation',
-                               dataset_list=val_dataset_list,
+                               dataset=dataset,
                                distributed=self.args['use_ddp'],
                                use_unpadded_sampler=True)
 
@@ -434,7 +435,7 @@ class ETTrainer:
 
             running_averages.reset(), running_metrics.reset()
 
-    def train(self, train_dataset: _Dataset, val_dataset_list: _List[_Dataset]) -> None:
+    def train(self, train_dataset: _Dataset, validation_dataset: _Union[_List[_Dataset], _Dataset]) -> None:
         info('Training ...', self.args['verbose'])
 
         train_loader = self.data_handle.get_loader(
@@ -485,8 +486,8 @@ class ETTrainer:
             )
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
 
-            if val_dataset_list:
-                val_out = self.validation(ep, val_dataset_list)
+            if validation_dataset is not None:
+                val_out = self.validation(ep, validation_dataset)
                 if self.args['use_ddp']:
                     _dist.barrier()
                 epoch_out['validation'] = self.reduce_scores([val_out], distributed=self.args['use_ddp'])
