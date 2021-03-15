@@ -37,12 +37,14 @@ class ETDataHandle:
             self.dataloader_args.update(**dataloader_args)
         self.args.update(**kw)
 
-    def get_loader(self, handle_key='', **kw) -> _DataLoader:
-        _args = {**self.args}
-        _args.update(**kw)
-        _args.update(self.dataloader_args.get(handle_key, {}))
+    def get_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw) -> _DataLoader:
+        args = {**self.args}
+        args['distributed'] = distributed
+        -args['use_unpadded_sampler'] = use_unpadded_sampler
+        args.update(**kw)
+        args.update(self.dataloader_args.get(handle_key, {}))
 
-        _kw = {
+        loader_args = {
             'dataset': None,
             'batch_size': 1,
             'sampler': None,
@@ -52,30 +54,30 @@ class ETDataHandle:
             'pin_memory': False,
             'drop_last': False,
             'timeout': 0,
-            'worker_init_fn': seed_worker if _args.get('seed_all') else None
+            'worker_init_fn': seed_worker if args.get('seed_all') else None
         }
-        for k in _kw.keys():
-            _kw[k] = _args.get(k, _kw.get(k))
+        for k in loader_args.keys():
+            loader_args[k] = args.get(k, loader_args.get(k))
 
-        if _args.get('distributed'):
+        if args['distributed']:
             sampler_args = {
-                'num_replicas': _args.get('replicas'),
-                'rank': _args.get('rank'),
-                'shuffle': _args.get('shuffle'),
-                'seed': _args.get('seed')
+                'num_replicas': args.get('replicas'),
+                'rank': args.get('rank'),
+                'shuffle': args.get('shuffle'),
+                'seed': args.get('seed')
             }
 
-            if _kw.get('sampler') is None:
-                _kw['shuffle'] = False  # Shuffle is mutually exclusive with sampler
-                if _kw.get('use_unpadded_sampler'):
-                    _kw['sampler'] = UnPaddedDDPSampler(_kw['dataset'], **sampler_args)
+            if loader_args.get('sampler') is None:
+                loader_args['shuffle'] = False  # Shuffle is mutually exclusive with sampler
+                if args['use_unpadded_sampler']:
+                    loader_args['sampler'] = UnPaddedDDPSampler(loader_args['dataset'], **sampler_args)
                 else:
-                    _kw['sampler'] = _data.distributed.DistributedSampler(_kw['dataset'], **sampler_args)
-                    
-            _kw['num_workers'] = (_kw['num_workers'] + _args['num_gpus'] - 1) // _args['num_gpus']
-            _kw['batch_size'] = _kw['batch_size'] // _args['num_gpus']
+                    loader_args['sampler'] = _data.distributed.DistributedSampler(loader_args['dataset'], **sampler_args)
 
-        self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **_kw)
+            loader_args['num_workers'] = (loader_args['num_workers'] + args['num_gpus'] - 1) // args['num_gpus']
+            loader_args['batch_size'] = loader_args['batch_size'] // args['num_gpus']
+
+        self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **loader_args)
         return self.dataloader[handle_key]
 
     def get_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None) -> _Dataset:
