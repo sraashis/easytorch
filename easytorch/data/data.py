@@ -7,11 +7,10 @@ from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 from easytorch.utils.logger import *
 from os import sep as _sep
-from typing import List as _List, Sized
+from typing import List as _List
 import torch.utils.data as _data
 import torch.distributed as _dist
 import math as _math
-import torch.utils.data.sampler
 
 
 def safe_collate(batch):
@@ -40,7 +39,7 @@ class ETDataHandle:
     def get_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw) -> _DataLoader:
         args = {**self.args}
         args['distributed'] = distributed
-        -args['use_unpadded_sampler'] = use_unpadded_sampler
+        args['use_unpadded_sampler'] = use_unpadded_sampler
         args.update(**kw)
         args.update(self.dataloader_args.get(handle_key, {}))
 
