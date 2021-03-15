@@ -367,7 +367,7 @@ class ETTrainer:
                 self.optimizer[optim].zero_grad()
         return it
 
-    def reduce_scores(self, accumulator: list) -> dict:
+    def reduce_scores(self, accumulator: list, distributed=False) -> dict:
         averages = self.new_averages()
         metrics = self.new_metrics()
         if all([a is None for a in accumulator]):
@@ -378,7 +378,7 @@ class ETTrainer:
             averages.accumulate(acc['averages'])
             metrics.accumulate(acc['metrics'])
 
-        if self.args['use_ddp']:
+        if distributed:
 
             avg_serial = _torch.tensor(averages.serialize()).to(self.device['gpu'])
             _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
@@ -479,14 +479,17 @@ class ETTrainer:
                     self._on_iteration_end(i=i, epoch=ep, it=it)
 
             """Validation step"""
-            reduced_epoch = self.reduce_scores([{'averages': epoch_avg, 'metrics': epoch_metrics}])
+            reduced_epoch = self.reduce_scores(
+                [{'averages': epoch_avg, 'metrics': epoch_metrics}],
+                distributed=self.args['use_ddp']
+            )
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
 
             if val_dataset_list:
                 val_out = self.validation(ep, val_dataset_list)
                 if self.args['use_ddp']:
                     _dist.barrier()
-                epoch_out['validation'] = self.reduce_scores([val_out])
+                epoch_out['validation'] = self.reduce_scores([val_out], distributed=self.args['use_ddp'])
 
             if self.args['is_master']:
                 self._global_epoch_end(**epoch_out)

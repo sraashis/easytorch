@@ -294,7 +294,7 @@ class EasyTorch:
         """ Run and save experiment test scores """
         if test_dataset is not None:
             test_out = trainer.evaluation(mode='test', save_pred=True, distributed=False, dataset_list=test_dataset)
-            test_scores = trainer.reduce_scores([test_out])
+            test_scores = trainer.reduce_scores([test_out], distributed=False)
             trainer.cache[LogKey.TEST_METRICS] = [[split_file,
                                                    *test_scores['averages'].get(),
                                                    *test_scores['metrics'].get()]]
@@ -352,7 +352,7 @@ class EasyTorch:
                     test_accum.append(self._test(split_file, trainer, test_dataset))
 
             if self.args['is_master']:
-                global_scores = trainer.reduce_scores(test_accum)
+                global_scores = trainer.reduce_scores(test_accum, distributed=False)
                 self._global_experiment_end(trainer, global_scores)
 
             if trainer.args.get('use_ddp'):
@@ -406,7 +406,7 @@ class EasyTorch:
         if self.args['is_master']:
             test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
                                             load_sparse=self.args['load_sparse'])
-            scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)])
+            scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)], distributed=False)
             self._global_experiment_end(trainer, scores)
 
         if trainer.args.get('use_ddp'):
