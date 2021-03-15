@@ -380,9 +380,8 @@ class ETTrainer:
 
         if self.args['use_ddp']:
 
-            if self.args.get('use_ddp'):
-                import torch.distributed as dist
-                dist.barrier()
+            import torch.distributed as dist
+            dist.barrier()
 
             avg_serial = _torch.tensor(averages.serialize()).to(self.device['gpu'])
             _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
