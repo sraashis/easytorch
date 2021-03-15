@@ -403,12 +403,12 @@ class EasyTorch:
             self._train(trainer, train_dataset, val_dataset_list, {'dataspecs': self.dataspecs})
 
         """Only do test in master rank node"""
-        if self.args['is_master']:
-            test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
-                                            load_sparse=self.args['load_sparse'])
-            scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)])
-            self._global_experiment_end(trainer, scores)
+        # if self.args['is_master']:
+        test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
+                                        load_sparse=self.args['load_sparse'])
+        scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)])
+        self._global_experiment_end(trainer, scores)
 
-        if trainer.args.get('use_ddp'):
-            import torch.distributed as dist
-            dist.barrier()
+        # if trainer.args.get('use_ddp'):
+        #     import torch.distributed as dist
+        #     dist.barrier()
