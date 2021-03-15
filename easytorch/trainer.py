@@ -410,7 +410,7 @@ class ETTrainer:
     def validation(self, epoch, val_dataset_list: _List[_Dataset]) -> dict:
         return self.evaluation(epoch=epoch, mode='validation',
                                dataset_list=val_dataset_list,
-                               distributed=True,
+                               distributed=self.args['use_ddp'],
                                use_unpadded_sampler=True)
 
     def _global_debug(self, running_averages, running_metrics, **kw):
