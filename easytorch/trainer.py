@@ -5,7 +5,7 @@ The main core of EasyTorch
 import math as _math
 import os as _os
 from collections import OrderedDict as _ODict
-from typing import List as _List
+from typing import List as _List, Union as _Union
 
 import torch as _torch
 from torch.utils.data import Dataset as _Dataset
@@ -228,19 +228,34 @@ class ETTrainer:
     def evaluation(self,
                    epoch=1,
                    mode='eval',
-                   dataset_list=None,
-                   save_pred=False) -> dict:
+                   dataset=_Union[_List[_Dataset], _Dataset],
+                   save_pred=False,
+                   distributed: bool = False,
+                   use_unpadded_sampler: bool = False) -> dict:
 
         for k in self.nn:
             self.nn[k].eval()
 
         eval_avg, eval_metrics = self.new_averages(), self.new_metrics()
 
-        if dataset_list is None:
+        if dataset is None:
             return {'averages': eval_avg, 'metrics': eval_metrics}
 
         info(f'{mode} ...', self.args['verbose'])
-        loaders = [self.data_handle.get_loader(handle_key=mode, shuffle=False, dataset=d) for d in dataset_list]
+        if not isinstance(dataset, list):
+            dataset = [dataset]
+
+        loaders = []
+        for d in dataset:
+            loaders.append(
+                self.data_handle.get_loader(
+                    handle_key=mode,
+                    shuffle=False, dataset=d,
+                    distributed=distributed,
+                    use_unpadded_sampler=use_unpadded_sampler
+                )
+            )
+
         with _torch.no_grad():
             for loader in loaders:
                 its = []
@@ -256,14 +271,14 @@ class ETTrainer:
                     if save_pred:
                         its.append(it)
 
-                    if self.args['verbose'] and len(dataset_list) <= 1 and lazy_debug(i, add=epoch):
+                    if self.args['verbose'] and len(dataset) <= 1 and lazy_debug(i, add=epoch):
                         info(
                             f" Itr:{i}/{len(loader)}, Averages:{it.get('averages').get()}, Metrics:{it.get('metrics').get()}")
 
                 eval_metrics.accumulate(metrics)
                 eval_avg.accumulate(avg)
 
-                if self.args['verbose'] and len(dataset_list) > 1:
+                if self.args['verbose'] and len(dataset) > 1:
                     info(f" {mode}, {avg.get()}, {metrics.get()}")
                 if save_pred:
                     self.save_predictions(loader.dataset, self._reduce_iteration(its))
@@ -338,8 +353,8 @@ class ETTrainer:
 
     def _save_progress(self, epoch):
         _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
-                                     plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
-                                     epoch=epoch)
+                                 plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
+                                 epoch=epoch)
 
     def training_iteration(self, i, batch) -> dict:
         r"""
@@ -354,7 +369,7 @@ class ETTrainer:
                 self.optimizer[optim].zero_grad()
         return it
 
-    def reduce_scores(self, accumulator: list) -> dict:
+    def reduce_scores(self, accumulator: list, distributed=False) -> dict:
         averages = self.new_averages()
         metrics = self.new_metrics()
         if all([a is None for a in accumulator]):
@@ -365,7 +380,7 @@ class ETTrainer:
             averages.accumulate(acc['averages'])
             metrics.accumulate(acc['metrics'])
 
-        if self.args['use_ddp']:
+        if distributed:
             avg_serial = _torch.tensor(averages.serialize()).to(self.device['gpu'])
             _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
 
@@ -393,8 +408,11 @@ class ETTrainer:
                 f"Not best: {val_check['score']}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
                 self.args['verbose'])
 
-    def validation(self, epoch, val_dataset_list: _List[_Dataset]) -> dict:
-        return self.evaluation(epoch=epoch, mode='validation', dataset_list=val_dataset_list)
+    def validation(self, epoch, dataset: _Union[_List[_Dataset], _Dataset]) -> dict:
+        return self.evaluation(epoch=epoch, mode='validation',
+                               dataset=dataset,
+                               distributed=self.args['use_ddp'],
+                               use_unpadded_sampler=True)
 
     def _global_debug(self, running_averages, running_metrics, **kw):
         """Update running accumulators."""
@@ -417,9 +435,15 @@ class ETTrainer:
 
             running_averages.reset(), running_metrics.reset()
 
-    def train(self, train_dataset: _Dataset, val_dataset_list: _List[_Dataset]) -> None:
+    def train(self, train_dataset: _Dataset, validation_dataset: _Union[_List[_Dataset], _Dataset]) -> None:
         info('Training ...', self.args['verbose'])
-        train_loader = self.data_handle.get_loader(handle_key='train', shuffle=True, dataset=train_dataset)
+
+        train_loader = self.data_handle.get_loader(
+            handle_key='train',
+            shuffle=True,
+            dataset=train_dataset,
+            distributed=self.args['use_ddp']
+        )
 
         for ep in range(1, self.args['epochs'] + 1):
             for k in self.nn:
@@ -456,11 +480,17 @@ class ETTrainer:
                     self._on_iteration_end(i=i, epoch=ep, it=it)
 
             """Validation step"""
-            reduced_epoch = self.reduce_scores([{'averages': epoch_avg, 'metrics': epoch_metrics}])
+            reduced_epoch = self.reduce_scores(
+                [{'averages': epoch_avg, 'metrics': epoch_metrics}],
+                distributed=self.args['use_ddp']
+            )
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
-            if val_dataset_list:
-                val_out = self.validation(ep, val_dataset_list)
-                epoch_out['validation'] = self.reduce_scores([val_out])
+
+            if validation_dataset is not None:
+                val_out = self.validation(ep, validation_dataset)
+                if self.args['use_ddp']:
+                    _dist.barrier()
+                epoch_out['validation'] = self.reduce_scores([val_out], distributed=self.args['use_ddp'])
 
             if self.args['is_master']:
                 self._global_epoch_end(**epoch_out)

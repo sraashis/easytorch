@@ -16,6 +16,7 @@ from easytorch.utils.logger import *
 from easytorch.data import ETDataset, ETDataHandle
 from easytorch.trainer import ETTrainer
 import typing
+import torch.distributed as _dist
 
 _sep = _os.sep
 
@@ -257,7 +258,7 @@ class EasyTorch:
 
     def _global_experiment_end(self, trainer, scores: dict):
         "Save reduced scores"
-        if self.args['is_master'] and scores is not None:
+        if scores is not None:
             """ Finally, save the global score to a file  """
             trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
                 ['Global', *scores['averages'].get(), *scores['metrics'].get()])
@@ -269,23 +270,12 @@ class EasyTorch:
                 f.write(_json.dumps(log))
 
     def _train(self, trainer, train_dataset, validation_dataset, dspec):
-        if len(validation_dataset) <= 0 \
-                or all([d is None for d in validation_dataset]) \
-                or all([len(d) <= 0 for d in validation_dataset]):
-            validation_dataset = None
         trainer.train(train_dataset, validation_dataset)
         trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
         _utils.save_cache({**self.args, **trainer.cache, **dspec},
                           experiment_id=trainer.cache['experiment_id'])
 
     def _test(self, split_file, trainer, test_dataset) -> dict:
-
-        test_dataset = test_dataset if isinstance(test_dataset, list) else [test_dataset]
-        if len(test_dataset) <= 0 \
-                or all([d is None for d in test_dataset]) \
-                or all([len(d) <= 0 for d in test_dataset]):
-            test_dataset = None
-
         best_exists = _os.path.exists(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
         if best_exists and (self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None):
             """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
@@ -293,14 +283,13 @@ class EasyTorch:
 
         """ Run and save experiment test scores """
         if test_dataset is not None:
-            test_out = trainer.evaluation(mode='test', save_pred=True, dataset_list=test_dataset)
-            test_scores = trainer.reduce_scores([test_out])
-            if self.args['is_master']:
-                trainer.cache[LogKey.TEST_METRICS] = [[split_file,
-                                                       *test_scores['averages'].get(),
-                                                       *test_scores['metrics'].get()]]
-                _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
-                                   file_keys=[LogKey.TEST_METRICS])
+            test_out = trainer.evaluation(mode='test', save_pred=True, distributed=False, dataset=test_dataset)
+            test_scores = trainer.reduce_scores([test_out], distributed=False)
+            trainer.cache[LogKey.TEST_METRICS] = [[split_file,
+                                                   *test_scores['averages'].get(),
+                                                   *test_scores['metrics'].get()]]
+            _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
+                               file_keys=[LogKey.TEST_METRICS])
             return test_out
 
     def run(self, trainer_cls: typing.Type[ETTrainer],
@@ -318,7 +307,8 @@ class EasyTorch:
 
         for dspec in self.dataspecs:
 
-            data_handle = data_handle_cls(args={**self.args}, dataloader_args={**self.dataloader_args})
+            data_handle = data_handle_cls(args={**self.args},
+                                          dataloader_args={**self.dataloader_args})
             trainer = trainer_cls(args=self.args, data_handle=data_handle)
 
             trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
@@ -326,14 +316,14 @@ class EasyTorch:
             self._create_splits(dspec, trainer.cache['log_dir'])
 
             trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
-            trainer.cache['log_header'] = 'Loss,Accuracy'
+            trainer.cache['log_header'] = 'Loss|Accuracy'
             trainer.cache.update(monitor_metric='time', metric_direction='maximize')
 
             """ Init and Run for each splits. """
             test_accum = []
             trainer.init_experiment_cache()
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
-            for split_file in _os.listdir(dspec['split_dir']):
+            for split_file in sorted(_os.listdir(dspec['split_dir'])):
                 self._init_fold_cache(split_file, trainer.cache)
                 if self.args['is_master']:
                     self.check_previous_logs(trainer.cache)
@@ -344,20 +334,21 @@ class EasyTorch:
                                                                           dataset_cls=dataset_cls)
                     validation_dataset = trainer.data_handle.get_validation_dataset(split_file, dspec,
                                                                                     dataset_cls=dataset_cls)
-                    validation_dataset = validation_dataset if isinstance(validation_dataset, list) else [
-                        validation_dataset]
                     self._train(trainer, train_dataset, validation_dataset, dspec)
 
-                test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
-                test_accum.append(self._test(split_file, trainer, test_dataset))
+                if self.args['is_master']:
+                    test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
+                    test_accum.append(self._test(split_file, trainer, test_dataset))
 
-            global_scores = trainer.reduce_scores(test_accum)
+                if trainer.args.get('use_ddp'):
+                    _dist.barrier()
+
             if self.args['is_master']:
+                global_scores = trainer.reduce_scores(test_accum, distributed=False)
                 self._global_experiment_end(trainer, global_scores)
 
             if trainer.args.get('use_ddp'):
-                import torch.distributed as dist
-                dist.barrier()
+                _dist.barrier()
 
     def run_pooled(self, trainer_cls: typing.Type[ETTrainer],
                    dataset_cls: typing.Type[ETDataset] = None,
@@ -373,7 +364,8 @@ class EasyTorch:
         r"""  Run in pooled fashion. """
         self._show_args()
 
-        data_handle = data_handle_cls(args={**self.args}, dataloader_args={**self.dataloader_args})
+        data_handle = data_handle_cls(args={**self.args},
+                                      dataloader_args={**self.dataloader_args})
         trainer = trainer_cls(args=self.args, data_handle=data_handle)
 
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
@@ -383,7 +375,7 @@ class EasyTorch:
         warn('Pooling only uses first split from each datasets at the moment.', self.args['verbose'])
 
         trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
-        trainer.cache['log_header'] = 'Loss,Accuracy'
+        trainer.cache['log_header'] = 'Loss|Accuracy'
         trainer.cache.update(monitor_metric='time', metric_direction='maximize')
 
         """Initialize experiment essentials"""
@@ -398,12 +390,13 @@ class EasyTorch:
         if self.args['phase'] == Phase.TRAIN:
             train_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='train',
                                              load_sparse=False)[0]
-            val_dataset_list = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
+            val_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
                                                 load_sparse=False)
-            self._train(trainer, train_dataset, val_dataset_list, {'dataspecs': self.dataspecs})
+            self._train(trainer, train_dataset, val_dataset, {'dataspecs': self.dataspecs})
 
-        test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
-                                        load_sparse=self.args['load_sparse'])
-        scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)])
+        """Only do test in master rank node"""
         if self.args['is_master']:
+            test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
+                                            load_sparse=self.args['load_sparse'])
+            scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)], distributed=False)
             self._global_experiment_end(trainer, scores)
