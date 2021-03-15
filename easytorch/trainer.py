@@ -479,13 +479,13 @@ class ETTrainer:
                         self._global_debug(_avg, _metrics, epoch=ep, **it)
                     self._on_iteration_end(i=i, epoch=ep, it=it)
 
-            """Validation step"""
             reduced_epoch = self.reduce_scores(
                 [{'averages': epoch_avg, 'metrics': epoch_metrics}],
                 distributed=self.args['use_ddp']
             )
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
 
+            """Validation step"""
             if validation_dataset is not None:
                 val_out = self.validation(ep, validation_dataset)
                 if self.args['use_ddp']:
