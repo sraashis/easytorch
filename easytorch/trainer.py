@@ -479,13 +479,13 @@ class ETTrainer:
                     self._on_iteration_end(i=i, epoch=ep, it=it)
 
             """Validation step"""
-            if self.args['use_ddp']:
-                _dist.barrier()
-
             reduced_epoch = self.reduce_scores([{'averages': epoch_avg, 'metrics': epoch_metrics}])
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
+
             if val_dataset_list:
                 val_out = self.validation(ep, val_dataset_list)
+                if self.args['use_ddp']:
+                    _dist.barrier()
                 epoch_out['validation'] = self.reduce_scores([val_out])
 
             if self.args['is_master']:
