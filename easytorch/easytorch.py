@@ -281,7 +281,9 @@ class EasyTorch:
 
     def _test(self, split_file, trainer, test_dataset) -> dict:
 
-        test_dataset = test_dataset if isinstance(test_dataset, list) else [test_dataset]
+        if not isinstance(test_dataset, list):
+            test_dataset = [test_dataset]
+            
         if len(test_dataset) <= 0 \
                 or all([d is None for d in test_dataset]) \
                 or all([len(d) <= 0 for d in test_dataset]):
@@ -326,7 +328,7 @@ class EasyTorch:
             self._create_splits(dspec, trainer.cache['log_dir'])
 
             trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
-            trainer.cache['log_header'] = 'Loss,Accuracy'
+            trainer.cache['log_header'] = 'Loss|Accuracy'
             trainer.cache.update(monitor_metric='time', metric_direction='maximize')
 
             """ Init and Run for each splits. """
@@ -344,8 +346,9 @@ class EasyTorch:
                                                                           dataset_cls=dataset_cls)
                     validation_dataset = trainer.data_handle.get_validation_dataset(split_file, dspec,
                                                                                     dataset_cls=dataset_cls)
-                    validation_dataset = validation_dataset if isinstance(validation_dataset, list) else [
-                        validation_dataset]
+                    if not isinstance(validation_dataset, list):
+                        validation_dataset = [validation_dataset]
+
                     self._train(trainer, train_dataset, validation_dataset, dspec)
 
                 if self.args['is_master']:
@@ -386,7 +389,7 @@ class EasyTorch:
         warn('Pooling only uses first split from each datasets at the moment.', self.args['verbose'])
 
         trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
-        trainer.cache['log_header'] = 'Loss,Accuracy'
+        trainer.cache['log_header'] = 'Loss|Accuracy'
         trainer.cache.update(monitor_metric='time', metric_direction='maximize')
 
         """Initialize experiment essentials"""
