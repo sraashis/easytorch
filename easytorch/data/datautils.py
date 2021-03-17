@@ -8,7 +8,7 @@ from easytorch import config as _conf
 _sep = _os.sep
 
 
-def create_ratio_split(files, save_to_dir=None, ratio: dict = None, first_key='train', name='SPLIT'):
+def create_ratio_split(files, save_to_dir=None, ratio: list = None, first_key='train', name='SPLIT'):
     keys = [first_key]
     if len(ratio) == 2:
         keys.append('test')
