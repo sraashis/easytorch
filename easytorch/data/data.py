@@ -202,14 +202,14 @@ class ETDataset(_Dataset):
                     for file in split[split_key]:
                         if args['load_limit'] and len(all_d) >= args['load_limit']:
                             break
-                        d = cls(mode=split_key)
+                        d = cls(mode=split_key, **args)
                         d.add(files=[file], verbose=False, **dspec)
                         all_d.append(d)
                     if args['verbose']:
                         success(f'{len(all_d)} sparse dataset loaded.')
                 else:
                     if len(all_d) <= 0:
-                        all_d.append(cls(mode=split_key, limit=args['load_limit']))
+                        all_d.append(cls(mode=split_key, limit=args['load_limit'], **args))
                     all_d[0].add(files=split[split_key], verbose=args['verbose'], **dspec)
                 """Pooling only works with 1 split at the moment."""
                 break
