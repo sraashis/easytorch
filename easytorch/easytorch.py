@@ -315,6 +315,9 @@ class EasyTorch:
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
             self._create_splits(dspec, trainer.cache['log_dir'])
 
+            if self.args['phase'] == Phase.SETUP:
+                continue
+
             trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
             trainer.cache['log_header'] = 'Loss|Accuracy'
             trainer.cache.update(monitor_metric='time', metric_direction='maximize')
@@ -372,6 +375,10 @@ class EasyTorch:
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + f'Pooled_{len(self.dataspecs)}'
         for dspec in self.dataspecs:
             self._create_splits(dspec, trainer.cache['log_dir'] + _sep + dspec['name'])
+
+        if self.args['phase'] == Phase.SETUP:
+            return
+
         warn('Pooling only uses first split from each datasets at the moment.', self.args['verbose'])
 
         trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
@@ -391,7 +398,7 @@ class EasyTorch:
             train_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='train',
                                              load_sparse=False)[0]
             val_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
-                                                load_sparse=False)
+                                           load_sparse=False)
             self._train(trainer, train_dataset, val_dataset, {'dataspecs': self.dataspecs})
 
         """Only do test in master rank node"""
