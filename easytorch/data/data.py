@@ -177,15 +177,9 @@ class ETDataset(_Dataset):
         return None
 
     def add(self, files, **kw):
-        r"""
-        An extra layer for added flexibility.
-        """
+        r""" An extra layer for added flexibility."""
         self.dataspecs[kw['name']] = kw
-        self.pre_process(files, **kw)
         self._load_indices(dataset_name=kw['name'], files=files, verbose=kw.get('verbose'))
-
-    def pre_process(self, files, **kw):
-        pass
 
     @classmethod
     def pool(cls, args, dataspecs, split_key=None, load_sparse=False):
