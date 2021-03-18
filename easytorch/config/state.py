@@ -26,7 +26,6 @@ MASTER_RANK = 0
 
 
 class Phase(str, _Enum):
-    SETUP = 'setup'
     TRAIN = 'train'
     VALIDATION = 'validation'
     TEST = 'test'
