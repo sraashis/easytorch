@@ -3,12 +3,15 @@ import os as _os
 import random as _rd
 
 import numpy as _np
-from easytorch import config as _conf
 
 _sep = _os.sep
 
 
-def create_ratio_split(files, save_to_dir=None, ratio: list = None, first_key='train', name='SPLIT'):
+def create_ratio_split(files, save_to_dir=None, ratio: list = None, first_key='train', name='SPLIT',
+                       shuffle_files=True):
+    if shuffle_files:
+        _rd.shuffle(files)
+
     keys = [first_key]
     if len(ratio) == 2:
         keys.append('test')
