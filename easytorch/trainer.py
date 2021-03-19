@@ -488,8 +488,6 @@ class ETTrainer:
             """Validation step"""
             if validation_dataset is not None:
                 val_out = self.validation(ep, validation_dataset)
-                if self.args['use_ddp']:
-                    _dist.barrier()
                 epoch_out['validation'] = self.reduce_scores([val_out], distributed=self.args['use_ddp'])
 
             if self.args['is_master']:
