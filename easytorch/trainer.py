@@ -490,10 +490,10 @@ class ETTrainer:
                 val_out = self.validation(ep, validation_dataset)
                 epoch_out['validation'] = self.reduce_scores([val_out], distributed=self.args['use_ddp'])
 
+            self._on_epoch_end(**epoch_out)
             if self.args['is_master']:
                 self._global_epoch_end(**epoch_out)
 
-            self._on_epoch_end(**epoch_out)
             if self._stop_early(**epoch_out):
                 break
 
