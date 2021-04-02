@@ -166,18 +166,17 @@ class ETTrainer:
                         src=MYSELF):
 
         checkpoint = {'_its_origin_': src}
-
         if save_model_state:
+            checkpoint['models'] = {}
             for k in self.nn:
-                checkpoint['models'] = {}
                 try:
                     checkpoint['models'][k] = self.nn[k].module.state_dict()
                 except:
                     checkpoint['models'][k] = self.nn[k].state_dict()
 
         if save_optimizer_state:
+            checkpoint['optimizers'] = {}
             for k in self.optimizer:
-                checkpoint['optimizers'] = {}
                 try:
                     checkpoint['optimizers'][k] = self.optimizer[k].module.state_dict()
                 except:
