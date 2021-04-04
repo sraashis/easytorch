@@ -3,8 +3,9 @@ import os as _os
 import random as _rd
 
 import numpy as _np
+import torch as _torch
+from torch.utils.data._utils.collate import default_collate as _default_collate
 
-from easytorch.utils.logger import *
 
 _sep = _os.sep
 

@@ -1,6 +1,5 @@
 import json as _json
 import os as _os
-import numpy as _np
 
 import torch as _torch
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
@@ -14,6 +13,29 @@ import math as _math
 import multiprocessing as _mp
 from functools import partial as _partial
 from itertools import chain as _chain
+import numpy as _np
+
+
+def seed_worker(worker_id):
+    seed = (int(_torch.initial_seed()) + worker_id) % (2 ** 32 - 1)
+    _np.random.seed(seed)
+
+
+def load_sparse_data_worker(dataset_cls, mode, args, dataspec, total, i, file):
+    _args = {**args}
+    test_dataset = dataset_cls(mode=mode, **args)
+    test_dataset.add(files=[file], verbose=False, **dataspec)
+    if args['verbose']:
+        print(f"Indices loaded: {i}/{total}", end='\r')
+    return [test_dataset]
+
+
+def load_indices_worker(etdataset, dataset_name, total, i, file):
+    etdataset.indices = []
+    etdataset.load_index(dataset_name, file)
+    if etdataset.args['verbose']:
+        print(f"Indices loaded: {i}/{total}", end='\r')
+    return [etdataset]
 
 
 def safe_collate(batch):
@@ -23,18 +45,16 @@ def safe_collate(batch):
     return _default_collate([b for b in batch if b])
 
 
-def seed_worker(worker_id):
-    seed = (int(_torch.initial_seed()) + worker_id) % (2 ** 32 - 1)
-    _np.random.seed(seed)
+def num_workers(args, loader_args, distributed=True):
+    if distributed:
+        return (loader_args['num_workers'] + args['num_gpus'] - 1) // args['num_gpus']
+    return loader_args['num_worker']
 
 
-def _load_sparse_data_worker(dataset_cls, mode, args, dataspec, total, i, file):
-    _args = {**args}
-    test_dataset = dataset_cls(mode=mode, **args)
-    test_dataset.add(files=[file], verbose=False, **dataspec)
-    if args['verbose']:
-        print(f"Indices loaded: {i}/{total}", end='\r')
-    return [test_dataset]
+def batch_size(args, loader_args, distributed=True):
+    if distributed:
+        loader_args['batch_size'] = loader_args['batch_size'] // args['num_gpus']
+    return loader_args['batch_size']
 
 
 class ETDataHandle:
@@ -47,50 +67,6 @@ class ETDataHandle:
         if dataloader_args is not None:
             self.dataloader_args.update(**dataloader_args)
         self.args.update(**kw)
-
-    def get_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw) -> _DataLoader:
-        args = {**self.args}
-        args['distributed'] = distributed
-        args['use_unpadded_sampler'] = use_unpadded_sampler
-        args.update(**kw)
-        args.update(self.dataloader_args.get(handle_key, {}))
-
-        loader_args = {
-            'dataset': None,
-            'batch_size': 1,
-            'sampler': None,
-            'shuffle': False,
-            'batch_sampler': None,
-            'num_workers': 0,
-            'pin_memory': False,
-            'drop_last': False,
-            'timeout': 0,
-            'worker_init_fn': seed_worker if args.get('seed_all') else None
-        }
-        for k in loader_args.keys():
-            loader_args[k] = args.get(k, loader_args.get(k))
-
-        if args['distributed']:
-            sampler_args = {
-                'num_replicas': args.get('replicas'),
-                'rank': args.get('rank'),
-                'shuffle': args.get('shuffle'),
-                'seed': args.get('seed')
-            }
-
-            if loader_args.get('sampler') is None:
-                loader_args['shuffle'] = False  # Shuffle is mutually exclusive with sampler
-                if args['use_unpadded_sampler']:
-                    loader_args['sampler'] = UnPaddedDDPSampler(loader_args['dataset'], **sampler_args)
-                else:
-                    loader_args['sampler'] = _data.distributed.DistributedSampler(loader_args['dataset'],
-                                                                                  **sampler_args)
-
-            loader_args['num_workers'] = (loader_args['num_workers'] + args['num_gpus'] - 1) // args['num_gpus']
-            loader_args['batch_size'] = loader_args['batch_size'] // args['num_gpus']
-
-        self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **loader_args)
-        return self.dataloader[handle_key]
 
     def get_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None) -> _Dataset:
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
@@ -108,16 +84,21 @@ class ETDataHandle:
         for i, file in enumerate(files[:self.args['load_limit']], 1):
             _files.append([i, file])
 
+        sparse_datasets = []
         if len(_files) > 0:
-            with _mp.Pool(processes=max(1, min(self.args['num_workers'], len(_files)))) as pool:
-                return list(
+            nw = min(num_workers(self.args, self.args, self.args['use_ddp']), len(_files))
+            with _mp.Pool(processes=max(1, nw)) as pool:
+                sparse_datasets = list(
                     _chain.from_iterable(pool.starmap(
                         _partial(
-                            _load_sparse_data_worker, dataset_cls, handle_key, self.args, dataspec, len(_files)
+                            load_sparse_data_worker, dataset_cls, handle_key, self.args, dataspec, len(_files)
                         ),
                         _files
                     )))
-        success(f"\n{dataspec['name']}, {handle_key}, {len(_files)} sparse dataset Loaded", self.args['verbose'])
+
+        success(f"\n{dataspec['name']}, {handle_key}, {len(sparse_datasets)} sparse dataset Loaded",
+                self.args['verbose'])
+        return sparse_datasets
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
         if dataset_cls is None or self.dataloader_args.get('train', {}).get('dataset'):
@@ -158,13 +139,49 @@ class ETDataHandle:
             if len(datasets) > 0 and sum([len(t) for t in datasets if t]) > 0:
                 return datasets
 
+    def get_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw) -> _DataLoader:
+        args = {**self.args}
+        args['distributed'] = distributed
+        args['use_unpadded_sampler'] = use_unpadded_sampler
+        args.update(**kw)
+        args.update(self.dataloader_args.get(handle_key, {}))
 
-def _load_indices_worker(etdataset, dataset_name, total, i, file):
-    etdataset.indices = []
-    etdataset.load_index(dataset_name, file)
-    if etdataset.args['verbose']:
-        print(f"Indices loaded: {i}/{total}", end='\r')
-    return [etdataset]
+        loader_args = {
+            'dataset': None,
+            'batch_size': 1,
+            'sampler': None,
+            'shuffle': False,
+            'batch_sampler': None,
+            'num_workers': 0,
+            'pin_memory': False,
+            'drop_last': False,
+            'timeout': 0,
+            'worker_init_fn': seed_worker if args.get('seed_all') else None
+        }
+        for k in loader_args.keys():
+            loader_args[k] = args.get(k, loader_args.get(k))
+
+        if args['distributed']:
+            sampler_args = {
+                'num_replicas': args.get('replicas'),
+                'rank': args.get('rank'),
+                'shuffle': args.get('shuffle'),
+                'seed': args.get('seed')
+            }
+
+            if loader_args.get('sampler') is None:
+                loader_args['shuffle'] = False  # Shuffle is mutually exclusive with sampler
+                if args['use_unpadded_sampler']:
+                    loader_args['sampler'] = UnPaddedDDPSampler(loader_args['dataset'], **sampler_args)
+                else:
+                    loader_args['sampler'] = _data.distributed.DistributedSampler(loader_args['dataset'],
+                                                                                  **sampler_args)
+
+            loader_args['num_workers'] = num_workers(args, loader_args)
+            loader_args['batch_size'] = batch_size(args, loader_args)
+
+        self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **loader_args)
+        return self.dataloader[handle_key]
 
 
 class ETDataset(_Dataset):
@@ -193,11 +210,12 @@ class ETDataset(_Dataset):
             _files.append([i, f])
 
         if len(_files) > 1:
-            with _mp.Pool(processes=max(1, min(self.args['num_workers'], len(_files)))) as pool:
+            nw = min(num_workers(self.args, self.args, self.args['use_ddp']), len(_files))
+            with _mp.Pool(processes=max(1, nw)) as pool:
                 all_datasets = list(
                     _chain.from_iterable(pool.starmap(
                         _partial(
-                            _load_indices_worker, self, dataset_name, len(_files)
+                            load_indices_worker, self, dataset_name, len(_files)
                         ),
                         _files
                     )))
@@ -246,16 +264,15 @@ class ETDataset(_Dataset):
                     _files.append([i, f])
 
                 if load_sparse:
-                    with _mp.Pool(processes=max(1, min(args['num_workers'], len(_files)))) as pool:
+                    nw = min(num_workers(args, args, args['use_ddp']), len(_files))
+                    with _mp.Pool(processes=max(1, nw)) as pool:
                         all_d = list(
                             _chain.from_iterable(pool.starmap(
                                 _partial(
-                                    _load_sparse_data_worker, split_key, args, dspec, len(_files)
+                                    load_sparse_data_worker, split_key, args, dspec, len(_files)
                                 ),
                                 _files
                             )))
-
-                    success(f'\n{len(all_d)} sparse dataset loaded.', args['verbose'])
                 else:
                     if len(all_d) <= 0:
                         all_d.append(cls(mode=split_key, limit=args['load_limit'], **args))
@@ -263,6 +280,7 @@ class ETDataset(_Dataset):
                 """Pooling only works with 1 split at the moment."""
                 break
 
+        success(f' Pooled \n{len(all_d)} sparse dataset loaded.', args['verbose'] and len(all_d) > 1)
         return all_d
 
 
