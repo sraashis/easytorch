@@ -45,13 +45,13 @@ def safe_collate(batch):
     return _default_collate([b for b in batch if b])
 
 
-def num_workers(args, loader_args, distributed=True):
+def num_workers(args, loader_args, distributed=False):
     if distributed:
         return (loader_args['num_workers'] + args['num_gpus'] - 1) // args['num_gpus']
     return loader_args['num_worker']
 
 
-def batch_size(args, loader_args, distributed=True):
+def batch_size(args, loader_args, distributed=False):
     if distributed:
         loader_args['batch_size'] = loader_args['batch_size'] // args['num_gpus']
     return loader_args['batch_size']
@@ -177,8 +177,8 @@ class ETDataHandle:
                     loader_args['sampler'] = _data.distributed.DistributedSampler(loader_args['dataset'],
                                                                                   **sampler_args)
 
-            loader_args['num_workers'] = num_workers(args, loader_args)
-            loader_args['batch_size'] = batch_size(args, loader_args)
+            loader_args['num_workers'] = num_workers(args, loader_args, True)
+            loader_args['batch_size'] = batch_size(args, loader_args, True)
 
         self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **loader_args)
         return self.dataloader[handle_key]
