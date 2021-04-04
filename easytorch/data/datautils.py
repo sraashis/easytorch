@@ -4,6 +4,8 @@ import random as _rd
 
 import numpy as _np
 
+from easytorch.utils.logger import *
+
 _sep = _os.sep
 
 
@@ -122,3 +124,4 @@ def default_data_splitter_(dspec, args):
                            save_to_dir=dspec['split_dir'],
                            ratio=args['split_ratio'],
                            name=dspec['name'])
+

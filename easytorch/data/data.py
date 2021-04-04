@@ -7,10 +7,14 @@ from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 from easytorch.utils.logger import *
 from os import sep as _sep
-from typing import List as _List
+from typing import List as _List, Union as _Union
 import torch.utils.data as _data
 import torch.distributed as _dist
 import math as _math
+import multiprocessing as _mp
+from functools import partial as _partial
+from itertools import chain as _chain
+from easytorch.config.state import *
 
 
 def safe_collate(batch):
@@ -23,6 +27,15 @@ def safe_collate(batch):
 def seed_worker(worker_id):
     seed = (int(_torch.initial_seed()) + worker_id) % (2 ** 32 - 1)
     _np.random.seed(seed)
+
+
+def _load_sparse_data_worker(dataset_cls, mode, args, dataspec, total, i, file):
+    _args = {**args}
+    test_dataset = dataset_cls(mode=mode, **args)
+    test_dataset.add(files=[file], verbose=False, **dataspec)
+    if args['verbose'] and i % total == MULTI_WORKER_LOG_FREQ:
+        print(f"Indices loaded: {i}/{total}", end='\n' if (i == total) else '\r')
+    return [test_dataset]
 
 
 class ETDataHandle:
@@ -86,7 +99,27 @@ class ETDataHandle:
         self.dataset[handle_key] = dataset
         return dataset
 
-    def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Dataset:
+    def get_sparse_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
+        r"""
+        Load the test data from current fold/split.
+        If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
+        So that we can correctly gather components of one image(components like output patches)
+        """
+        _files = []
+        for i, file in enumerate(files[:self.args['load_limit']], 1):
+            _files.append([i, file])
+
+        if len(_files) > 0:
+            with _mp.Pool(processes=max(1, min(self.args['num_workers'], len(_files)))) as pool:
+                return list(
+                    _chain.from_iterable(pool.starmap(
+                        _partial(
+                            _load_sparse_data_worker, dataset_cls, handle_key, self.args, dataspec, len(_files)
+                        ),
+                        _files
+                    )))
+
+    def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
         if dataset_cls is None or self.dataloader_args.get('train', {}).get('dataset'):
             return self.dataloader_args.get('train', {}).get('dataset')
 
@@ -97,7 +130,7 @@ class ETDataHandle:
                                              dataspec, dataset_cls=dataset_cls)
             return train_dataset
 
-    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Dataset:
+    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
         if dataset_cls is None or self.dataloader_args.get('validation', {}).get('dataset'):
             return self.dataloader_args.get('validation', {}).get('dataset')
 
@@ -109,31 +142,29 @@ class ETDataHandle:
             if val_dataset and len(val_dataset) > 0:
                 return val_dataset
 
-    def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
+    def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
         if dataset_cls is None or self.dataloader_args.get('test', {}).get('dataset'):
             return self.dataloader_args.get('test', {}).get('dataset')
 
-        r"""
-        Load the test data from current fold/split.
-        If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
-        So that we can correctly gather components of one image(components like output patches)
-        """
-        test_dataset_list = []
         with open(dataspec['split_dir'] + _sep + split_file) as file:
-            files = _json.loads(file.read()).get('test', [])
-            if self.args.get('load_sparse'):
-                for f in files:
-                    if self.args['load_limit'] and len(test_dataset_list) >= self.args['load_limit']:
-                        break
-                    test_dataset = dataset_cls(mode='test', limit=self.args['load_limit'], **self.args)
-                    test_dataset.add(files=[f], verbose=False, **dataspec)
-                    test_dataset_list.append(test_dataset)
-                success(f'{len(test_dataset_list)} sparse dataset loaded.', self.args['verbose'])
-            else:
-                test_dataset_list.append(self.get_dataset('test', files, dataspec, dataset_cls=dataset_cls))
+            split = _json.loads(file.read())
+            _files = split.get('test', [])
 
-        if len(test_dataset_list) > 0 and sum([len(t) for t in test_dataset_list if t]) > 0:
-            return test_dataset_list
+            if len(_files) > 0 and self.args.get('load_sparse'):
+                datasets = self.get_sparse_dataset('test', _files, dataspec, dataset_cls)
+            else:
+                datasets = self.get_dataset('test', _files, dataspec, dataset_cls=dataset_cls)
+
+            if len(datasets) > 0 and sum([len(t) for t in datasets if t]) > 0:
+                return datasets
+
+
+def _load_indices_worker(etdataset, dataset_name, total, i, file):
+    etdataset.indices = []
+    etdataset.load_index(dataset_name, file)
+    if etdataset.args['verbose'] and i % total == MULTI_WORKER_LOG_FREQ:
+        print(f"Indices loaded: {i}/{total}", end='\n' if (i == total) else '\r')
+    return [etdataset]
 
 
 class ETDataset(_Dataset):
@@ -142,6 +173,8 @@ class ETDataset(_Dataset):
         self.limit = limit
         self.dataspecs = {}
         self.indices = []
+        self.args = {**kw}
+        self.data = {}
 
     def load_index(self, dataset_name, file):
         r"""
@@ -150,17 +183,33 @@ class ETDataset(_Dataset):
         """
         self.indices.append([dataset_name, file])
 
-    def _load_indices(self, dataset_name, files, **kw):
+    def _load_indices(self, dataset_name, files, verbose=True):
         r"""
         We load the proper indices/names(whatever is called) of the files in order to prepare minibatches.
         Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
         """
-        for file in files:
-            if self.limit and len(self) >= self.limit:
-                break
-            self.load_index(dataset_name, file)
+        _files = []
+        for i, f in enumerate(files[:self.args['load_limit']], 1):
+            _files.append([i, f])
 
-        if kw.get('verbose', True):
+        if len(_files) <= 1:
+            for _, file in _files:
+                self.load_index(dataset_name, file)
+        else:
+            with _mp.Pool(processes=max(1, min(self.args['num_workers'], len(_files)))) as pool:
+                all_datasets = list(
+                    _chain.from_iterable(pool.starmap(
+                        _partial(
+                            _load_indices_worker, self, dataset_name, len(_files)
+                        ),
+                        _files
+                    )))
+
+                for d in all_datasets:
+                    self.data.update(**d.data)
+                    self.indices += d.indices
+
+        if verbose:
             success(f'{dataset_name}, {self.mode}, {len(self)} Indices Loaded')
 
     def __getitem__(self, index):
@@ -192,13 +241,21 @@ class ETDataset(_Dataset):
         for dspec in dataspecs:
             for split in sorted(_os.listdir(dspec['split_dir'])):
                 split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
+
+                _files = []
+                for i, f in enumerate(split[split_key][:args['load_limit']], 1):
+                    _files.append([i, f])
+
                 if load_sparse:
-                    for file in split[split_key]:
-                        if args['load_limit'] and len(all_d) >= args['load_limit']:
-                            break
-                        d = cls(mode=split_key, **args)
-                        d.add(files=[file], verbose=False, **dspec)
-                        all_d.append(d)
+                    with _mp.Pool(processes=max(1, min(args['num_workers'], len(_files)))) as pool:
+                        all_d = list(
+                            _chain.from_iterable(pool.starmap(
+                                _partial(
+                                    _load_sparse_data_worker, split_key, args, dspec, len(_files)
+                                ),
+                                _files
+                            )))
+
                     if args['verbose']:
                         success(f'{len(all_d)} sparse dataset loaded.')
                 else:

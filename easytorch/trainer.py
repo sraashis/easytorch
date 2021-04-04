@@ -17,8 +17,16 @@ from easytorch.utils.logger import *
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
 from .vision import plotter as _log_utils
 import torch.distributed as _dist
+import multiprocessing as _mp
+from functools import partial as _partial
 
 _sep = _os.sep
+
+
+def _save_predictions_worker(trainer, total, dataset, i, its):
+    trainer.save_predictions(dataset, its)
+    if trainer.args['verbose'] and i % total == MULTI_WORKER_LOG_FREQ:
+        print(f"Indices loaded: {i}/{total}", end='\n' if (i == total) else '\r')
 
 
 class ETTrainer:
@@ -214,16 +222,6 @@ class ETTrainer:
         """
         return {}
 
-    def save_predictions(self, dataset, its):
-        r"""
-        If one needs to save complex predictions result like predicted segmentations.
-         -Especially with U-Net architectures, we split images and train.
-        Once the argument --sp/-sparse-load is set to True,
-        the argument 'its' will receive all the patches of single image at a time.
-        From there, we can recreate the whole image.
-        """
-        pass
-
     def evaluation(self,
                    epoch=1,
                    mode='eval',
@@ -240,12 +238,13 @@ class ETTrainer:
         if dataset is None:
             return {'averages': eval_avg, 'metrics': eval_metrics}
 
-        info(f'{mode} ...', self.args['verbose'])
+        info(f'Phase: {mode} ...', self.args['verbose'])
+        _datasets = dataset
         if not isinstance(dataset, list):
-            dataset = [dataset]
+            _datasets = [dataset]
 
         loaders = []
-        for d in dataset:
+        for d in _datasets:
             loaders.append(
                 self.data_handle.get_loader(
                     handle_key=mode,
@@ -256,6 +255,7 @@ class ETTrainer:
             )
 
         with _torch.no_grad():
+            save_pred_args, save_i = [], 0
             for loader in loaders:
                 its = []
                 metrics = self.new_metrics()
@@ -279,15 +279,61 @@ class ETTrainer:
 
                 if self.args['verbose'] and len(dataset) > 1:
                     info(f" {mode}, {avg.get()}, {metrics.get()}")
+
                 if save_pred:
-                    self.save_predictions(loader.dataset, self._reduce_iteration(its))
+                    save_pred_args.append([loader.dataset, save_i, self._reduce_iteration(its)])
+                    save_i += 1
 
         info(f"{self.cache['experiment_id']} {mode} Averages:{eval_avg.get()}, Metrics:{eval_metrics.get()}",
              self.args['verbose'])
 
+        if save_pred:
+            with _mp.Pool(processes=max(1, min(self.args['num_workers'], len(loaders)))) as pool:
+                pool.starmap_async(_partial(_save_predictions_worker, self, len(loaders)), save_pred_args).get()
+
         return {'averages': eval_avg, 'metrics': eval_metrics}
 
+    @staticmethod
+    def save_predictions(self, dataset, its):
+        r"""
+        If one needs to save complex predictions result like predicted segmentations.
+         -Especially with U-Net architectures, we split images and train.
+        Once the argument --sp/-sparse-load is set to True,
+        the argument 'its' will receive all the patches of single image at a time.
+        From there, we can recreate the whole image.
+        """
+        pass
+
     def _reduce_iteration(self, its):
+        """Multiprocessing does not work with inner callback so we need two versions"""
+        reduced = {}.fromkeys(its[0].keys(), None)
+
+        for key in reduced:
+            if isinstance(its[0][key], _base_metrics.ETAverages):
+                reduced[key] = self.new_averages()
+                [reduced[key].accumulate(ik[key]) for ik in its]
+
+            elif isinstance(its[0][key], _base_metrics.ETMetrics):
+                reduced[key] = self.new_metrics()
+                [reduced[key].accumulate(ik[key]) for ik in its]
+            else:
+                _data = []
+                is_tensor = isinstance(its[0][key], _torch.Tensor)
+                is_tensor = is_tensor and not its[0][key].requires_grad and its[0][key].is_leaf
+                for ik in its:
+                    if is_tensor:
+                        _data.append(ik[key] if len(ik[key].shape) > 0 else ik[key].unsqueeze(0))
+                    else:
+                        _data.append(ik[key])
+                if is_tensor:
+                    _data = _torch.cat(_data)
+
+                reduced[key] = _data
+
+        return reduced
+
+    def _reduce_iteration_lazy(self, its):
+        """Multiprocessing does not work with inner callback so we need two versions"""
         reduced = {}.fromkeys(its[0].keys(), None)
 
         for key in reduced:
@@ -465,7 +511,7 @@ class ETTrainer:
                 its.append(self.training_iteration(i, batch))
                 """When end of iteration"""
                 if i % self.args['grad_accum_iters'] == 0:
-                    it = self._reduce_iteration(its)
+                    it = self._reduce_iteration_lazy(its)
 
                     """Update global accumulators"""
                     its = []
