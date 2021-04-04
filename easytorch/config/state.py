@@ -9,8 +9,6 @@ MYSELF = 'easytorch'
 CUDA_AVAILABLE = _torch.cuda.is_available()
 NUM_GPUS = _torch.cuda.device_count()
 
-MULTI_WORKER_LOG_FREQ = 51
-
 METRICS_EPS = 1e-5
 METRICS_NUM_PRECISION = 5
 

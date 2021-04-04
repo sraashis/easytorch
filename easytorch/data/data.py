@@ -14,7 +14,6 @@ import math as _math
 import multiprocessing as _mp
 from functools import partial as _partial
 from itertools import chain as _chain
-from easytorch.config.state import *
 
 
 def safe_collate(batch):
@@ -33,8 +32,8 @@ def _load_sparse_data_worker(dataset_cls, mode, args, dataspec, total, i, file):
     _args = {**args}
     test_dataset = dataset_cls(mode=mode, **args)
     test_dataset.add(files=[file], verbose=False, **dataspec)
-    if args['verbose'] and i % total == MULTI_WORKER_LOG_FREQ:
-        print(f"Indices loaded: {i}/{total}", end='\n' if (i == total) else '\r')
+    if args['verbose']:
+        print(f"Indices loaded: {i}/{total}", end='\r')
     return [test_dataset]
 
 
@@ -162,8 +161,8 @@ class ETDataHandle:
 def _load_indices_worker(etdataset, dataset_name, total, i, file):
     etdataset.indices = []
     etdataset.load_index(dataset_name, file)
-    if etdataset.args['verbose'] and i % total == MULTI_WORKER_LOG_FREQ:
-        print(f"Indices loaded: {i}/{total}", end='\n' if (i == total) else '\r')
+    if etdataset.args['verbose']:
+        print(f"Indices loaded: {i}/{total}", end='\r')
     return [etdataset]
 
 
