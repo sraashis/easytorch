@@ -117,6 +117,7 @@ class ETDataHandle:
                         ),
                         _files
                     )))
+        success(f"\n{dataspec['name']}, {handle_key}, {len(_files)} sparse dataset Loaded", self.args['verbose'])
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
         if dataset_cls is None or self.dataloader_args.get('train', {}).get('dataset'):
@@ -191,10 +192,7 @@ class ETDataset(_Dataset):
         for i, f in enumerate(files[:self.args['load_limit']], 1):
             _files.append([i, f])
 
-        if len(_files) <= 1:
-            for _, file in _files:
-                self.load_index(dataset_name, file)
-        else:
+        if len(_files) > 1:
             with _mp.Pool(processes=max(1, min(self.args['num_workers'], len(_files)))) as pool:
                 all_datasets = list(
                     _chain.from_iterable(pool.starmap(
@@ -207,9 +205,11 @@ class ETDataset(_Dataset):
                 for d in all_datasets:
                     self.data.update(**d.data)
                     self.indices += d.indices
+        else:
+            for _, file in _files:
+                self.load_index(dataset_name, file)
 
-        if verbose:
-            success(f'{dataset_name}, {self.mode}, {len(self)} Indices Loaded')
+        success(f'\n{dataset_name}, {self.mode}, {len(self)} Indices Loaded', verbose and len(_files) > 1)
 
     def __getitem__(self, index):
         r"""
@@ -255,8 +255,7 @@ class ETDataset(_Dataset):
                                 _files
                             )))
 
-                    if args['verbose']:
-                        success(f'{len(all_d)} sparse dataset loaded.')
+                    success(f'\n{len(all_d)} sparse dataset loaded.', args['verbose'])
                 else:
                     if len(all_d) <= 0:
                         all_d.append(cls(mode=split_key, limit=args['load_limit'], **args))
