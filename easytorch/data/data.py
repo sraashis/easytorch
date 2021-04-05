@@ -48,7 +48,7 @@ def safe_collate(batch):
 def num_workers(args, loader_args, distributed=False):
     if distributed:
         return (loader_args['num_workers'] + args['num_gpus'] - 1) // args['num_gpus']
-    return loader_args['num_worker']
+    return loader_args['num_workers']
 
 
 def batch_size(args, loader_args, distributed=False):
