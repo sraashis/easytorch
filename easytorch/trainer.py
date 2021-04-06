@@ -279,6 +279,7 @@ class ETTrainer:
 
                 if self.args['verbose'] and len(dataset) > 1:
                     info(f" {mode}, {avg.get()}, {metrics.get()}")
+
                 if save_pred:
                     self.save_predictions(loader.dataset, self._reduce_iteration(its))
 
