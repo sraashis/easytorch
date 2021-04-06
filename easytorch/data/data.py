@@ -266,10 +266,10 @@ class ETDataset(_Dataset):
                 if load_sparse:
                     nw = min(num_workers(args, args, args['use_ddp']), len(_files))
                     with _mp.Pool(processes=max(1, nw)) as pool:
-                        all_d = list(
+                        all_d += list(
                             _chain.from_iterable(pool.starmap(
                                 _partial(
-                                    load_sparse_data_worker, split_key, args, dspec, len(_files)
+                                    load_sparse_data_worker, cls, split_key, args, dspec, len(_files)
                                 ),
                                 _files
                             )))
@@ -280,7 +280,7 @@ class ETDataset(_Dataset):
                 """Pooling only works with 1 split at the moment."""
                 break
 
-        success(f' Pooled \n{len(all_d)} sparse dataset loaded.', args['verbose'] and len(all_d) > 1)
+        success(f'\nPooled {len(all_d)} sparse dataset loaded.', args['verbose'] and len(all_d) > 1)
         return all_d
 
 
