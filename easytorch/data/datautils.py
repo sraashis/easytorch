@@ -3,9 +3,6 @@ import os as _os
 import random as _rd
 
 import numpy as _np
-import torch as _torch
-from torch.utils.data._utils.collate import default_collate as _default_collate
-
 
 _sep = _os.sep
 
@@ -111,6 +108,12 @@ def should_create_splits_(log_dir, dspec, args):
     return True
 
 
+def filter_ext(files, dspec):
+    if dspec.get('extension'):
+        return [f for f in files if f.endswith(dspec['extension'])]
+    return files
+
+
 def default_data_splitter_(dspec, args):
     r"""
     Initialize k-folds for given dataspec.
@@ -118,11 +121,16 @@ def default_data_splitter_(dspec, args):
         else: will create new k-splits and run k-fold cross validation.
     """
     if args.get('num_folds') is not None:
-        create_k_fold_splits(_os.listdir(dspec['data_dir']), k=args['num_folds'],
-                             save_to_dir=dspec['split_dir'], shuffle_files=True, name=dspec['name'])
+        create_k_fold_splits(
+            files=filter_ext(_os.listdir(dspec['data_dir']), dspec),
+            k=args['num_folds'],
+            save_to_dir=dspec['split_dir'],
+            shuffle_files=True, name=dspec['name']
+        )
     elif args.get('split_ratio') is not None:
-        create_ratio_split(_os.listdir(dspec['data_dir']),
-                           save_to_dir=dspec['split_dir'],
-                           ratio=args['split_ratio'],
-                           name=dspec['name'])
-
+        create_ratio_split(
+            files=filter_ext(_os.listdir(dspec['data_dir']), dspec),
+            save_to_dir=dspec['split_dir'],
+            ratio=args['split_ratio'],
+            name=dspec['name']
+        )
