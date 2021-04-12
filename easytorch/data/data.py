@@ -193,6 +193,15 @@ class ETDataHandle:
             info(f"{splits_len} split(s) loaded from '{dataspec['split_dir']}' directory.",
                  self.args['verbose'] and splits_len > 0)
 
+    def init_dataspec_(self, dataspec: dict):
+        for k in dataspec:
+            if '_dir' in k:
+                path = _os.path.join(self.args['dataset_dir'], dataspec[k])
+                path = path.replace(f"{_sep}{_sep}", _sep)
+                if path.endswith(_sep):
+                    path = path[:-1]
+                dataspec[k] = path
+
 
 class ETDataset(_Dataset):
     def __init__(self, mode='init', limit=None, **kw):
