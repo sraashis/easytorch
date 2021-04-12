@@ -4,10 +4,10 @@ The main core of EasyTorch
 
 import math as _math
 import os as _os
-from collections import OrderedDict as _ODict
 from typing import List as _List, Union as _Union
 
 import torch as _torch
+import torch.distributed as _dist
 from torch.utils.data import Dataset as _Dataset
 
 import easytorch.utils as _etutils
@@ -16,7 +16,6 @@ from easytorch.metrics import metrics as _base_metrics
 from easytorch.utils.logger import *
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
 from .vision import plotter as _log_utils
-import torch.distributed as _dist
 
 _sep = _os.sep
 
@@ -32,10 +31,11 @@ class ETTrainer:
         self.args = _etutils.FrozenDict(args)
         self.data_handle = data_handle
 
-        self.cache = _ODict()
-        self.nn = _ODict()
-        self.device = _ODict({'gpu': args.get('gpu', 'cpu')})
-        self.optimizer = _ODict()
+        self.nn = _etutils.FrozenDict({})
+        self.optimizer = _etutils.FrozenDict({})
+
+        self.device = {'gpu': args.get('gpu', 'cpu')}
+        self.cache = {}
 
     def init_nn(self,
                 init_models=True,
@@ -145,14 +145,14 @@ class ETTrainer:
         self.optimizer['adam'] = _torch.optim.Adam(self.nn[first_model].parameters(),
                                                    lr=self.args['learning_rate'])
 
-    def new_metrics(self):
+    def new_metrics(self) -> _base_metrics.ETMetrics:
         r"""
         User can override to supply desired implementation of easytorch.metrics.ETMetrics().
             Example: easytorch.metrics.Pr11a() will work with precision, recall, F1, Accuracy, IOU scores.
         """
         return _base_metrics.ETMetrics()
 
-    def new_averages(self):
+    def new_averages(self) -> _base_metrics.ETAverages:
         r""""
         Should supply an implementation of easytorch.metrics.ETAverages() that can keep track of multiple averages.
             Example: multiple loss, or any other values.

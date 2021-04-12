@@ -1,19 +1,22 @@
 import json as _json
-import os as _os
-
-import torch as _torch
-from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
-from torch.utils.data._utils.collate import default_collate as _default_collate
-from easytorch.utils.logger import *
-from os import sep as _sep
-from typing import List as _List, Union as _Union
-import torch.utils.data as _data
-import torch.distributed as _dist
 import math as _math
 import multiprocessing as _mp
+import os as _os
 from functools import partial as _partial
 from itertools import chain as _chain
+from os import sep as _sep
+from typing import List as _List, Union as _Union
+
 import numpy as _np
+import torch as _torch
+import torch.distributed as _dist
+import torch.utils.data as _data
+from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
+from torch.utils.data._utils.collate import default_collate as _default_collate
+
+import easytorch.data.datautils as _du
+import easytorch.utils as _etutils
+from easytorch.utils.logger import *
 
 
 def seed_worker(worker_id):
@@ -40,7 +43,7 @@ def load_indices_worker(etdataset, dataset_name, total, i, file):
 
 def safe_collate(batch):
     r"""
-    Savely select batches/skip errors in file loading.
+    Savely select batches/skip dataset_cls(errors in file loading.
     """
     return _default_collate([b for b in batch if b])
 
@@ -60,13 +63,10 @@ def batch_size(args, loader_args, distributed=False):
 class ETDataHandle:
 
     def __init__(self, args=None, dataloader_args=None, **kw):
-        self.args = {**args}
-        self.dataset = {}
-        self.dataloader = {}
-        self.dataloader_args = {}
-        if dataloader_args is not None:
-            self.dataloader_args.update(**dataloader_args)
-        self.args.update(**kw)
+        self.args = _etutils.FrozenDict(args)
+        self.dataloader_args = _etutils.FrozenDict(dataloader_args)
+        self.dataset = _etutils.FrozenDict({})
+        self.dataloader = _etutils.FrozenDict({})
 
     def get_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None) -> _Dataset:
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
@@ -143,8 +143,8 @@ class ETDataHandle:
         args = {**self.args}
         args['distributed'] = distributed
         args['use_unpadded_sampler'] = use_unpadded_sampler
-        args.update(**kw)
         args.update(self.dataloader_args.get(handle_key, {}))
+        args.update(**kw)
 
         loader_args = {
             'dataset': None,
@@ -183,15 +183,25 @@ class ETDataHandle:
         self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **loader_args)
         return self.dataloader[handle_key]
 
+    def create_splits(self, dataspec, out_dir):
+        if _du.should_create_splits_(out_dir, dataspec, self.args):
+            _du.default_data_splitter_(dspec=dataspec, args=self.args)
+            info(f"{len(_os.listdir(dataspec['split_dir']))} split(s) created in '{dataspec['split_dir']}' directory.",
+                 self.args['verbose'])
+        else:
+            splits_len = len(_os.listdir(dataspec['split_dir']))
+            info(f"{splits_len} split(s) loaded from '{dataspec['split_dir']}' directory.",
+                 self.args['verbose'] and splits_len > 0)
+
 
 class ETDataset(_Dataset):
     def __init__(self, mode='init', limit=None, **kw):
         self.mode = mode
         self.limit = limit
-        self.dataspecs = {}
         self.indices = []
-        self.args = {**kw}
-        self.data = {}
+        self.args = _etutils.FrozenDict(kw)
+        self.data = _etutils.FrozenDict({})
+        self.dataspecs = _etutils.FrozenDict({})
 
     def load_index(self, dataset_name, file):
         r"""
