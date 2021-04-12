@@ -1,6 +1,6 @@
 ![Logo](assets/easytorchlogo.png)
 
-### A quick and easy way to start running pytorch experiments within few minutes.
+### A complete and robust pytorch prototyping framework with no learning curve.
 
 ![PyPi version](https://img.shields.io/pypi/v/easytorch)
 [![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/build/badge.svg)](https://github.com/sraashis/easytorch/actions)
