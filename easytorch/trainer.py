@@ -28,14 +28,13 @@ class ETTrainer:
         nn:  Initialize our models here.
         optimizer: Initialize our optimizers.
         """
+        self.cache = {}
         self.args = _etutils.FrozenDict(args)
         self.data_handle = data_handle
 
-        self.nn = _etutils.FrozenDict({})
-        self.optimizer = _etutils.FrozenDict({})
-
+        self.nn = {}
+        self.optimizer = {}
         self.device = {'gpu': args.get('gpu', 'cpu')}
-        self.cache = {}
 
     def init_nn(self,
                 init_models=True,
