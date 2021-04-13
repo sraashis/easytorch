@@ -157,7 +157,7 @@ class MyDataset(ETDataset):
     def load_index(self, dataset_name, file):
       """1. This method is a pre-processing step for all the files in the specified folders in dataspec."""
       """2. It is parallelized and uses num_workers number of processes to pre-load, preprocess data enabling us"""
-      """   to perform such operations in the mater of minutes for even millions of images"""
+      """   to perform such operations super fast"""
       """3. It is a pre-training step. So, a different mechanism then num_worker in data_loader object"""
       """   Example: any pre-processing masking, cropping patches for uneven images in U-Net"""
       pass
