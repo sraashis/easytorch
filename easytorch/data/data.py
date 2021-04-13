@@ -138,7 +138,7 @@ class ETDataHandle:
 
         if reuse and self.dataloader.get(handle_key) is not None:
             return self.dataloader[handle_key]
-        
+
         args = {**self.args}
         args['distributed'] = distributed
         args['use_unpadded_sampler'] = use_unpadded_sampler
@@ -249,7 +249,8 @@ class ETDataset(_Dataset):
         success(f'\n{dataspec_name}, {self.mode}, {len(self)} Indices Loaded', verbose and len(_files) > 1)
 
     def gather_datasets_(self, dataset_objs):
-        for d in dataset_objs:
+        size = len(dataset_objs)
+        for i, d in enumerate(dataset_objs):
             attributes = vars(d)
             for k, v in attributes.items():
                 if isinstance(v, _etutils.FrozenDict):
@@ -263,6 +264,8 @@ class ETDataset(_Dataset):
 
                 elif isinstance(attributes[f"{k}"], set):
                     self.__getattribute__(f"{k}").union(v)
+            if self.args['verbose']:
+                print(f"Gathering.. {i} / {size}")
 
     def __getitem__(self, index):
         r"""
