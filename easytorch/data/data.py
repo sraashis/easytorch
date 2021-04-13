@@ -28,7 +28,7 @@ def load_sparse_data_worker(dataset_cls, mode, args, dataspec, total, i, file):
     test_dataset = dataset_cls(mode=mode, **args)
     test_dataset.add(files=[file], verbose=False, **dataspec)
     if args['verbose']:
-        print(f"Data items loaded: {i} / {total}", end='\r')
+        print(f"Data items loaded:[ {i} / {total} ] {round(i/total, 2)}%", end='\r')
     return [test_dataset]
 
 
