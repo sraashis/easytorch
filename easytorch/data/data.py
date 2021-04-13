@@ -249,7 +249,6 @@ class ETDataset(_Dataset):
         success(f'\n{dataspec_name}, {self.mode}, {len(self)} Indices Loaded', verbose and len(_files) > 1)
 
     def gather_datasets_(self, dataset_objs):
-        size = len(dataset_objs)
         for i, d in enumerate(dataset_objs):
             attributes = vars(d)
             for k, v in attributes.items():
