@@ -37,6 +37,8 @@ class Image:
             error('Fail to load file: ' + self.file + ': ' + str(e))
 
     def load_mask(self, mask_dir=None, fget_mask=_same_file):
+        if fget_mask is None:
+            fget_mask = _same_file
         try:
             mask_file = fget_mask(self.file)
             self.mask = _np.array(_IMG.open(_os.path.join(mask_dir, mask_file)), dtype=self.dtype)
@@ -44,6 +46,8 @@ class Image:
             error('Fail to load mask: ' + str(e))
 
     def load_ground_truth(self, gt_dir=None, fget_ground_truth=_same_file):
+        if fget_ground_truth is None:
+            fget_ground_truth = _same_file
         try:
             gt_file = fget_ground_truth(self.file)
             self.ground_truth = _np.array(_IMG.open(_os.path.join(gt_dir, gt_file)), dtype=self.dtype)
@@ -51,7 +55,10 @@ class Image:
             error('Fail to load ground truth: ' + str(e))
 
     def get_array(self, dir='', getter=_same_file, file=None):
-        if not file: file = self.file
+        if getter is None:
+            getter = _same_file
+        if not file:
+            file = self.file
         arr = _np.array(_IMG.open(_os.path.join(dir, getter(file))), dtype=self.dtype)
         return arr
 

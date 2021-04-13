@@ -1,3 +1,4 @@
+import glob as _glob
 import json as _json
 import os as _os
 import random as _rd
@@ -108,6 +109,23 @@ def should_create_splits_(log_dir, dspec, args):
     return True
 
 
+def list_files(dspec):
+    ext = dspec.get('extension', '*').replace('.', '')
+    rec = dspec.get('recursive', False)
+    rec_pattern = '**/' if rec else ''
+    if dspec.get('sub_folders') is None:
+        path = dspec['data_dir']
+        return [f.replace(path + _sep, '') for f in
+                _glob.glob(f"{path}/{rec_pattern}*.{ext}", recursive=rec)]
+
+    files = []
+    for sub in dspec['sub_folders']:
+        path = dspec['data_dir'] + _sep + sub
+        files += [f.replace(dspec['data_dir'] + _sep, '') for f in
+                  _glob.glob(f"{path}/{rec_pattern}*.{ext}", recursive=rec)]
+    return files
+
+
 def default_data_splitter_(dspec, args):
     r"""
     Initialize k-folds for given dataspec.
@@ -115,10 +133,16 @@ def default_data_splitter_(dspec, args):
         else: will create new k-splits and run k-fold cross validation.
     """
     if args.get('num_folds') is not None:
-        create_k_fold_splits(_os.listdir(dspec['data_dir']), k=args['num_folds'],
-                             save_to_dir=dspec['split_dir'], shuffle_files=True, name=dspec['name'])
+        create_k_fold_splits(
+            files=list_files(dspec),
+            k=args['num_folds'],
+            save_to_dir=dspec['split_dir'],
+            name=dspec['name']
+        )
     elif args.get('split_ratio') is not None:
-        create_ratio_split(_os.listdir(dspec['data_dir']),
-                           save_to_dir=dspec['split_dir'],
-                           ratio=args['split_ratio'],
-                           name=dspec['name'])
+        create_ratio_split(
+            files=list_files(dspec),
+            save_to_dir=dspec['split_dir'],
+            ratio=args['split_ratio'],
+            name=dspec['name']
+        )

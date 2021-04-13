@@ -1,6 +1,6 @@
 ![Logo](assets/easytorchlogo.png)
 
-### A quick and easy way to start running pytorch experiments within few minutes.
+### A complete and robust pytorch prototyping framework with no learning curve.
 
 ![PyPi version](https://img.shields.io/pypi/v/easytorch)
 [![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/build/badge.svg)](https://github.com/sraashis/easytorch/actions)
@@ -25,7 +25,10 @@
 #### `Feature Higlights`
 
 * Minimal configuration to setup any simple/complex experiment (Single GPU, DP, and [DDP usage](assets/DefaultArgs.md)).
-* DataHandle that is always available. Use custom & complex data handling mechanism ([ETDataHandle](easytorch/data/data.py)).
+* DataHandle that is always available, and decoupled from other modules enabling easy customization ([ETDataHandle](easytorch/data/data.py)).
+  * Use custom & complex data handling mechanism.
+  * Load folder datasets.
+  * Load recursively large datasets with multiple threads.
 * Full support to split images into patches and rejoin/merge them to get back the complete prediction image like in
   U-Net(Usually needed when input images are large, and of different shapes) (Thanks to sparse data loaders).
 * Limit data loading- Limit data to debug the pipeline without moving data from the original place (Thanks to
@@ -94,24 +97,52 @@ Define specification for your datasets:
 ```python
 import os
 
+def get_label1(x):
+  return x.split('_')[0] + 'label.csv'
+
 sep = os.sep
 MYDATA = {
     'name': 'mydata',
     'data_dir': 'MYDATA' + sep + 'images',
     'label_dir': 'MYDATA' + sep + 'labels',
-    'label_getter': lambda file_name: file_name.split('_')[0] + 'label.csv'
+    'split_dir': 'MYDATA' + sep + 'splits', """For custom splits."""
+    'label_getter': get_label1
 }
+
+def get_label2(x):
+  return x.split('_')[0] + 'label.csv'
 
 MyOTHERDATA = {
     'name': 'otherdata',
     'data_dir': 'OTHERDATA' + sep + 'images',
     'label_dir': 'OTHERDATA' + sep + 'labels',
-    'label_getter': lambda file_name: file_name.split('_')[0] + 'label.csv'
+    'label_getter': get_label2
+}
+```
+* EasyTorch automatically splits the data/images in 'data_dir' of dataspec as specified (split_ratio, or num_folds in EasyTorch Module as below), and runs accordingly. 
+* One can also provide custom splits(json files with train, validation, test data list) in the directory specified by split_dir in dataspec.
+* Additional options in dataspecs:
+  * Load from sub-folders, "sub_folders": ["class0", "class1", ... "class_K"]
+  * Load recursively, "recursive": True
+  * Filter by an extension, "extension": "png"
+* Example:
+```python
+DRIVE = {
+    'name': 'DRIVE',
+    'data_dir': 'DRIVE' + sep + 'images',
+    'label_dir': 'DRIVE' + sep + 'manual',
+    'mask_dir': 'DRIVE' + sep + 'mask',
+    'split_dir': 'DRIVE' + sep + 'splits',
+    'label_getter': get_label_drive,
+    'mask_getter': get_mask_drive,
+    'sub_folders': ['None', 'Mild', 'Severe', "Proliferative"],
+    'extension': '.tif',
+    'recursive': True
 }
 ```
 
-Define how to load each data item by using EasyTorch's base ETDataset class to get extra benefits like limiting, pooling
-data...
+Define how to load each data item by using EasyTorch's base ETDataset class to get extra benefits like limit loading for debugging, pooling
+data, super-fast pre-processing with multiple processes, and many more ...
 
 ```python
 from easytorch import ETDataset
@@ -121,6 +152,14 @@ import torchvision
 class MyDataset(ETDataset):
     def __init__(self, **kw):
         super().__init__(**kw)
+        
+    def load_index(self, dataset_name, file):
+      """1. This method is a pre-processing step for all the files in the specified folders in dataspec."""
+      """2. It is parallelized and uses num_workers number of processes to pre-load, preprocess data enabling us"""
+      """   to perform such operations super fast"""
+      """3. It is a pre-training step. So, a different mechanism then num_worker in data_loader object"""
+      """   Example: any pre-processing masking, cropping patches for uneven images in U-Net"""
+      pass
 
     def __getitem__(self, index):
         dataset_name, file = self.indices[index]
@@ -138,7 +177,6 @@ class MyDataset(ETDataset):
 ```
 
 #### 3. Entry point
-EasyTorch automatically splits the data/images in 'data_dir' of dataspec as specified (split_ratio, or num_folds), and runs accordingly. One can also provide custom splits(json files with train, validation, test data list) in the directory specified by split_dir in dataspec.
 ```python
 from easytorch import EasyTorch
 
@@ -155,15 +193,19 @@ if __name__ == "__main__":
     # runner.run_pooled(MyTrainer, MyDataset)
 ```
 
-Or can give any custom datasets(as in MNIST example above):
+#### One of: custom splits (specified by split_dir key in dataspec), num_folds, or split_ratio must be given unless providing custom dataset objects as:
+
+(From MNIST example above):
 ```python
 train_dataset = datasets.MNIST('../data', train=True, download=True,
                                transform=transform)
 val_dataset = datasets.MNIST('../data', train=False,
                              transform=transform)
               
-dataloader_args = {'train': {'dataset': train_dataset},
-                   'validation': {'dataset': val_dataset}}
+dataloader_args = {
+  'train': {'dataset': train_dataset, "drop_last":True},
+  'validation': {'dataset': val_dataset, "batch_size":256}
+}
 runner = EasyTorch(phase='train',
                    batch_size=128, epochs=5, gpus=[0],
                    dataloader_args=dataloader_args)

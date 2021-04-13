@@ -2,21 +2,20 @@ import json as _json
 import os as _os
 import pprint as _pp
 import random as _random
+import typing
 from argparse import ArgumentParser as _AP
 
 import numpy as _np
 import torch as _torch
+import torch.distributed as _dist
 import torch.multiprocessing as _mp
 
 import easytorch.config as _conf
 import easytorch.utils as _utils
 from easytorch.config.state import *
-from easytorch.data import datautils as _du
-from easytorch.utils.logger import *
 from easytorch.data import ETDataset, ETDataHandle
 from easytorch.trainer import ETTrainer
-import typing
-import torch.distributed as _dist
+from easytorch.utils.logger import *
 
 _sep = _os.sep
 
@@ -199,21 +198,7 @@ class EasyTorch:
         self.dataspecs = [{**dspec} for dspec in dataspecs]
         for dspec in self.dataspecs:
             if dspec.get('name') is None:
-                raise ValueError('Each dataspec must have a name.')
-
-            for k in dspec:
-                if '_dir' in k:
-                    dspec[k] = _os.path.join(self.args['dataset_dir'], dspec[k])
-
-    def _create_splits(self, dspec, log_dir):
-        if _du.should_create_splits_(log_dir, dspec, self.args):
-            _du.default_data_splitter_(dspec=dspec, args=self.args)
-            info(f"{len(_os.listdir(dspec['split_dir']))} split(s) created in '{dspec['split_dir']}' directory.",
-                 self.args['verbose'])
-        else:
-            splits_len = len(_os.listdir(dspec['split_dir']))
-            info(f"{splits_len} split(s) loaded from '{dspec['split_dir']}' directory.",
-                 self.args['verbose'] and splits_len > 0)
+                raise ValueError('Each dataspecs must have a unique name.')
 
     def check_previous_logs(self, cache):
         r"""
@@ -303,17 +288,18 @@ class EasyTorch:
 
     def _run(self, trainer_cls, dataset_cls, data_handle_cls):
         r"""Run for individual datasets"""
-        if self.args['verbose']:  self._show_args()
+        if self.args['verbose']:
+            self._show_args()
 
         for dspec in self.dataspecs:
 
-            data_handle = data_handle_cls(args={**self.args},
-                                          dataloader_args={**self.dataloader_args})
+            data_handle = data_handle_cls(args=self.args, dataloader_args=self.dataloader_args)
             trainer = trainer_cls(args=self.args, data_handle=data_handle)
-
             trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
+
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
-            self._create_splits(dspec, trainer.cache['log_dir'])
+            trainer.data_handle.init_dataspec_(dspec)
+            trainer.data_handle.create_splits(dspec, out_dir=trainer.cache.get('log_dir'))
 
             trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
             trainer.cache['log_header'] = 'Loss|Accuracy'
@@ -362,16 +348,17 @@ class EasyTorch:
 
     def _run_pooled(self, trainer_cls, dataset_cls, data_handle_cls):
         r"""  Run in pooled fashion. """
-        self._show_args()
+        if self.args['verbose']:
+            self._show_args()
 
-        data_handle = data_handle_cls(args={**self.args},
-                                      dataloader_args={**self.dataloader_args})
+        data_handle = data_handle_cls(args=self.args, dataloader_args=self.dataloader_args)
         trainer = trainer_cls(args=self.args, data_handle=data_handle)
-
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
+
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + f'Pooled_{len(self.dataspecs)}'
         for dspec in self.dataspecs:
-            self._create_splits(dspec, trainer.cache['log_dir'] + _sep + dspec['name'])
+            trainer.data_handle.init_dataspec_(dspec)
+            trainer.data_handle.create_splits(dspec, out_dir=trainer.cache['log_dir'] + _sep + dspec['name'])
 
         warn('Pooling only uses first split from each datasets at the moment.', self.args['verbose'])
 
