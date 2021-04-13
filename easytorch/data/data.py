@@ -28,17 +28,8 @@ def load_sparse_data_worker(dataset_cls, mode, args, dataspec, total, i, file):
     test_dataset = dataset_cls(mode=mode, **args)
     test_dataset.add(files=[file], verbose=False, **dataspec)
     if args['verbose']:
-        print(f"Data items loaded: {i}/{total}", end='\r')
+        print(f"Data items loaded: {i} / {total}", end='\r')
     return [test_dataset]
-
-
-def load_indices_worker(etdataset, dataset_name, total, i, file):
-    etdataset.indices = []
-    etdataset.data = _etutils.FrozenDict({})
-    etdataset.load_index(dataset_name, file)
-    if etdataset.args['verbose']:
-        print(f"Indices loaded: {i}/{total}", end='\r')
-    return [etdataset]
 
 
 def safe_collate(batch):
@@ -63,10 +54,10 @@ def batch_size(args, loader_args, distributed=False):
 class ETDataHandle:
 
     def __init__(self, args=None, dataloader_args=None, **kw):
+        self.dataset = {}
+        self.dataloader = {}
         self.args = _etutils.FrozenDict(args)
         self.dataloader_args = _etutils.FrozenDict(dataloader_args)
-        self.dataset = _etutils.FrozenDict({})
-        self.dataloader = _etutils.FrozenDict({})
 
     def get_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None) -> _Dataset:
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
