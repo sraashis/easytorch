@@ -264,8 +264,6 @@ class ETDataset(_Dataset):
 
                 elif isinstance(attributes[f"{k}"], set):
                     self.__getattribute__(f"{k}").union(v)
-            if self.args['verbose']:
-                print(f"Gathering.. {i} / {size}")
 
     def __getitem__(self, index):
         r"""
