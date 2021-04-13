@@ -138,7 +138,7 @@ class ETDataHandle:
 
         if reuse and self.dataloader.get(handle_key) is not None:
             return self.dataloader[handle_key]
-        
+
         args = {**self.args}
         args['distributed'] = distributed
         args['use_unpadded_sampler'] = use_unpadded_sampler
