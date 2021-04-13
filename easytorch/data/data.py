@@ -199,8 +199,9 @@ class ETDataset(_Dataset):
         self.mode = mode
         self.limit = limit
         self.indices = []
+        self.data = {}
+
         self.args = _etutils.FrozenDict(kw)
-        self.data = _etutils.FrozenDict({})
         self.dataspecs = _etutils.FrozenDict({})
 
     def load_index(self, dataset_name, file):

@@ -29,7 +29,6 @@
   * Use custom & complex data handling mechanism.
   * Load folder datasets.
   * Load recursively large datasets with multiple threads.
-  * Immutable data containers to avoid data leakage.
 * Full support to split images into patches and rejoin/merge them to get back the complete prediction image like in
   U-Net(Usually needed when input images are large, and of different shapes) (Thanks to sparse data loaders).
 * Limit data loading- Limit data to debug the pipeline without moving data from the original place (Thanks to
