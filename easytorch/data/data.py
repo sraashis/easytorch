@@ -25,7 +25,6 @@ def seed_worker(worker_id):
 
 
 def load_sparse_data_worker(dataset_cls, mode, args, dataspec, total, i, file):
-    _args = {**args}
     test_dataset = dataset_cls(mode=mode, **args)
     test_dataset.add(files=[file], verbose=False, **dataspec)
     if args['verbose']:
@@ -35,6 +34,7 @@ def load_sparse_data_worker(dataset_cls, mode, args, dataspec, total, i, file):
 
 def load_indices_worker(etdataset, dataset_name, total, i, file):
     etdataset.indices = []
+    etdataset.data = _etutils.FrozenDict({})
     etdataset.load_index(dataset_name, file)
     if etdataset.args['verbose']:
         print(f"Indices loaded: {i}/{total}", end='\r')
@@ -219,7 +219,7 @@ class ETDataset(_Dataset):
         """
         self.indices.append([dataset_name, file])
 
-    def _load_indices(self, dataset_name, files, verbose=True):
+    def _load_indices(self, dataspec_name, files, verbose=True):
         r"""
         We load the proper indices/names(whatever is called) of the files in order to prepare minibatches.
         Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
@@ -234,19 +234,24 @@ class ETDataset(_Dataset):
                 all_datasets = list(
                     _chain.from_iterable(pool.starmap(
                         _partial(
-                            load_indices_worker, self, dataset_name, len(_files)
+                            load_sparse_data_worker, self.__class__, self.mode, self.args,
+                            self.dataspecs[dataspec_name], len(_files)
                         ),
                         _files
                     )))
+                self.gather_datasets_(all_datasets)
 
-                for d in all_datasets:
-                    self.data.update(**d.data)
-                    self.indices += d.indices
+
         else:
             for _, file in _files:
-                self.load_index(dataset_name, file)
+                self.load_index(dataspec_name, file)
 
-        success(f'\n{dataset_name}, {self.mode}, {len(self)} Indices Loaded', verbose and len(_files) > 1)
+        success(f'\n{dataspec_name}, {self.mode}, {len(self)} Indices Loaded', verbose and len(_files) > 1)
+
+    def gather_datasets_(self, dataset_objs):
+        for d in dataset_objs:
+            self.data.update(**d.data)
+            self.indices += d.indices
 
     def __getitem__(self, index):
         r"""
@@ -261,10 +266,10 @@ class ETDataset(_Dataset):
     def transforms(self, **kw):
         return None
 
-    def add(self, files, **kw):
+    def add(self, files, verbose=True, **kw):
         r""" An extra layer for added flexibility."""
         self.dataspecs[kw['name']] = kw
-        self._load_indices(dataset_name=kw['name'], files=files, verbose=kw.get('verbose'))
+        self._load_indices(dataspec_name=kw['name'], files=files, verbose=verbose)
 
     @classmethod
     def pool(cls, args, dataspecs, split_key=None, load_sparse=False):
@@ -299,7 +304,7 @@ class ETDataset(_Dataset):
                 """Pooling only works with 1 split at the moment."""
                 break
 
-        success(f'\nPooled {len(all_d)} sparse dataset loaded.', args['verbose'] and len(all_d) > 1)
+        success(f'\nPooled {len(all_d)} dataset loaded.', args['verbose'] and len(all_d) > 1)
         return all_d
 
 
