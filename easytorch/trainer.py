@@ -250,7 +250,8 @@ class ETTrainer:
                     handle_key=mode,
                     shuffle=False, dataset=d,
                     distributed=distributed,
-                    use_unpadded_sampler=use_unpadded_sampler
+                    use_unpadded_sampler=use_unpadded_sampler,
+                    reuse=mode == 'validation'
                 )
             )
 
@@ -267,11 +268,16 @@ class ETTrainer:
                     metrics.accumulate(it.get('metrics'))
 
                     if save_pred:
-                        its.append(it)
+                        if self.args['load_sparse']:
+                            its.append(it)
+                        else:
+                            self.save_predictions(dataset, it)
 
                     if self.args['verbose'] and len(dataset) <= 1 and lazy_debug(i, add=epoch):
                         info(
-                            f" Itr:{i}/{len(loader)}, Averages:{it.get('averages').get()}, Metrics:{it.get('metrics').get()}")
+                            f" Itr:{i}/{len(loader)}, "
+                            f"Averages:{it.get('averages').get()}, Metrics:{it.get('metrics').get()}"
+                        )
 
                 eval_metrics.accumulate(metrics)
                 eval_avg.accumulate(avg)
@@ -279,7 +285,7 @@ class ETTrainer:
                 if self.args['verbose'] and len(dataset) > 1:
                     info(f" {mode}, {avg.get()}, {metrics.get()}")
 
-                if save_pred:
+                if save_pred and self.args['load_sparse']:
                     self.save_predictions(loader.dataset, self._reduce_iteration(its))
 
         info(f"{self.cache['experiment_id']} {mode} Averages:{eval_avg.get()}, Metrics:{eval_metrics.get()}",

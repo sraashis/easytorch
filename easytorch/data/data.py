@@ -130,7 +130,15 @@ class ETDataHandle:
             if len(datasets) > 0 and sum([len(t) for t in datasets if t]) > 0:
                 return datasets
 
-    def get_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw) -> _DataLoader:
+    def get_loader(self,
+                   handle_key='', distributed=False,
+                   use_unpadded_sampler=False,
+                   reuse=False, **kw
+                   ) -> _DataLoader:
+
+        if reuse and self.dataloader.get(handle_key) is not None:
+            return self.dataloader[handle_key]
+        
         args = {**self.args}
         args['distributed'] = distributed
         args['use_unpadded_sampler'] = use_unpadded_sampler
