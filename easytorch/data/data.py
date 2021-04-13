@@ -242,8 +242,19 @@ class ETDataset(_Dataset):
 
     def gather_datasets_(self, dataset_objs):
         for d in dataset_objs:
-            self.data.update(**d.data)
-            self.indices += d.indices
+            attributes = vars(d)
+            for k, v in attributes.items():
+                if isinstance(v, _etutils.FrozenDict):
+                    continue
+
+                if isinstance(v, list):
+                    self.__getattribute__(f"{k}").extend(v)
+
+                elif isinstance(attributes[f"{k}"], dict):
+                    self.__getattribute__(f"{k}").update(**v)
+
+                elif isinstance(attributes[f"{k}"], set):
+                    self.__getattribute__(f"{k}").union(v)
 
     def __getitem__(self, index):
         r"""
