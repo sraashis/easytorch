@@ -309,6 +309,7 @@ class EasyTorch:
             test_accum = []
             trainer.init_experiment_cache()
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
+
             for split_file in sorted(_os.listdir(dspec['split_dir'])):
                 self._init_fold_cache(split_file, trainer.cache)
                 if self.args['is_master']:
@@ -316,14 +317,15 @@ class EasyTorch:
 
                 trainer.init_nn()
                 if self.args['phase'] == Phase.TRAIN:
-                    train_dataset = trainer.data_handle.get_train_dataset(split_file, dspec,
-                                                                          dataset_cls=dataset_cls)
-                    validation_dataset = trainer.data_handle.get_validation_dataset(split_file, dspec,
-                                                                                    dataset_cls=dataset_cls)
+                    train_dataset = trainer.data_handle.get_train_dataset(split_file, dspec, dataset_cls=dataset_cls)
+                    validation_dataset = trainer.data_handle.get_validation_dataset(
+                        split_file, dspec, dataset_cls=dataset_cls)
                     self._train(trainer, train_dataset, validation_dataset, dspec)
 
                 if self.args['is_master']:
-                    test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
+                    test_dataset = trainer.data_handle.get_test_dataset(
+                        split_file, dspec, dataset_cls=dataset_cls
+                    )
                     test_accum.append(self._test(split_file, trainer, test_dataset))
 
                 if trainer.args.get('use_ddp'):
@@ -371,20 +373,21 @@ class EasyTorch:
         _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
 
         self._init_fold_cache('pooled.dummy', trainer.cache)
+
         if self.args['is_master']:
             self.check_previous_logs(trainer.cache)
-        trainer.init_nn()
 
+        trainer.init_nn()
         if self.args['phase'] == Phase.TRAIN:
-            train_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='train',
-                                             load_sparse=False)[0]
-            val_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='validation',
-                                           load_sparse=False)
+            train_dataset = ETDataHandle.pooled_load('train', self.dataspecs, self.args,
+                                                     dataset_cls=dataset_cls, load_sparse=False)[0]
+            val_dataset = ETDataHandle.pooled_load('validation', self.dataspecs, self.args,
+                                                   dataset_cls=dataset_cls, load_sparse=False)
             self._train(trainer, train_dataset, val_dataset, {'dataspecs': self.dataspecs})
 
         """Only do test in master rank node"""
         if self.args['is_master']:
-            test_dataset = dataset_cls.pool(self.args, dataspecs=self.dataspecs, split_key='test',
-                                            load_sparse=self.args['load_sparse'])
+            test_dataset = ETDataHandle.pooled_load('test', self.dataspecs, self.args,
+                                                    dataset_cls=dataset_cls, load_sparse=False)
             scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)], distributed=False)
             self._global_experiment_end(trainer, scores)
