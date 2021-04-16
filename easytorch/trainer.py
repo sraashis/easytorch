@@ -144,14 +144,14 @@ class ETTrainer:
         self.optimizer['adam'] = _torch.optim.Adam(self.nn[first_model].parameters(),
                                                    lr=self.args['learning_rate'])
 
-    def new_metrics(self) -> _base_metrics.ETMetrics:
+    def new_metrics(self):
         r"""
         User can override to supply desired implementation of easytorch.metrics.ETMetrics().
             Example: easytorch.metrics.Pr11a() will work with precision, recall, F1, Accuracy, IOU scores.
         """
         return _base_metrics.ETMetrics()
 
-    def new_averages(self) -> _base_metrics.ETAverages:
+    def new_averages(self):
         r""""
         Should supply an implementation of easytorch.metrics.ETAverages() that can keep track of multiple averages.
             Example: multiple loss, or any other values.
