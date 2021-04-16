@@ -249,7 +249,7 @@ class ETTrainer:
                     shuffle=False, dataset=d,
                     distributed=distributed,
                     use_unpadded_sampler=use_unpadded_sampler,
-                    reuse=mode == 'validation'
+                    reuse=len(dataset) == 1
                 )
             )
 
