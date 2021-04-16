@@ -2,6 +2,7 @@ import json as _json
 import math as _math
 import multiprocessing as _mp
 import os as _os
+from collections import Callable
 from functools import partial as _partial
 from os import sep as _sep
 
@@ -17,20 +18,19 @@ import easytorch.utils as _etutils
 from easytorch.utils.logger import *
 
 
-def multi_run(files, num_processes=1, work_function=None):
-    global _easytorch_multi_run_work
+def _job(total, func, i, f):
+    print(f"Working on: [ {i}/{total} ]", end='\r')
+    return func(f)
 
+
+def multiRun(nproc: int, data_list: list, func: Callable) -> list:
     _files = []
-    for ix, file in enumerate(files, 1):
+    for ix, file in enumerate(data_list, 1):
         _files.append([ix, file])
 
-    def _easytorch_multi_run_work(total, i, f):
-        print(f"Working on [ {i}/{total} ]", end='\r')
-        return work_function(f)
-
-    with _mp.Pool(processes=num_processes) as pool:
+    with _mp.Pool(processes=nproc) as pool:
         return list(
-            pool.starmap(_partial(_easytorch_multi_run_work, len(_files)), _files)
+            pool.starmap(_partial(_job, len(_files), func), _files)
         )
 
 
@@ -56,10 +56,16 @@ def _seed_worker(worker_id):
     _np.random.seed(seed)
 
 
-def _data_work(mode, file, dataspec, args, dataset_cls):
+def _et_data_job_func(mode, file, dataspec, args, dataset_cls):
     test_dataset = dataset_cls(mode=mode, **args)
     test_dataset.add(files=[file], verbose=False, **dataspec)
     return test_dataset
+
+
+def _et_data_job(mode, arg, dspec, cls, total, func, verbose, i, file):
+    if verbose:
+        print(f"Working on: [ {i} / {total} ]", end='\r')
+    return func(mode, file, dspec, arg, cls)
 
 
 class ETDataHandle:
@@ -189,27 +195,24 @@ class ETDataHandle:
                 dataspec[k] = path
 
     @staticmethod
-    def multi_load(mode, files, dataspec, args, dataset_cls, work_function=_data_work) -> list:
-        global _easytorch_multi_load_work
+    def multi_load(mode, files, dataspec, args, dataset_cls, func=_et_data_job_func) -> list:
 
         r"""Note: Only works with easytorch's default args from easytorch import args"""
         _files = []
         for ix, f in enumerate(files, 1):
             _files.append([ix, f])
 
-        def _easytorch_multi_load_work(m, arg, dspec, cls, total, i, file, verbose=args['verbose']):
-            if verbose:
-                print(f"Data items loaded: [ {i} / {total} ]", end='\r')
-            return work_function(m, file, dspec, arg, cls)
-
         nw = min(num_workers(args, args, args['use_ddp']), len(_files))
         with _mp.Pool(processes=max(1, nw)) as pool:
             return list(
-                pool.starmap(_partial(_easytorch_multi_load_work, mode, args, dataspec, dataset_cls, len(_files)), _files)
+                pool.starmap(
+                    _partial(_et_data_job, mode, args, dataspec, dataset_cls, len(_files), func, args['verbose']),
+                    _files)
             )
 
     @staticmethod
-    def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False, work_function=_data_work) -> list:
+    def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False,
+                    work_function=_et_data_job_func) -> list:
         r"""
         Note: Only works with easytorch's default args from easytorch import args
         This method takes multiple dataspecs and pools the first splits of all the datasets.
@@ -223,8 +226,7 @@ class ETDataHandle:
                 files = split[split_key][:args['load_limit']]
 
                 if load_sparse and len(files) > 1:
-                    all_d += ETDataHandle.multi_load(split_key, files, dspec, args, dataset_cls,
-                                                     work_function=work_function)
+                    all_d += ETDataHandle.multi_load(split_key, files, dspec, args, dataset_cls, func=work_function)
                 else:
                     if len(all_d) <= 0:
                         all_d.append(dataset_cls(mode=split_key, limit=args['load_limit'], **args))
