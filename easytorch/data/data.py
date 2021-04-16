@@ -223,7 +223,7 @@ class ETDataHandle:
         for dspec in dataspecs:
             for split in sorted(_os.listdir(dspec['split_dir'])):
                 split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
-                files = split[split_key][:args['load_limit']]
+                files = split.get(split_key, [])[:args['load_limit']]
 
                 if load_sparse and len(files) > 1:
                     all_d += ETDataHandle.multi_load(split_key, files, dspec, args, dataset_cls, func=work_function)
