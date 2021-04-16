@@ -18,17 +18,19 @@ from easytorch.utils.logger import *
 
 
 def multi_run(files, num_processes=1, work_function=None):
+    global _easytorch_multi_run_work
+
     _files = []
     for ix, file in enumerate(files, 1):
         _files.append([ix, file])
 
-    def _work(total, i, f):
+    def _easytorch_multi_run_work(total, i, f):
         print(f"Working on [ {i}/{total} ]", end='\r')
         return work_function(f)
 
     with _mp.Pool(processes=num_processes) as pool:
         return list(
-            pool.starmap(_partial(_work, len(_files)), _files)
+            pool.starmap(_partial(_easytorch_multi_run_work, len(_files)), _files)
         )
 
 
@@ -188,12 +190,14 @@ class ETDataHandle:
 
     @staticmethod
     def multi_load(mode, files, dataspec, args, dataset_cls, work_function=_data_work) -> list:
+        global _easytorch_multi_load_work
+
         r"""Note: Only works with easytorch's default args from easytorch import args"""
         _files = []
         for ix, f in enumerate(files, 1):
             _files.append([ix, f])
 
-        def _work(m, arg, dspec, cls, total, i, file, verbose=args['verbose']):
+        def _easytorch_multi_load_work(m, arg, dspec, cls, total, i, file, verbose=args['verbose']):
             if verbose:
                 print(f"Data items loaded: [ {i} / {total} ]", end='\r')
             return work_function(m, file, dspec, arg, cls)
@@ -201,7 +205,7 @@ class ETDataHandle:
         nw = min(num_workers(args, args, args['use_ddp']), len(_files))
         with _mp.Pool(processes=max(1, nw)) as pool:
             return list(
-                pool.starmap(_partial(_work, mode, args, dataspec, dataset_cls, len(_files)), _files)
+                pool.starmap(_partial(_easytorch_multi_load_work, mode, args, dataspec, dataset_cls, len(_files)), _files)
             )
 
     @staticmethod
