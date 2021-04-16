@@ -3,9 +3,7 @@ import math as _math
 import multiprocessing as _mp
 import os as _os
 from functools import partial as _partial
-from itertools import chain as _chain
 from os import sep as _sep
-from typing import List as _List, Union as _Union
 
 import numpy as _np
 import torch as _torch
@@ -19,23 +17,25 @@ import easytorch.utils as _etutils
 from easytorch.utils.logger import *
 
 
-def seed_worker(worker_id):
-    seed = (int(_torch.initial_seed()) + worker_id) % (2 ** 32 - 1)
-    _np.random.seed(seed)
+def multi_run(files, num_processes=1, work_function=None):
+    global _easytorch_multi_run_work
 
+    _files = []
+    for ix, file in enumerate(files, 1):
+        _files.append([ix, file])
 
-def load_sparse_data_worker(dataset_cls, mode, args, dataspec, total, i, file):
-    test_dataset = dataset_cls(mode=mode, **args)
-    test_dataset.add(files=[file], verbose=False, **dataspec)
-    if args['verbose']:
-        print(f"Data items loaded: [ {i} / {total} ]", end='\r')
-    return [test_dataset]
+    def _easytorch_multi_run_work(total, i, f):
+        print(f"Working on [ {i}/{total} ]", end='\r')
+        return work_function(f)
+
+    with _mp.Pool(processes=num_processes) as pool:
+        return list(
+            pool.starmap(_partial(_easytorch_multi_run_work, len(_files)), _files)
+        )
 
 
 def safe_collate(batch):
-    r"""
-    Savely select batches/skip dataset_cls(errors in file loading.
-    """
+    r"""Safely select batches/skip dataset_cls(errors in file loading."""
     return _default_collate([b for b in batch if b])
 
 
@@ -51,6 +51,17 @@ def batch_size(args, loader_args, distributed=False):
     return loader_args['batch_size']
 
 
+def _seed_worker(worker_id):
+    seed = (int(_torch.initial_seed()) + worker_id) % (2 ** 32 - 1)
+    _np.random.seed(seed)
+
+
+def _data_work(mode, file, dataspec, args, dataset_cls):
+    test_dataset = dataset_cls(mode=mode, **args)
+    test_dataset.add(files=[file], verbose=False, **dataspec)
+    return test_dataset
+
+
 class ETDataHandle:
 
     def __init__(self, args=None, dataloader_args=None, **kw):
@@ -59,39 +70,16 @@ class ETDataHandle:
         self.args = _etutils.FrozenDict(args)
         self.dataloader_args = _etutils.FrozenDict(dataloader_args)
 
-    def get_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None) -> _Dataset:
+    def get_dataset(self, handle_key, files, dataspec: dict, reuse=False, dataset_cls=None):
+        if reuse and self.dataset.get(handle_key):
+            return self.dataset[handle_key]
+
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
         dataset.add(files=files, verbose=self.args['verbose'], **dataspec)
         self.dataset[handle_key] = dataset
         return dataset
 
-    def get_sparse_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None) -> _List[_Dataset]:
-        r"""
-        Load the test data from current fold/split.
-        If -sp/--load-sparse arg is set, we need to load one image in one dataloader.
-        So that we can correctly gather components of one image(components like output patches)
-        """
-        _files = []
-        for i, file in enumerate(files[:self.args['load_limit']], 1):
-            _files.append([i, file])
-
-        sparse_datasets = []
-        if len(_files) > 0:
-            nw = min(num_workers(self.args, self.args, self.args['use_ddp']), len(_files))
-            with _mp.Pool(processes=max(1, nw)) as pool:
-                sparse_datasets = list(
-                    _chain.from_iterable(pool.starmap(
-                        _partial(
-                            load_sparse_data_worker, dataset_cls, handle_key, self.args, dataspec, len(_files)
-                        ),
-                        _files
-                    )))
-
-        success(f"\n{dataspec['name']}, {handle_key}, {len(sparse_datasets)} sparse dataset Loaded",
-                self.args['verbose'])
-        return sparse_datasets
-
-    def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
+    def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None):
         if dataset_cls is None or self.dataloader_args.get('train', {}).get('dataset'):
             return self.dataloader_args.get('train', {}).get('dataset')
 
@@ -102,7 +90,7 @@ class ETDataHandle:
                                              dataspec, dataset_cls=dataset_cls)
             return train_dataset
 
-    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
+    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None):
         if dataset_cls is None or self.dataloader_args.get('validation', {}).get('dataset'):
             return self.dataloader_args.get('validation', {}).get('dataset')
 
@@ -114,16 +102,15 @@ class ETDataHandle:
             if val_dataset and len(val_dataset) > 0:
                 return val_dataset
 
-    def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
+    def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None):
         if dataset_cls is None or self.dataloader_args.get('test', {}).get('dataset'):
             return self.dataloader_args.get('test', {}).get('dataset')
 
         with open(dataspec['split_dir'] + _sep + split_file) as file:
-            split = _json.loads(file.read())
-            _files = split.get('test', [])
-
-            if len(_files) > 0 and self.args.get('load_sparse'):
-                datasets = self.get_sparse_dataset('test', _files, dataspec, dataset_cls)
+            _files = _json.loads(file.read()).get('test', [])[:self.args['load_limit']]
+            if self.args['load_sparse'] and len(_files) > 1:
+                datasets = ETDataHandle.multi_load('test', _files, dataspec, self.args, dataset_cls)
+                success(f'\n{len(datasets)} sparse dataset loaded.', self.args['verbose'])
             else:
                 datasets = self.get_dataset('test', _files, dataspec, dataset_cls=dataset_cls)
 
@@ -134,7 +121,7 @@ class ETDataHandle:
                    handle_key='', distributed=False,
                    use_unpadded_sampler=False,
                    reuse=False, **kw
-                   ) -> _DataLoader:
+                   ):
 
         if reuse and self.dataloader.get(handle_key) is not None:
             return self.dataloader[handle_key]
@@ -155,7 +142,7 @@ class ETDataHandle:
             'pin_memory': False,
             'drop_last': False,
             'timeout': 0,
-            'worker_init_fn': seed_worker if args.get('seed_all') else None
+            'worker_init_fn': _seed_worker if args.get('seed_all') else None
         }
         for k in loader_args.keys():
             loader_args[k] = args.get(k, loader_args.get(k))
@@ -201,6 +188,53 @@ class ETDataHandle:
                     path = path[:-1]
                 dataspec[k] = path
 
+    @staticmethod
+    def multi_load(mode, files, dataspec, args, dataset_cls, work_function=_data_work) -> list:
+        global _easytorch_multi_load_work
+
+        r"""Note: Only works with easytorch's default args from easytorch import args"""
+        _files = []
+        for ix, f in enumerate(files, 1):
+            _files.append([ix, f])
+
+        def _easytorch_multi_load_work(m, arg, dspec, cls, total, i, file, verbose=args['verbose']):
+            if verbose:
+                print(f"Data items loaded: [ {i} / {total} ]", end='\r')
+            return work_function(m, file, dspec, arg, cls)
+
+        nw = min(num_workers(args, args, args['use_ddp']), len(_files))
+        with _mp.Pool(processes=max(1, nw)) as pool:
+            return list(
+                pool.starmap(_partial(_easytorch_multi_load_work, mode, args, dataspec, dataset_cls, len(_files)), _files)
+            )
+
+    @staticmethod
+    def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False, work_function=_data_work) -> list:
+        r"""
+        Note: Only works with easytorch's default args from easytorch import args
+        This method takes multiple dataspecs and pools the first splits of all the datasets.
+        So that we can train one single model on all the datasets. It will automatically refer correct data files,
+            no need to move files in single folder.
+        """
+        all_d = []
+        for dspec in dataspecs:
+            for split in sorted(_os.listdir(dspec['split_dir'])):
+                split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
+                files = split[split_key][:args['load_limit']]
+
+                if load_sparse and len(files) > 1:
+                    all_d += ETDataHandle.multi_load(split_key, files, dspec, args, dataset_cls,
+                                                     work_function=work_function)
+                else:
+                    if len(all_d) <= 0:
+                        all_d.append(dataset_cls(mode=split_key, limit=args['load_limit'], **args))
+                    all_d[0].add(files=files, verbose=args['verbose'], **dspec)
+                """Pooling only works with 1 split at the moment."""
+                break
+
+        success(f'\nPooled {len(all_d)} dataset loaded.', args['verbose'] and len(all_d) > 1)
+        return all_d
+
 
 class ETDataset(_Dataset):
     def __init__(self, mode='init', limit=None, **kw):
@@ -224,31 +258,19 @@ class ETDataset(_Dataset):
         We load the proper indices/names(whatever is called) of the files in order to prepare minibatches.
         Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
         """
-        _files = []
-        for i, f in enumerate(files[:self.args['load_limit']], 1):
-            _files.append([i, f])
-
+        _files = files[:self.limit]
         if len(_files) > 1:
-            nw = min(num_workers(self.args, self.args, self.args['use_ddp']), len(_files))
-            with _mp.Pool(processes=max(1, nw)) as pool:
-                all_datasets = list(
-                    _chain.from_iterable(pool.starmap(
-                        _partial(
-                            load_sparse_data_worker, self.__class__, self.mode, self.args,
-                            self.dataspecs[dataspec_name], len(_files)
-                        ),
-                        _files
-                    )))
-                self.gather_datasets_(all_datasets)
-
-
+            dataset_objs = ETDataHandle.multi_load(
+                self.mode, _files, self.dataspecs[dataspec_name], self.args, self.__class__
+            )
+            self.gather(dataset_objs)
         else:
-            for _, file in _files:
-                self.load_index(dataspec_name, file)
+            for f in _files:
+                self.load_index(dataspec_name, f)
 
-        success(f'\n{dataspec_name}, {self.mode}, {len(self)} Indices Loaded', verbose and len(_files) > 1)
+        success(f'\n{dataspec_name}, {self.mode}, {len(self)} indices Loaded.', verbose)
 
-    def gather_datasets_(self, dataset_objs):
+    def gather(self, dataset_objs):
         for d in dataset_objs:
             attributes = vars(d)
             for k, v in attributes.items():
@@ -281,42 +303,6 @@ class ETDataset(_Dataset):
         r""" An extra layer for added flexibility."""
         self.dataspecs[kw['name']] = kw
         self._load_indices(dataspec_name=kw['name'], files=files, verbose=verbose)
-
-    @classmethod
-    def pool(cls, args, dataspecs, split_key=None, load_sparse=False):
-        r"""
-        This method takes multiple dataspecs and pools the first splits of all the datasets.
-        So that we can train one single model on all the datasets. It will automatically refer correct data files,
-            no need to move files in single folder.
-        """
-        all_d = []
-        for dspec in dataspecs:
-            for split in sorted(_os.listdir(dspec['split_dir'])):
-                split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
-
-                _files = []
-                for i, f in enumerate(split[split_key][:args['load_limit']], 1):
-                    _files.append([i, f])
-
-                if load_sparse:
-                    nw = min(num_workers(args, args, args['use_ddp']), len(_files))
-                    with _mp.Pool(processes=max(1, nw)) as pool:
-                        all_d += list(
-                            _chain.from_iterable(pool.starmap(
-                                _partial(
-                                    load_sparse_data_worker, cls, split_key, args, dspec, len(_files)
-                                ),
-                                _files
-                            )))
-                else:
-                    if len(all_d) <= 0:
-                        all_d.append(cls(mode=split_key, limit=args['load_limit'], **args))
-                    all_d[0].add(files=split[split_key], verbose=args['verbose'], **dspec)
-                """Pooling only works with 1 split at the moment."""
-                break
-
-        success(f'\nPooled {len(all_d)} dataset loaded.', args['verbose'] and len(all_d) > 1)
-        return all_d
 
 
 class UnPaddedDDPSampler(_data.Sampler):
