@@ -4,7 +4,6 @@ import multiprocessing as _mp
 import os as _os
 from functools import partial as _partial
 from os import sep as _sep
-from typing import List as _List, Union as _Union
 
 import numpy as _np
 import torch as _torch
@@ -69,7 +68,7 @@ class ETDataHandle:
         self.args = _etutils.FrozenDict(args)
         self.dataloader_args = _etutils.FrozenDict(dataloader_args)
 
-    def get_dataset(self, handle_key, files, dataspec: dict, reuse=False, dataset_cls=None) -> _Dataset:
+    def get_dataset(self, handle_key, files, dataspec: dict, reuse=False, dataset_cls=None):
         if reuse and self.dataset.get(handle_key):
             return self.dataset[handle_key]
 
@@ -78,7 +77,7 @@ class ETDataHandle:
         self.dataset[handle_key] = dataset
         return dataset
 
-    def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
+    def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None):
         if dataset_cls is None or self.dataloader_args.get('train', {}).get('dataset'):
             return self.dataloader_args.get('train', {}).get('dataset')
 
@@ -89,7 +88,7 @@ class ETDataHandle:
                                              dataspec, dataset_cls=dataset_cls)
             return train_dataset
 
-    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
+    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None):
         if dataset_cls is None or self.dataloader_args.get('validation', {}).get('dataset'):
             return self.dataloader_args.get('validation', {}).get('dataset')
 
@@ -101,7 +100,7 @@ class ETDataHandle:
             if val_dataset and len(val_dataset) > 0:
                 return val_dataset
 
-    def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None) -> _Union[_Dataset, _List[_Dataset]]:
+    def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None):
         if dataset_cls is None or self.dataloader_args.get('test', {}).get('dataset'):
             return self.dataloader_args.get('test', {}).get('dataset')
 
@@ -120,7 +119,7 @@ class ETDataHandle:
                    handle_key='', distributed=False,
                    use_unpadded_sampler=False,
                    reuse=False, **kw
-                   ) -> _DataLoader:
+                   ):
 
         if reuse and self.dataloader.get(handle_key) is not None:
             return self.dataloader[handle_key]
@@ -188,7 +187,7 @@ class ETDataHandle:
                 dataspec[k] = path
 
     @staticmethod
-    def multi_load(mode, files, dataspec, args, dataset_cls, work_function=_data_work) -> _List:
+    def multi_load(mode, files, dataspec, args, dataset_cls, work_function=_data_work) -> list:
         r"""Note: Only works with easytorch's default args from easytorch import args"""
         _files = []
         for ix, f in enumerate(files, 1):
@@ -206,7 +205,7 @@ class ETDataHandle:
             )
 
     @staticmethod
-    def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False, work_function=_data_work) -> _List:
+    def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False, work_function=_data_work) -> list:
         r"""
         Note: Only works with easytorch's default args from easytorch import args
         This method takes multiple dataspecs and pools the first splits of all the datasets.

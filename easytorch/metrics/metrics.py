@@ -5,10 +5,10 @@ added in the ETAverages, ETMetrics respectively.
 
 import abc as _abc
 import time as _time
-import typing as _typing
 
 import numpy as _np
 import torch as _torch
+from typing import List
 
 from easytorch.config.state import *
 
@@ -42,7 +42,7 @@ class ETMetrics(SerializableMetrics):
     def update(self, *args, **kw):
         pass
 
-    def update_all(self, kws: _typing.List[dict] = None):
+    def update_all(self, kws: List[dict] = None):
         if kws is not None:
             [self.update(**kw) for kw in kws]
 
@@ -71,7 +71,7 @@ class ETMetrics(SerializableMetrics):
         """
         pass
 
-    def get(self, *args, **kw) -> _typing.List[float]:
+    def get(self, *args, **kw) -> List[float]:
         r"""
         Computes/returns list of scores.
             Example: easytorch.metrics.Prf1a() returns
@@ -127,7 +127,7 @@ class ETAverages(ETMetrics):
         self.values[index] += val * n
         self.counts[index] += n
 
-    def update(self, values: _typing.List[float] = None, counts: _typing.List[int] = None, **kw):
+    def update(self, values: List[float] = None, counts: List[int] = None, **kw):
         self.values += _np.array(values)
         self.counts += _np.array(counts)
 
@@ -145,7 +145,7 @@ class ETAverages(ETMetrics):
         self.values = _np.array([0.0] * self.num_averages)
         self.counts = _np.array([0.0] * self.num_averages)
 
-    def get(self) -> _typing.List[float]:
+    def get(self) -> List[float]:
         r"""
         Computes/Returns self.num_averages number of averages in vectorized way.
         """

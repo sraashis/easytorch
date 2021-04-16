@@ -4,11 +4,9 @@ The main core of EasyTorch
 
 import math as _math
 import os as _os
-from typing import List as _List, Union as _Union
 
 import torch as _torch
 import torch.distributed as _dist
-from torch.utils.data import Dataset as _Dataset
 
 import easytorch.utils as _etutils
 from easytorch.config.state import *
@@ -190,7 +188,7 @@ class ETTrainer:
         r"""It tells which metrics to monitor and either to maximize(F1 score), minimize(MSE)"""
         self.cache.update(monitor_metric='time', metric_direction='maximize')
 
-    def iteration(self, batch):
+    def iteration(self, batch) -> dict:
         r"""
         Left for user to implement one mini-bath iteration:
         Example:{
@@ -226,7 +224,7 @@ class ETTrainer:
     def evaluation(self,
                    epoch=1,
                    mode='eval',
-                   dataset=_Union[_List[_Dataset], _Dataset],
+                   dataset: list = None,
                    save_pred=False,
                    distributed: bool = False,
                    use_unpadded_sampler: bool = False) -> dict:
@@ -293,7 +291,7 @@ class ETTrainer:
 
         return {'averages': eval_avg, 'metrics': eval_metrics}
 
-    def _reduce_iteration(self, its):
+    def _reduce_iteration(self, its) -> dict:
         reduced = {}.fromkeys(its[0].keys(), None)
 
         for key in reduced:
@@ -413,7 +411,7 @@ class ETTrainer:
                 f"Not best: {val_check['score']}, {self.cache['best_val_score']} in ep: {self.cache['best_val_epoch']}",
                 self.args['verbose'])
 
-    def validation(self, epoch, dataset: _Union[_List[_Dataset], _Dataset]) -> dict:
+    def validation(self, epoch, dataset) -> dict:
         return self.evaluation(epoch=epoch, mode='validation',
                                dataset=dataset,
                                distributed=self.args['use_ddp'],
@@ -440,7 +438,7 @@ class ETTrainer:
 
             running_averages.reset(), running_metrics.reset()
 
-    def train(self, train_dataset: _Dataset, validation_dataset: _Union[_List[_Dataset], _Dataset]) -> None:
+    def train(self, train_dataset, validation_dataset) -> None:
         info('Training ...', self.args['verbose'])
 
         train_loader = self.data_handle.get_loader(
