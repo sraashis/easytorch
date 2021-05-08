@@ -1,1 +1,1 @@
-from .metrics import *
+from easytorch.metrics.metrics import *
