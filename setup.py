@@ -11,7 +11,7 @@ README = (HERE / "README.md").read_text()
 # This call to setup() does all the work
 setup(
     name="easytorch",
-    version="2.8.3",
+    version="2.8.5",
     description="Easy Neural Network Experiments with pytorch",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -21,7 +21,6 @@ setup(
     license="MIT",
     classifiers=[
         "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
     ],
     packages=['easytorch', 'easytorch.config', 'easytorch.data', 'easytorch.metrics', 'easytorch.utils', 'easytorch.vision'],

@@ -50,7 +50,7 @@ class MNISTTrainer(ETTrainer):
 
         _, pred = torch.max(out, 1)
         sc = self.new_metrics()
-        sc.add(pred, labels)
+        sc.add(pred, labels.float())
 
         avg = self.new_averages()
         avg.add(loss.item(), len(inputs))

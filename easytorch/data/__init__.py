@@ -1,1 +1,1 @@
-from .data import *
+from easytorch.data.data import *
