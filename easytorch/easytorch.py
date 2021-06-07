@@ -21,7 +21,6 @@ _sep = _os.sep
 
 
 def _ddp_worker(gpu, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled):
-    import torch.distributed as _dist
     self.args['gpu'] = gpu
     self.args['verbose'] = gpu == MASTER_RANK
     self.args['is_master'] = gpu == MASTER_RANK
