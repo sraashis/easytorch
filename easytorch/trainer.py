@@ -276,8 +276,7 @@ class ETTrainer:
                         else:
                             update_scores(self.save_predictions(dataset, it), it, avg, metrics)
                     else:
-                        avg.accumulate(it.get('averages'))
-                        metrics.accumulate(it.get('metrics'))
+                        update_scores(None, it, avg, metrics)
 
                     if self.args['verbose'] and len(dataset) <= 1 and lazy_debug(i, add=epoch):
                         info(
