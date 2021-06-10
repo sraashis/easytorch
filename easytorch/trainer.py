@@ -254,12 +254,10 @@ class ETTrainer:
             )
 
         def update_scores(_out, _it, _avg, _metrics):
-            if _out is not None:
-                _avg.accumulate(_out['averages'])
-                _metrics.accumulate(_out['metrics'])
-            else:
-                _avg.accumulate(_it['averages'])
-                _metrics.accumulate(_it['metrics'])
+            if _out is None:
+                _out = {}
+            _avg.accumulate(_out.get('averages', _it['averages']))
+            _metrics.accumulate(_out.get('metrics', _it['metrics']))
 
         with _torch.no_grad():
             for loader in loaders:
