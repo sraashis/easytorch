@@ -387,6 +387,6 @@ class EasyTorch:
         """Only do test in master rank node"""
         if self.args['is_master']:
             test_dataset = ETDataHandle.pooled_load('test', self.dataspecs, self.args,
-                                                    dataset_cls=dataset_cls, load_sparse=False)
+                                                    dataset_cls=dataset_cls, load_sparse=self.args['load_sparse'])
             scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)], distributed=False)
             self._global_experiment_end(trainer, scores)

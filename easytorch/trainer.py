@@ -211,7 +211,7 @@ class ETTrainer:
         """
         return {}
 
-    def save_predictions(self, dataset, its):
+    def save_predictions(self, dataset, its) -> dict:
         r"""
         If one needs to save complex predictions result like predicted segmentations.
          -Especially with U-Net architectures, we split images and train.
@@ -219,7 +219,7 @@ class ETTrainer:
         the argument 'its' will receive all the patches of single image at a time.
         From there, we can recreate the whole image.
         """
-        pass
+        return {}
 
     def evaluation(self,
                    epoch=1,
@@ -253,6 +253,12 @@ class ETTrainer:
                 )
             )
 
+        def update_scores(_out, _it, _avg, _metrics):
+            if _out is None:
+                _out = {}
+            _avg.accumulate(_out.get('averages', _it['averages']))
+            _metrics.accumulate(_out.get('metrics', _it['metrics']))
+
         with _torch.no_grad():
             for loader in loaders:
                 its = []
@@ -262,14 +268,13 @@ class ETTrainer:
                 for i, batch in enumerate(loader, 1):
                     it = self.iteration(batch)
 
-                    avg.accumulate(it.get('averages'))
-                    metrics.accumulate(it.get('metrics'))
-
                     if save_pred:
                         if self.args['load_sparse']:
                             its.append(it)
                         else:
-                            self.save_predictions(dataset, it)
+                            update_scores(self.save_predictions(dataset, it), it, avg, metrics)
+                    else:
+                        update_scores(None, it, avg, metrics)
 
                     if self.args['verbose'] and len(dataset) <= 1 and lazy_debug(i, add=epoch):
                         info(
@@ -277,14 +282,15 @@ class ETTrainer:
                             f"Averages:{it.get('averages').get()}, Metrics:{it.get('metrics').get()}"
                         )
 
-                eval_metrics.accumulate(metrics)
-                eval_avg.accumulate(avg)
+                if save_pred and self.args['load_sparse']:
+                    its = self._reduce_iteration(its)
+                    update_scores(self.save_predictions(loader.dataset, its), its, avg, metrics)
 
                 if self.args['verbose'] and len(dataset) > 1:
                     info(f" {mode}, {avg.get()}, {metrics.get()}")
 
-                if save_pred and self.args['load_sparse']:
-                    self.save_predictions(loader.dataset, self._reduce_iteration(its))
+                eval_metrics.accumulate(metrics)
+                eval_avg.accumulate(avg)
 
         info(f"{self.cache['experiment_id']} {mode} Averages:{eval_avg.get()}, Metrics:{eval_metrics.get()}",
              self.args['verbose'])
@@ -292,8 +298,10 @@ class ETTrainer:
         return {'averages': eval_avg, 'metrics': eval_metrics}
 
     def _reduce_iteration(self, its) -> dict:
-        reduced = {}.fromkeys(its[0].keys(), None)
+        if len(its) == 1:
+            return its[0]
 
+        reduced = {}.fromkeys(its[0].keys(), None)
         for key in reduced:
             if isinstance(its[0][key], _base_metrics.ETAverages):
                 reduced[key] = self.new_averages()
