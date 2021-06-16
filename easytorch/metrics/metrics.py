@@ -300,4 +300,4 @@ class ConfusionMatrix(ETMetrics):
                 round(self.precision(), self.num_precision), round(self.recall(), self.num_precision)]
 
     def serialize(self, **kw):
-        return [self.matrix]
+        return [self.matrix.numpy().tolist()]
