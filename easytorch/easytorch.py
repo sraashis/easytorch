@@ -23,11 +23,12 @@ _sep = _os.sep
 def _ddp_worker(gpu, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled):
     self.args['gpu'] = gpu
     self.args['verbose'] = gpu == MASTER_RANK
-    self.args['is_master'] = gpu == MASTER_RANK
     world_size = self.args['world_size']
     if not world_size:
         world_size = self.args['num_gpus'] * self.args['num_nodes']
     world_rank = self.args['node_rank'] * self.args['num_gpus'] + gpu
+    
+    self.args['is_master'] = world_rank == MASTER_RANK
     _dist.init_process_group(backend=self.args['dist_backend'],
                              init_method=self.args['dist_url'],
                              world_size=world_size, rank=world_rank)
