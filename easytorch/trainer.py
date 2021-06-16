@@ -398,11 +398,12 @@ class ETTrainer:
             metrics_serial = _torch.tensor(metrics.serialize()).to(self.device['gpu'])
             _dist.reduce(metrics_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
 
-            averages.reset()
-            averages.update(*avg_serial.cpu().numpy().tolist())
+            if self.args['is_master']:
+                averages.reset()
+                averages.update(*avg_serial.cpu().numpy().tolist())
 
-            metrics.reset()
-            metrics.update(*metrics_serial.cpu().numpy().tolist())
+                metrics.reset()
+                metrics.update(*metrics_serial.cpu().numpy().tolist())
 
         return {f"averages": averages,
                 f"metrics": metrics}
@@ -514,7 +515,7 @@ class ETTrainer:
     def _global_epoch_end(self, **kw):
         if kw.get('train') is not None:
             self.cache[LogKey.TRAIN_LOG].append(
-                [*kw['train']['averages'].get(), *kw['train']['metrics'].get()]
+                [*kw['training']['averages'].get(), *kw['train']['metrics'].get()]
             )
         if kw.get('validation') is not None:
             self.save_if_better(**kw)
