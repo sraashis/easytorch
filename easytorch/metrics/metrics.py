@@ -83,7 +83,7 @@ class ETMetrics(SerializableMetrics):
             Example: easytorch.metrics.Prf1a() returns
             Precision, Recall, F1, Accuracy from the collected TP, TN, FP, FN.
         """
-        return [0.0]
+        raise NotImplementedError('Must be implemented to return the computed scores like Accuracy, F1...')
 
     @property
     def eps(self):
