@@ -147,7 +147,7 @@ class ETTrainer:
         User can override to supply desired implementation of easytorch.metrics.ETMetrics().
             Example: easytorch.metrics.Pr11a() will work with precision, recall, F1, Accuracy, IOU scores.
         """
-        return _base_metrics.ETMetrics()
+        return _base_metrics.ETAverages(num_averages=1)
 
     def new_averages(self):
         r""""
@@ -253,7 +253,7 @@ class ETTrainer:
                 )
             )
 
-        def update_scores(_out, _it, _avg, _metrics):
+        def _update_scores(_out, _it, _avg, _metrics):
             if _out is None:
                 _out = {}
             _avg.accumulate(_out.get('averages', _it['averages']))
@@ -272,9 +272,9 @@ class ETTrainer:
                         if self.args['load_sparse']:
                             its.append(it)
                         else:
-                            update_scores(self.save_predictions(dataset, it), it, avg, metrics)
+                            _update_scores(self.save_predictions(dataset, it), it, avg, metrics)
                     else:
-                        update_scores(None, it, avg, metrics)
+                        _update_scores(None, it, avg, metrics)
 
                     if self.args['verbose'] and len(dataset) <= 1 and lazy_debug(i, add=epoch):
                         info(
@@ -284,7 +284,7 @@ class ETTrainer:
 
                 if save_pred and self.args['load_sparse']:
                     its = self._reduce_iteration(its)
-                    update_scores(self.save_predictions(loader.dataset, its), its, avg, metrics)
+                    _update_scores(self.save_predictions(loader.dataset, its), its, avg, metrics)
 
                 if self.args['verbose'] and len(dataset) > 1:
                     info(f" {mode}, {avg.get()}, {metrics.get()}")

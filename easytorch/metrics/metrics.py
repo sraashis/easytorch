@@ -29,6 +29,7 @@ class SerializableMetrics:
         else:
             return object.__getattribute__(self, attribute)
 
+    @_abc.abstractmethod
     def serialize(self, **kw):
         """The order of serialization reduction and update method should be same"""
         pass
@@ -40,11 +41,13 @@ class ETMetrics(SerializableMetrics):
 
     @_abc.abstractmethod
     def update(self, *args, **kw):
-        pass
+        raise NotImplementedError('Must be implemented to update from serialized ETMetrics.')
 
-    def update_all(self, kws: List[dict] = None):
-        if kws is not None:
+    def update_all(self, kws: list = None):
+        if isinstance(kws[0], dict):
             [self.update(**kw) for kw in kws]
+        elif isinstance(kws[0], list):
+            [self.update(*kw) for kw in kws]
 
     @_abc.abstractmethod
     def add(self, *args, **kw):
@@ -57,27 +60,30 @@ class ETMetrics(SerializableMetrics):
            sc = self.new_metrics()
            sc.add(pred, labels)
         """
-        raise NotImplementedError('Must be implemented.')
+        raise NotImplementedError('Must be implemented like add(self, pred, labels):{...}')
 
+    @_abc.abstractmethod
     def accumulate(self, other):
         r"""
         Add all the content from another ETMetrics object.
         """
-        pass
+        raise NotImplementedError('Must be implemented to accumulate other to self')
 
+    @_abc.abstractmethod
     def reset(self):
         r"""
         Clear all the content of self.
         """
-        pass
+        raise NotImplementedError('Must be implemented to reset')
 
+    @_abc.abstractmethod
     def get(self, *args, **kw) -> List[float]:
         r"""
         Computes/returns list of scores.
             Example: easytorch.metrics.Prf1a() returns
             Precision, Recall, F1, Accuracy from the collected TP, TN, FP, FN.
         """
-        return [0.0]
+        raise NotImplementedError('Must be implemented to return the computed scores like Accuracy, F1...')
 
     @property
     def eps(self):
