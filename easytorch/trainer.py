@@ -392,18 +392,18 @@ class ETTrainer:
             metrics.accumulate(acc['metrics'])
 
         if distributed:
-            all_avg = [{} for _ in _dist.get_world_size()]
-            _dist.gather_object(averages.serialize(), all_avg if self.args['is_master'] else None, dst=MASTER_RANK)
+            avg_serial = _torch.tensor(averages.serialize()).to(self.device['gpu'])
+            _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
 
-            all_metrics = [{} for _ in _dist.get_world_size()]
-            _dist.gather_object(metrics.serialize(), all_metrics if self.args['is_master'] else None, dst=MASTER_RANK)
+            metrics_serial = _torch.tensor(metrics.serialize()).to(self.device['gpu'])
+            _dist.reduce(metrics_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
 
             if self.args['is_master']:
                 averages.reset()
-                averages.update_all(all_avg)
+                averages.update(*avg_serial.cpu().numpy().tolist())
 
                 metrics.reset()
-                metrics.update_all(all_metrics)
+                metrics.update(*metrics_serial.cpu().numpy().tolist())
 
         return {f"averages": averages,
                 f"metrics": metrics}
