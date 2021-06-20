@@ -29,6 +29,7 @@ class SerializableMetrics:
         else:
             return object.__getattribute__(self, attribute)
 
+    @_abc.abstractmethod
     def serialize(self, **kw):
         """The order of serialization reduction and update method should be same"""
         pass
@@ -59,20 +60,23 @@ class ETMetrics(SerializableMetrics):
            sc = self.new_metrics()
            sc.add(pred, labels)
         """
-        raise NotImplementedError('Must be implemented.')
+        pass
 
+    @_abc.abstractmethod
     def accumulate(self, other):
         r"""
         Add all the content from another ETMetrics object.
         """
-        raise NotImplementedError('Must implement how to accumulate other score to self.')
+        pass
 
+    @_abc.abstractmethod
     def reset(self):
         r"""
         Clear all the content of self.
         """
         pass
 
+    @_abc.abstractmethod
     def get(self, *args, **kw) -> List[float]:
         r"""
         Computes/returns list of scores.
