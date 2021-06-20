@@ -42,10 +42,10 @@ class ETMetrics(SerializableMetrics):
     def update(self, *args, **kw):
         pass
 
-    def update_all(self, kws: List[dict] = None):
+    def update_all(self, kws: list = None):
         if isinstance(kws[0], dict):
             [self.update(**kw) for kw in kws]
-        elif isinstance(kws[0], List):
+        elif isinstance(kws[0], list):
             [self.update(*kw) for kw in kws]
 
     @_abc.abstractmethod
@@ -65,7 +65,7 @@ class ETMetrics(SerializableMetrics):
         r"""
         Add all the content from another ETMetrics object.
         """
-        self.update_all([other.serialize()])
+        raise NotImplementedError('Must implement how to accumulate other score to self.')
 
     def reset(self):
         r"""
