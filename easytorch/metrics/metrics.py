@@ -41,7 +41,7 @@ class ETMetrics(SerializableMetrics):
 
     @_abc.abstractmethod
     def update(self, *args, **kw):
-        pass
+        raise NotImplementedError('Must be implemented to update from serialized ETMetrics.')
 
     def update_all(self, kws: list = None):
         if isinstance(kws[0], dict):
@@ -60,21 +60,21 @@ class ETMetrics(SerializableMetrics):
            sc = self.new_metrics()
            sc.add(pred, labels)
         """
-        pass
+        raise NotImplementedError('Must be implemented like add(self, pred, labels):{...}')
 
     @_abc.abstractmethod
     def accumulate(self, other):
         r"""
         Add all the content from another ETMetrics object.
         """
-        pass
+        raise NotImplementedError('Must be implemented to accumulate other to self')
 
     @_abc.abstractmethod
     def reset(self):
         r"""
         Clear all the content of self.
         """
-        pass
+        raise NotImplementedError('Must be implemented to reset')
 
     @_abc.abstractmethod
     def get(self, *args, **kw) -> List[float]:
