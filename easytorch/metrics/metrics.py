@@ -11,7 +11,6 @@ import torch as _torch
 from typing import List
 
 from easytorch.config.state import *
-import copy as _copy
 
 
 class SerializableMetrics:
@@ -31,7 +30,8 @@ class SerializableMetrics:
             return object.__getattribute__(self, attribute)
 
     def serialize(self, **kw):
-        return vars(_copy.deepcopy(self))
+        """The order of serialization reduction and update method should be same"""
+        pass
 
 
 class ETMetrics(SerializableMetrics):
@@ -43,8 +43,10 @@ class ETMetrics(SerializableMetrics):
         pass
 
     def update_all(self, kws: List[dict] = None):
-        if kws is not None:
+        if isinstance(kws[0], dict):
             [self.update(**kw) for kw in kws]
+        elif isinstance(kws[0], List):
+            [self.update(*kw) for kw in kws]
 
     @_abc.abstractmethod
     def add(self, *args, **kw):
@@ -63,7 +65,7 @@ class ETMetrics(SerializableMetrics):
         r"""
         Add all the content from another ETMetrics object.
         """
-        self.update(**other.serialize())
+        self.update_all([other.serialize()])
 
     def reset(self):
         r"""
@@ -159,6 +161,9 @@ class ETAverages(ETMetrics):
             return round(sum(avgs) / len(avgs), self.num_precision)
         return avgs
 
+    def serialize(self, **kw):
+        return [self.values, self.counts]
+
 
 class Prf1a(ETMetrics):
     r"""
@@ -232,6 +237,9 @@ class Prf1a(ETMetrics):
         o = self.tp / max(self.tp + self.fp + self.fn, self.eps)
         return round(o, self.num_precision)
 
+    def serialize(self, **kw):
+        return [self.tn, self.fp, self.fn, self.tp]
+
 
 class ConfusionMatrix(ETMetrics):
     """
@@ -292,3 +300,6 @@ class ConfusionMatrix(ETMetrics):
     def get(self):
         return [round(self.accuracy(), self.num_precision), round(self.f1(), self.num_precision),
                 round(self.precision(), self.num_precision), round(self.recall(), self.num_precision)]
+
+    def serialize(self, **kw):
+        return [self.matrix.numpy().tolist()]
