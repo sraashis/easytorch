@@ -76,17 +76,14 @@ class ETTrainer:
                         full_path,
                         load_model_state=True,
                         load_optimizer_state=True,
-                        src=MYSELF):
+                        src=MYSELF,
+                        map_location=_torch.device('cpu')):
         r"""
         Load checkpoint from the given path:
             If it is an easytorch checkpoint, try loading all the models.
             If it is not, assume it's weights to a single model and laod to first model.
         """
-        try:
-            chk = _torch.load(full_path)
-        except:
-            chk = _torch.load(full_path, map_location='cpu')
-
+        chk = _torch.load(full_path, map_location=map_location)
         if chk.get('_its_origin_', 'Unknown').lower() == src:
             if load_model_state:
                 for m in chk['models']:
