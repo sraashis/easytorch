@@ -27,7 +27,7 @@ def _ddp_worker(gpu, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled)
     if not world_size:
         world_size = self.args['num_gpus'] * self.args['num_nodes']
     world_rank = self.args['node_rank'] * self.args['num_gpus'] + gpu
-    
+
     self.args['is_master'] = world_rank == MASTER_RANK
     _dist.init_process_group(backend=self.args['dist_backend'],
                              init_method=self.args['dist_url'],
@@ -264,7 +264,8 @@ class EasyTorch:
         best_exists = _os.path.exists(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
         if best_exists and (self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None):
             """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
-            trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
+            trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'],
+                                    map_location=trainer.device['gpu'])
 
         """ Run and save experiment test scores """
         if test_dataset is not None:
