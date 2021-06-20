@@ -295,9 +295,6 @@ class ETTrainer:
         return {'averages': eval_avg, 'metrics': eval_metrics}
 
     def _reduce_iteration(self, its) -> dict:
-        if len(its) == 1:
-            return its[0]
-
         reduced = {}.fromkeys(its[0].keys(), None)
         for key in reduced:
             if isinstance(its[0][key], _base_metrics.ETAverages):
