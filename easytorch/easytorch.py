@@ -265,7 +265,7 @@ class EasyTorch:
         if best_exists and (self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None):
             """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
             trainer.load_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'],
-                                    map_location=trainer.device['gpu'])
+                                    map_location=trainer.device['gpu'], load_optimizer_state=False)
 
         """ Run and save experiment test scores """
         if test_dataset is not None:

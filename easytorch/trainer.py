@@ -65,7 +65,7 @@ class ETTrainer:
         if self.args['pretrained_path'] is not None:
             self.load_checkpoint(self.args['pretrained_path'],
                                  self.args.get('load_model_state', True),
-                                 self.args.get('load_optimizer_state', True))
+                                 self.args.get('load_optimizer_state', False))
 
         elif self.args['phase'] == 'train':
             _torch.manual_seed(self.args['seed'])
