@@ -425,7 +425,7 @@ class ETTrainer:
         running_averages.accumulate(kw.get('averages'))
         running_metrics.accumulate(kw.get('metrics'))
 
-        """Reset iteration accumulator"""
+        """ Reset iteration accumulator """
         N = kw['num_iters']
         i, e = kw['i'], kw['epoch']
 
