@@ -65,7 +65,7 @@ class ETTrainer:
         if self.args['pretrained_path'] is not None:
             self.load_checkpoint(self.args['pretrained_path'],
                                  self.args.get('load_model_state', True),
-                                 self.args.get('load_optimizer_state', True))
+                                 self.args.get('load_optimizer_state', False))
 
         elif self.args['phase'] == 'train':
             _torch.manual_seed(self.args['seed'])
@@ -425,7 +425,7 @@ class ETTrainer:
         running_averages.accumulate(kw.get('averages'))
         running_metrics.accumulate(kw.get('metrics'))
 
-        """Reset iteration accumulator"""
+        """ Reset iteration accumulator """
         N = kw['num_iters']
         i, e = kw['i'], kw['epoch']
 
