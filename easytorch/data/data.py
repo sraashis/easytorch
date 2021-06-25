@@ -204,11 +204,12 @@ class ETDataHandle:
 
         nw = min(num_workers(args, args, args['use_ddp']), len(_files))
         with _mp.Pool(processes=max(1, nw)) as pool:
-            return list(
+            dataset_list = list(
                 pool.starmap(
                     _partial(_et_data_job, mode, args, dataspec, dataset_cls, len(_files), func, args['verbose']),
                     _files)
             )
+            return [_d for _d in dataset_list if len(_d) >= 1]
 
     @staticmethod
     def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False,
