@@ -82,7 +82,8 @@ class ETDataHandle:
 
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
         dataset.add(files=files, verbose=self.args['verbose'], **dataspec)
-        self.dataset[handle_key] = dataset
+        if reuse:
+            self.dataset[handle_key] = dataset
         return dataset
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None):
@@ -172,8 +173,10 @@ class ETDataHandle:
             loader_args['num_workers'] = num_workers(args, loader_args, True)
             loader_args['batch_size'] = batch_size(args, loader_args, True)
 
-        self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **loader_args)
-        return self.dataloader[handle_key]
+        loader = _DataLoader(collate_fn=safe_collate, **loader_args)
+        if reuse:
+            self.dataloader[handle_key] = loader
+        return loader
 
     def create_splits(self, dataspec, out_dir):
         if _du.should_create_splits_(out_dir, dataspec, self.args):
