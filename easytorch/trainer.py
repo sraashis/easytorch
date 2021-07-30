@@ -454,6 +454,9 @@ class ETTrainer:
             use_unpadded_sampler=True
         )
 
+        if not isinstance(val_loader, list):
+            val_loader = [val_loader]
+
         for ep in range(1, self.args['epochs'] + 1):
             for k in self.nn:
                 self.nn[k].train()
@@ -496,7 +499,7 @@ class ETTrainer:
 
             """Validation step"""
             if validation_dataset is not None:
-                val_out = self.evaluation(ep, mode='validation', dataloaders=[val_loader], save_pred=False)
+                val_out = self.evaluation(ep, mode='validation', dataloaders=val_loader, save_pred=False)
                 epoch_out['validation'] = self.reduce_scores([val_out], distributed=self.args['use_ddp'])
 
             self._on_epoch_end(**epoch_out)
