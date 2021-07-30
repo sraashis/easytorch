@@ -224,7 +224,7 @@ class ETTrainer:
                    dataloaders: list = None,
                    save_pred=False) -> dict:
 
-        print('**************************', dataloaders)
+        print('**************************', vars(dataloaders[0]))
 
         for k in self.nn:
             self.nn[k].eval()
