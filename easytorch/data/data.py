@@ -152,6 +152,7 @@ class ETDataHandle:
                 loader_args['shuffle'] = False  # Shuffle is mutually exclusive with sampler
                 total_size = int(_math.ceil(len(loader_args['dataset']) * 1.0 / sampler_args['num_replicas'])) * \
                              sampler_args['num_replicas']
+                print('*****************', handle_key, len(loader_args['dataset']), total_size)
                 if args['use_unpadded_sampler'] and len(loader_args['dataset']) == total_size:
                     loader_args['sampler'] = UnPaddedDDPSampler(loader_args['dataset'], **sampler_args)
                 else:
