@@ -223,8 +223,6 @@ class ETTrainer:
                    mode='eval',
                    dataloaders: list = None,
                    save_pred=False) -> dict:
-        if self.args['is_master']:
-            print('*******************', len(dataloaders[0]), len(dataloaders[0].dataset))
         for k in self.nn:
             self.nn[k].eval()
 

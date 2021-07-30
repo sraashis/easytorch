@@ -142,7 +142,7 @@ class ETDataHandle:
 
         if args['distributed']:
             sampler_args = {
-                'num_replicas': args.get('replicas'),
+                'num_replicas': args.get('replicas', _dist.get_world_size()),
                 'rank': args.get('rank'),
                 'shuffle': args.get('shuffle'),
                 'seed': args.get('seed')
@@ -150,7 +150,9 @@ class ETDataHandle:
 
             if loader_args.get('sampler') is None:
                 loader_args['shuffle'] = False  # Shuffle is mutually exclusive with sampler
-                if args['use_unpadded_sampler']:
+                total_size = int(_math.ceil(len(loader_args['dataset']) * 1.0 / sampler_args['num_replicas'])) * \
+                             sampler_args['num_replicas']
+                if args['use_unpadded_sampler'] and len(loader_args['dataset']) == total_size:
                     loader_args['sampler'] = UnPaddedDDPSampler(loader_args['dataset'], **sampler_args)
                 else:
                     loader_args['sampler'] = _data.distributed.DistributedSampler(loader_args['dataset'],
