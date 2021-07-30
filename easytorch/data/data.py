@@ -137,10 +137,10 @@ class ETDataHandle:
             'worker_init_fn': _seed_worker if args.get('seed_all') else None
         }
 
-        print('##################', handle_key, loader_args)
-
         for k in loader_args.keys():
             loader_args[k] = args.get(k, loader_args.get(k))
+
+        print('##################', handle_key, loader_args)
 
         if args['distributed']:
             sampler_args = {
