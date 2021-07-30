@@ -150,10 +150,7 @@ class ETDataHandle:
 
             if loader_args.get('sampler') is None:
                 loader_args['shuffle'] = False  # Shuffle is mutually exclusive with sampler
-                total_size = int(_math.ceil(len(loader_args['dataset']) * 1.0 / sampler_args['num_replicas'])) * \
-                             sampler_args['num_replicas']
-                print('*****************', handle_key, len(loader_args['dataset']), total_size)
-                if args['use_unpadded_sampler'] and len(loader_args['dataset']) == total_size:
+                if args['use_unpadded_sampler']:
                     loader_args['sampler'] = UnPaddedDDPSampler(loader_args['dataset'], **sampler_args)
                 else:
                     loader_args['sampler'] = _data.distributed.DistributedSampler(loader_args['dataset'],
@@ -356,8 +353,11 @@ class UnPaddedDDPSampler(_data.Sampler):
         self.num_replicas = num_replicas
         self.rank = rank
         self.epoch = 0
-        self.num_samples = int(_math.ceil(len(self.dataset) * 1.0 / self.num_replicas))
-        self.total_size = self.num_samples * self.num_replicas
+
+        """For unpadded sampling"""
+        self.num_samples = int(_math.ceil((len(self.dataset)-self.rank) * 1.0 / self.num_replicas))
+        self.total_size = len(self.dataset)
+
         self.shuffle = shuffle
         self.seed = seed
 

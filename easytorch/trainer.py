@@ -441,8 +441,7 @@ class ETTrainer:
             handle_key='train',
             shuffle=True,
             dataset=train_dataset,
-            distributed=self.args['use_ddp'],
-            use_unpadded_sampler=True
+            distributed=self.args['use_ddp']
         )
 
         val_loader = self.data_handle.get_loader(
