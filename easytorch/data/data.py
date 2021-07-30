@@ -140,8 +140,6 @@ class ETDataHandle:
         for k in loader_args.keys():
             loader_args[k] = args.get(k, loader_args.get(k))
 
-        print('##################', handle_key, loader_args)
-
         if args['distributed']:
             sampler_args = {
                 'num_replicas': args.get('replicas'),

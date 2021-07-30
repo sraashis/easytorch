@@ -383,7 +383,7 @@ class EasyTorch:
             train_dataset = ETDataHandle.pooled_load('train', self.dataspecs, self.args,
                                                      dataset_cls=dataset_cls, load_sparse=False)[0]
             val_dataset = ETDataHandle.pooled_load('validation', self.dataspecs, self.args,
-                                                   dataset_cls=dataset_cls, load_sparse=False)
+                                                   dataset_cls=dataset_cls, load_sparse=False)[0]
             self._train(trainer, train_dataset, val_dataset, {'dataspecs': self.dataspecs})
 
         """Only do test in master rank node"""
