@@ -269,7 +269,7 @@ class EasyTorch:
 
         """ Run and save experiment test scores """
         if test_dataset is not None:
-            test_out = trainer.inference(mode='test', save_pred=True, dataset=test_dataset)
+            test_out = trainer.inference(mode='test', save_predictions=True, datasets=test_dataset)
             test_scores = trainer.reduce_scores([test_out], distributed=False)
             trainer.cache[LogKey.TEST_METRICS] = [[split_file,
                                                    *test_scores['averages'].get(),
