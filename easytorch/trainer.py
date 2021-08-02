@@ -418,7 +418,7 @@ class ETTrainer:
 
             running_averages.reset(), running_metrics.reset()
 
-    def inference(self, mode='test', save_preds=True, datasets: list = None, distributed=False):
+    def inference(self, mode='test', save_pred=True, datasets: list = None, distributed=False):
         if not isinstance(datasets, list):
             datasets = [datasets]
 
@@ -432,7 +432,7 @@ class ETTrainer:
                     distributed=distributed
                 )
             )
-        return self.evaluation(mode=mode, dataloaders=loaders, save_pred=save_preds)
+        return self.evaluation(mode=mode, dataloaders=loaders, save_pred=save_pred)
 
     def train(self, train_dataset, validation_dataset) -> None:
         info('Training ...', self.args['verbose'])
