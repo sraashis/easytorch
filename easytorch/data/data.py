@@ -71,18 +71,12 @@ def _et_data_job(mode, arg, dspec, cls, total, func, verbose, i, file):
 class ETDataHandle:
 
     def __init__(self, args=None, dataloader_args=None, **kw):
-        self.dataset = {}
-        self.dataloader = {}
         self.args = _etutils.FrozenDict(args)
         self.dataloader_args = _etutils.FrozenDict(dataloader_args)
 
-    def get_dataset(self, handle_key, files, dataspec: dict, reuse=False, dataset_cls=None):
-        if reuse and self.dataset.get(handle_key):
-            return self.dataset[handle_key]
-
+    def get_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None):
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
         dataset.add(files=files, verbose=self.args['verbose'], **dataspec)
-        self.dataset[handle_key] = dataset
         return dataset
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None):
@@ -123,15 +117,7 @@ class ETDataHandle:
             if len(datasets) > 0 and sum([len(t) for t in datasets if t]) > 0:
                 return datasets
 
-    def get_loader(self,
-                   handle_key='', distributed=False,
-                   use_unpadded_sampler=False,
-                   reuse=False, **kw
-                   ):
-
-        if reuse and self.dataloader.get(handle_key) is not None:
-            return self.dataloader[handle_key]
-
+    def get_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw):
         args = {**self.args}
         args['distributed'] = distributed
         args['use_unpadded_sampler'] = use_unpadded_sampler
@@ -150,12 +136,13 @@ class ETDataHandle:
             'timeout': 0,
             'worker_init_fn': _seed_worker if args.get('seed_all') else None
         }
+
         for k in loader_args.keys():
             loader_args[k] = args.get(k, loader_args.get(k))
 
         if args['distributed']:
             sampler_args = {
-                'num_replicas': args.get('replicas'),
+                'num_replicas': args.get('replicas', _dist.get_world_size()),
                 'rank': args.get('rank'),
                 'shuffle': args.get('shuffle'),
                 'seed': args.get('seed')
@@ -172,8 +159,7 @@ class ETDataHandle:
             loader_args['num_workers'] = num_workers(args, loader_args, True)
             loader_args['batch_size'] = batch_size(args, loader_args, True)
 
-        self.dataloader[handle_key] = _DataLoader(collate_fn=safe_collate, **loader_args)
-        return self.dataloader[handle_key]
+        return _DataLoader(collate_fn=safe_collate, **loader_args)
 
     def create_splits(self, dataspec, out_dir):
         if _du.should_create_splits_(out_dir, dataspec, self.args):
@@ -367,8 +353,11 @@ class UnPaddedDDPSampler(_data.Sampler):
         self.num_replicas = num_replicas
         self.rank = rank
         self.epoch = 0
-        self.num_samples = int(_math.ceil(len(self.dataset) * 1.0 / self.num_replicas))
-        self.total_size = self.num_samples * self.num_replicas
+
+        """For unpadded sampling"""
+        self.num_samples = int(_math.ceil((len(self.dataset)-self.rank) * 1.0 / self.num_replicas))
+        self.total_size = len(self.dataset)
+
         self.shuffle = shuffle
         self.seed = seed
 

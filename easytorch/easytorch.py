@@ -269,7 +269,7 @@ class EasyTorch:
 
         """ Run and save experiment test scores """
         if test_dataset is not None:
-            test_out = trainer.evaluation(mode='test', save_pred=True, distributed=False, dataset=test_dataset)
+            test_out = trainer.inference(mode='test', save_predictions=True, datasets=test_dataset)
             test_scores = trainer.reduce_scores([test_out], distributed=False)
             trainer.cache[LogKey.TEST_METRICS] = [[split_file,
                                                    *test_scores['averages'].get(),
@@ -383,7 +383,7 @@ class EasyTorch:
             train_dataset = ETDataHandle.pooled_load('train', self.dataspecs, self.args,
                                                      dataset_cls=dataset_cls, load_sparse=False)[0]
             val_dataset = ETDataHandle.pooled_load('validation', self.dataspecs, self.args,
-                                                   dataset_cls=dataset_cls, load_sparse=False)
+                                                   dataset_cls=dataset_cls, load_sparse=False)[0]
             self._train(trainer, train_dataset, val_dataset, {'dataspecs': self.dataspecs})
 
         """Only do test in master rank node"""
