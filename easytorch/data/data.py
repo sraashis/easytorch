@@ -124,6 +124,9 @@ class ETDataHandle:
         args.update(self.dataloader_args.get(handle_key, {}))
         args.update(**kw)
 
+        if args.get('dataset') is None:
+            return None
+
         loader_args = {
             'dataset': None,
             'batch_size': 1,
@@ -355,7 +358,7 @@ class UnPaddedDDPSampler(_data.Sampler):
         self.epoch = 0
 
         """For unpadded sampling"""
-        self.num_samples = int(_math.ceil((len(self.dataset)-self.rank) * 1.0 / self.num_replicas))
+        self.num_samples = int(_math.ceil((len(self.dataset) - self.rank) * 1.0 / self.num_replicas))
         self.total_size = len(self.dataset)
 
         self.shuffle = shuffle

@@ -268,15 +268,14 @@ class EasyTorch:
                                     map_location=trainer.device['gpu'], load_optimizer_state=False)
 
         """ Run and save experiment test scores """
-        if test_dataset is not None:
-            test_out = trainer.inference(mode='test', save_predictions=True, datasets=test_dataset)
-            test_scores = trainer.reduce_scores([test_out], distributed=False)
-            trainer.cache[LogKey.TEST_METRICS] = [[split_file,
-                                                   *test_scores['averages'].get(),
-                                                   *test_scores['metrics'].get()]]
-            _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
-                               file_keys=[LogKey.TEST_METRICS])
-            return test_out
+        test_out = trainer.inference(mode='test', save_predictions=True, datasets=test_dataset)
+        test_scores = trainer.reduce_scores([test_out], distributed=False)
+        trainer.cache[LogKey.TEST_METRICS] = [[split_file,
+                                               *test_scores['averages'].get(),
+                                               *test_scores['metrics'].get()]]
+        _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
+                           file_keys=[LogKey.TEST_METRICS])
+        return test_out
 
     def run(self, trainer_cls: typing.Type[ETTrainer],
             dataset_cls: typing.Type[ETDataset] = None,
@@ -324,10 +323,9 @@ class EasyTorch:
                     self._train(trainer, train_dataset, validation_dataset, dspec)
 
                 if self.args['is_master']:
-                    test_dataset = trainer.data_handle.get_test_dataset(
-                        split_file, dspec, dataset_cls=dataset_cls
-                    )
-                    test_accum.append(self._test(split_file, trainer, test_dataset))
+                    test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
+                    if test_dataset is not None:
+                        test_accum.append(self._test(split_file, trainer, test_dataset))
 
                 if trainer.args.get('use_ddp'):
                     _dist.barrier()
