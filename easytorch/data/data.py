@@ -142,7 +142,7 @@ class ETDataHandle:
 
         if args['distributed']:
             sampler_args = {
-                'num_replicas': args.get('replicas', _dist.get_world_size()),
+                'num_replicas': args.get('replicas'),
                 'rank': args.get('rank'),
                 'shuffle': args.get('shuffle'),
                 'seed': args.get('seed')
