@@ -73,10 +73,15 @@ class ETDataHandle:
     def __init__(self, args=None, dataloader_args=None, **kw):
         self.args = _etutils.FrozenDict(args)
         self.dataloader_args = _etutils.FrozenDict(dataloader_args)
+        self.datasets = {}
 
-    def get_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None):
+    def get_dataset(self, handle_key, files, dataspec: dict, reuse=True, dataset_cls=None):
+        if reuse and self.datasets.get(handle_key):
+            return self.datasets[handle_key]
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
         dataset.add(files=files, verbose=self.args['verbose'], **dataspec)
+        if reuse:
+            self.datasets[handle_key] = dataset
         return dataset
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None):
@@ -124,6 +129,9 @@ class ETDataHandle:
         args.update(self.dataloader_args.get(handle_key, {}))
         args.update(**kw)
 
+        if args.get('dataset') is None:
+            return None
+
         loader_args = {
             'dataset': None,
             'batch_size': 1,
@@ -142,7 +150,7 @@ class ETDataHandle:
 
         if args['distributed']:
             sampler_args = {
-                'num_replicas': args.get('replicas', _dist.get_world_size()),
+                'num_replicas': args.get('replicas'),
                 'rank': args.get('rank'),
                 'shuffle': args.get('shuffle'),
                 'seed': args.get('seed')
@@ -355,7 +363,7 @@ class UnPaddedDDPSampler(_data.Sampler):
         self.epoch = 0
 
         """For unpadded sampling"""
-        self.num_samples = int(_math.ceil((len(self.dataset)-self.rank) * 1.0 / self.num_replicas))
+        self.num_samples = int(_math.ceil((len(self.dataset) - self.rank) * 1.0 / self.num_replicas))
         self.total_size = len(self.dataset)
 
         self.shuffle = shuffle

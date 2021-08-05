@@ -423,16 +423,18 @@ class ETTrainer:
             datasets = [datasets]
 
         loaders = []
-        for d in datasets:
+        for d in [_d for _d in datasets if _d]:
             loaders.append(
                 self.data_handle.get_loader(
-                    handle_key=mode,
-                    shuffle=False,
-                    dataset=d,
-                    distributed=distributed
+                    handle_key=mode, shuffle=False, dataset=d, distributed=distributed
                 )
             )
-        return self.evaluation(mode=mode, dataloaders=loaders, save_pred=save_predictions)
+
+        return self.evaluation(
+            mode=mode,
+            dataloaders=[_l for _l in loaders if _l],
+            save_pred=save_predictions
+        )
 
     def train(self, train_dataset, validation_dataset) -> None:
         info('Training ...', self.args['verbose'])
@@ -452,7 +454,7 @@ class ETTrainer:
             use_unpadded_sampler=True
         )
 
-        if not isinstance(val_loader, list):
+        if val_loader is not None and not isinstance(val_loader, list):
             val_loader = [val_loader]
 
         for ep in range(1, self.args['epochs'] + 1):
@@ -496,7 +498,7 @@ class ETTrainer:
             epoch_out = {'epoch': ep, 'training': reduced_epoch}
 
             """Validation step"""
-            if validation_dataset is not None:
+            if val_loader is not None:
                 val_out = self.evaluation(ep, mode='validation', dataloaders=val_loader, save_pred=False)
                 epoch_out['validation'] = self.reduce_scores([val_out], distributed=self.args['use_ddp'])
 
