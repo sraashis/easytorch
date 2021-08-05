@@ -73,10 +73,15 @@ class ETDataHandle:
     def __init__(self, args=None, dataloader_args=None, **kw):
         self.args = _etutils.FrozenDict(args)
         self.dataloader_args = _etutils.FrozenDict(dataloader_args)
+        self.datasets = {}
 
-    def get_dataset(self, handle_key, files, dataspec: dict, dataset_cls=None):
+    def get_dataset(self, handle_key, files, dataspec: dict, reuse=True, dataset_cls=None):
+        if reuse and self.datasets.get(handle_key):
+            return self.datasets[handle_key]
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
         dataset.add(files=files, verbose=self.args['verbose'], **dataspec)
+        if reuse:
+            self.datasets[handle_key] = dataset
         return dataset
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None):
