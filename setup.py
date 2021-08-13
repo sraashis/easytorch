@@ -22,7 +22,7 @@ _requires = ['numpy',
 # This call to setup() does all the work
 setup(
     name="easytorch",
-    version="2.9.5",
+    version="2.9.6",
     description="Easy Neural Network Experiments with pytorch",
     long_description=_README,
     long_description_content_type="text/markdown",

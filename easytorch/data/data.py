@@ -42,7 +42,7 @@ def safe_collate(batch):
 def num_workers(args, loader_args, distributed=False):
     if distributed:
         return (loader_args['num_workers'] + args['num_gpus'] - 1) // args['num_gpus']
-    return loader_args['num_workers']
+    return loader_args.get('num_workers', 0)
 
 
 def batch_size(args, loader_args, distributed=False):
@@ -196,11 +196,11 @@ class ETDataHandle:
         for ix, f in enumerate(files, 1):
             _files.append([ix, f])
 
-        nw = min(num_workers(args, args, args['use_ddp']), len(_files))
+        nw = min(num_workers(args, args, args.get('use_ddp')), len(_files))
         with _mp.Pool(processes=max(1, nw)) as pool:
             dataset_list = list(
                 pool.starmap(
-                    _partial(_et_data_job, mode, args, dataspec, dataset_cls, len(_files), func, args['verbose']),
+                    _partial(_et_data_job, mode, args, dataspec, dataset_cls, len(_files), func, args.get('verbose')),
                     _files)
             )
             return [_d for _d in dataset_list if len(_d) >= 1]
