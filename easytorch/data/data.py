@@ -258,11 +258,11 @@ class KfoldDataHandle(ETDataHandle):
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None):
         if self.args.get('num_folds') is None:
-            return super(KfoldDataHandle, self).get_test_dataset(split_file, dataspec, dataset_cls)
+            return super(KfoldDataHandle, self).get_train_dataset(split_file, dataspec, dataset_cls)
         else:
             with open(dataspec['split_dir'] + _os.sep + split_file) as file:
-                test_ix = _json.loads(file.read()).get('train', [])
-                return _data.Subset(self.dataloader_args['train']['dataset'], test_ix)
+                train_ix = _json.loads(file.read()).get('train', [])
+                return _data.Subset(self.dataloader_args['train']['dataset'], train_ix)
 
 
 class ETDataset(_Dataset):
