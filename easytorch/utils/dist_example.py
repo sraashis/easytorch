@@ -7,7 +7,8 @@ import torch.nn as nn
 import torch.optim as optim
 
 
-def _worker(rank, args, dataloader, model):
+def run_stream(rank, args, dataloader, model):
+    print(f'Rank:{rank} spawned...')
     gpu = args['gpus'][rank]
     if not args.get('world_size'):
         args['world_size'] = args['num_gpus'] * args['num_nodes']
@@ -20,7 +21,6 @@ def _worker(rank, args, dataloader, model):
     loss_fn = nn.MSELoss()
     model = model.to(gpu)
     optimizer = optim.SGD(model.parameters(), lr=0.001)
-
     for batch in dataloader:
         data = batch[0].to(gpu)
         labels = batch[1].to(gpu)
@@ -30,23 +30,13 @@ def _worker(rank, args, dataloader, model):
         loss_fn(outputs, labels).backward()
         optimizer.step()
 
-        """Sync grads"""
+        """Sync params across"""
         for name, params in model.named_parameters():
             dist.all_reduce(params.grad.data, op=dist.ReduceOp.SUM)
             params.grad.data /= float(args['world_size'])
 
 
-def main():
-    args = {}
-    args['num_nodes'] = 1
-    args['node_rank'] = 0
-    args['world_size'] = None
-    args['num_gpus'] = torch.cuda.device_count()
-    args['dist_backend'] = 'nccl'
-    args['init_method'] = 'env://'
-    args['master_addr'] = "127.0.0.1",
-    args['master_port'] = "8989"
-
+def main(args, dataloader, model):
     if args['num_gpus'] > 0:
         args['gpus'] = list(range(args['gpus']))
     elif args['world_size'] is not None:
@@ -59,21 +49,30 @@ def main():
 
     os.environ['MASTER_ADDR'] = args['master_addr']
     os.environ['MASTER_PORT'] = args['master_port']
+    mp.spawn(run_stream, nprocs=len(args['gpus']), args=(args, dataloader, model))
 
-    dataloader = ...
-    model = ...
 
-    mp.spawn(_worker, nprocs=args['num_gpus'], args=(args, dataloader, model))
+"""Run in cpu
+init_method = 'gloo'
+world_size = ,desired num_streams>
+"""
 
+"""Run in GPUs
+init_method = 'nccl'
+world_size = None, since automatically determined by number of GPUs.
+"""
 
 if __name__ == "__main__":
-    """Run in cpu
-    init_method = 'gloo'
-    world_size = ,desired num_streams>
-    """
+    args = {}
+    args['num_nodes'] = 1
+    args['node_rank'] = 0
+    args['world_size'] = 4
+    args['num_gpus'] = torch.cuda.device_count()
+    args['dist_backend'] = 'gloo'
+    args['init_method'] = 'env://'
+    args['master_addr'] = "127.0.0.1"
+    args['master_port'] = "8989"
 
-    """Run in GPUs
-    init_method = 'nccl'
-    world_size = None, since automatically determined by number of GPUs.
-    """
-    main()
+    dataloader = []
+    model = nn.Linear(10, 10)
+    main(args, dataloader, model)
