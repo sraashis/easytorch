@@ -177,7 +177,7 @@ class ETTrainer:
                     checkpoint['optimizers'][k] = self.optimizer[k].state_dict()
         _torch.save(checkpoint, full_path)
 
-    def init_experiment_cache(self, dataspec=None):
+    def init_experiment_cache(self):
         r"""What scores you want to plot."""
         self.cache['log_header'] = 'Loss,Accuracy'
 
