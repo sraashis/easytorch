@@ -307,7 +307,7 @@ class EasyTorch:
 
             """ Init and Run for each splits. """
             test_accum = []
-            trainer.init_experiment_cache(dspec)
+            trainer.init_experiment_cache()
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
 
             for split_file in sorted(_os.listdir(dspec['split_dir'])):
