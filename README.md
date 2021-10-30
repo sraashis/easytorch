@@ -153,7 +153,7 @@ class MyTrainer(ETTrainer):
       accuracy,f1,precision,recall.
     * Or any custom implementation of easytorch.metrics.ETMetrics()
 
-#### 2. Use custom or pytorch based Datasets class.
+#### 2. Use custom dataset as below, or pytorch based Datasets class as in MNIST example above.
 
 Define specification for your datasets:
 
@@ -302,8 +302,6 @@ if __name__ == "__main__":
     * Split ratio for train, validation, test set if two items given| train, test if three items given| train only if
       one item given.
 * [...see more (ddp args)](assets/DefaultArgs.md)
-* 
-#### Note: One of [num_folds, split_ratio] must be given unless providing custom dataset objects as in MNIST example.
 
 ### All the best! for whatever you are working on. Cheers!
 
