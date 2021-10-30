@@ -13,7 +13,7 @@
 1. `Install latest pytorch and torchvision from` [Pytorch](https://pytorch.org/)
 2. `pip install easytorch`
 
-#### `'How to use?' you ask! Check out the MNIST Example:`
+#### `'How to use? Please check out the MNIST Example:`
 
 ```python
 from easytorch import EasyTorch, ETTrainer, ConfusionMatrix
