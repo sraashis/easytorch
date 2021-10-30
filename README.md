@@ -94,7 +94,7 @@ if __name__ == "__main__":
   dataloader_args = {'train': {'dataset': train_dataset},
                      'validation': {'dataset': val_dataset}}
   runner = EasyTorch(phase='train',
-                     batch_size=512, epochs=2, gpus=[0],
+                     batch_size=512, epochs=10, gpus=[0],
                      dataloader_args=dataloader_args)
   runner.run(MNISTTrainer, )
 ```
