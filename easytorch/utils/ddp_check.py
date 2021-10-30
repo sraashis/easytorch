@@ -17,17 +17,19 @@ def _setup(rank, args):
                              init_method=args['init_method'],
                              rank=world_rank, world_size=args['world_size'])
 
+    total_ranks = _torch.Tensor([1]).to(args['gpus'][rank])
+    _dist.all_reduce(total_ranks, _dist.ReduceOp.SUM)
+    if rank == 0:
+        print("\n\t***** DDP injection successful!!! *****")
+        print(f"\tTotal nodes: {args['num_nodes']}")
+        print(f'\tTotal participating processes: {int(total_ranks.item())}')
+        print("\t***************************************")
 
-def _ddp_train(rank, args, data_loaders, model):
+
+def _train_distributed(rank, args, data_loaders, model):
+    print(f'Rank {rank} initializing...')
     gpu = args['gpus'][rank]
     _setup(rank, args)
-    print(f'Rank {rank} initialized...')
-
-    t = _torch.Tensor([1]).to(gpu)
-    _dist.all_reduce(t, _dist.ReduceOp.SUM)
-    if rank == 0:
-        print(f"\n*** Total nodes: {args['num_nodes']} ***")
-        print(f'*** Total processes participation: {int(t.item())} ***')
 
     loss_fn = _nn.MSELoss()
     model = model.to(gpu)
@@ -37,11 +39,13 @@ def _ddp_train(rank, args, data_loaders, model):
         labels = batch[1].to(gpu)
         outputs = model(data)
 
-        """Update independent params"""
-        loss_fn(outputs, labels).backward()
-        optimizer.step()
+        loss = loss_fn(outputs, labels).backward()
+        loss.backwards()
 
-        """Sync params across"""
+        optimizer.step()
+        optimizer.zero_grad()
+
+        """Sync grads across (Best way is to wrap model with DistributedParallel instead)"""
         for name, params in model.named_parameters():
             _dist.all_reduce(params.grad.data, op=_dist.ReduceOp.SUM)
             params.grad.data /= float(args['world_size'])
@@ -60,7 +64,7 @@ def _run_distributed(args, model, data_loaders: dict):
 
     _os.environ['MASTER_ADDR'] = args['master_addr']
     _os.environ['MASTER_PORT'] = args['master_port']
-    _mp.spawn(_ddp_train, nprocs=len(args['gpus']), args=(args, data_loaders, model))
+    _mp.spawn(_train_distributed, nprocs=len(args['gpus']), args=(args, data_loaders, model))
 
 
 """
@@ -77,6 +81,10 @@ world_size = None, since automatically determined by number of GPUs.
 
 if __name__ == "__main__":
     _args['num_gpus'] = len(_args['gpus'])
-    dataloaders = {'train': [], 'validation': [], 'test': []}
+    data_loaders = {
+        'train': [],
+        'validation': [],
+        'test': []
+    }
     model = _nn.Linear(10, 10)
-    _run_distributed(_args, model, dataloaders)
+    _run_distributed(_args, model, data_loaders)
