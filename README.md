@@ -1,6 +1,6 @@
 ![Logo](assets/easytorchlogo.png)
 
-### A complete and robust pytorch prototyping framework with no learning curve.
+### A complete, robust and super easy pytorch prototyping framework to get started on deep learning within minutes.
 
 ![PyPi version](https://img.shields.io/pypi/v/easytorch)
 [![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/build/badge.svg)](https://github.com/sraashis/easytorch/actions)
