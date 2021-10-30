@@ -62,7 +62,7 @@ if _args.get('use_ddp'):
                             help='World size(Total participating processes(GPUs))')
     default_ap.add_argument('--init-method', default='env://', type=str,
                             help='Initialization method used to start distributed training.')
-    default_ap.add_argument('--dist-backend', default='nccl', type=str,
+    default_ap.add_argument('--dist-backend', default='gloo', type=str,
                             help='Distributed backend')
 
     default_ap.add_argument('--master-addr', default='127.0.0.1', type=str,
