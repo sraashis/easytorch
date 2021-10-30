@@ -30,7 +30,7 @@ def _ddp_worker(gpu, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled)
 
     self.args['is_master'] = world_rank == MASTER_RANK
     _dist.init_process_group(backend=self.args['dist_backend'],
-                             init_method=self.args['dist_url'],
+                             init_method=self.args['init_method'],
                              world_size=world_size, rank=world_rank)
     if is_pooled:
         self._run_pooled(trainer_cls, dataset_cls, data_handle_cls)
