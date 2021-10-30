@@ -279,7 +279,7 @@ if __name__ == "__main__":
 * Simple lightweight logger/plotter.
     * **Plot:** set log_header = 'Loss,F1,Accuracy' to plot in same plot or set log_header = 'Loss|F1,Accuracy' to plot
       Loss in one plot, and F1,Accuracy in another plot.
-    * **Logs:** all logs/arguments will be in logs.json file after the experiment finishes.
+    * **Logs:** all arguments/generated data will be in logs.json file after the experiment finishes.
 * Gradient accumulation, automatic logging/plotting, model checkpointing
   [..more features](assets/Features.md)
 * **For advanced training with multiple networks, and complex training steps,
