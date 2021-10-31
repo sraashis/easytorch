@@ -394,5 +394,8 @@ class EasyTorch:
         if self.args['is_master']:
             test_dataset = ETDataHandle.pooled_load('test', self.dataspecs, self.args,
                                                     dataset_cls=dataset_cls, load_sparse=self.args['load_sparse'])
-            scores = trainer.reduce_scores([self._test('Pooled', trainer, test_dataset)], distributed=False)
+            scores = trainer.reduce_scores(
+                [self._test('Pooled', trainer, test_dataset, {'dataspecs': self.dataspecs})],
+                distributed=False
+            )
             self._global_experiment_end(trainer, scores)
