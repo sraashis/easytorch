@@ -216,7 +216,7 @@ class EasyTorch:
                 i = input(f"\n### Previous training log '{train_log}' exists. ### Override [y/n]:")
 
         if self.args['phase'] == 'test':
-            test_log = f"{cache['log_dir']}{_sep}{cache['experiment_id']}_{LogKey.TEST_METRICS}.csv"
+            test_log = cache['log_dir'] + _os.sep + f"{cache['experiment_id']}_test_log.json"
             if _os.path.exists(test_log):
                 if _os.path.exists(test_log):
                     i = input(f"\n### Previous test log '{test_log}' exists. ### Override [y/n]:")
@@ -259,8 +259,9 @@ class EasyTorch:
         trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
         _utils.save_cache({**self.args, **trainer.cache, **dspec},
                           experiment_id=trainer.cache['experiment_id'])
+        trainer.cache['_saved'] = True
 
-    def _test(self, split_file, trainer, test_dataset) -> dict:
+    def _test(self, split_file, trainer, test_dataset, dspec) -> dict:
         best_exists = _os.path.exists(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
         if best_exists and (self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None):
             """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
@@ -275,6 +276,11 @@ class EasyTorch:
                                                *test_scores['metrics'].get()]]
         _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
                            file_keys=[LogKey.TEST_METRICS])
+
+        if not trainer.cache.get('_saved'):
+            _utils.save_cache({**self.args, **trainer.cache, **dspec},
+                              experiment_id=f"{trainer.cache['experiment_id']}_test")
+
         return test_out
 
     def run(self, trainer_cls: typing.Type[ETTrainer],
@@ -325,7 +331,7 @@ class EasyTorch:
                 if self.args['is_master']:
                     test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
                     if test_dataset is not None:
-                        test_accum.append(self._test(split_file, trainer, test_dataset))
+                        test_accum.append(self._test(split_file, trainer, test_dataset, dspec))
 
                 if trainer.args.get('use_ddp'):
                     _dist.barrier()
