@@ -173,7 +173,7 @@ class ETDataHandle:
 
     def create_splits(self, dataspec, out_dir):
         if _du.should_create_splits_(out_dir, dataspec, self.args):
-            _du.default_data_splitter_(files=self.list_files(dataspec), dspec=dataspec, args=self.args)
+            _du.default_data_splitter_(files=self._list_files(dataspec), dspec=dataspec, args=self.args)
             info(f"{len(_os.listdir(dataspec['split_dir']))} split(s) created in '{dataspec['split_dir']}' directory.",
                  self.args['verbose'])
         else:
@@ -181,7 +181,7 @@ class ETDataHandle:
             info(f"{splits_len} split(s) loaded from '{dataspec['split_dir']}' directory.",
                  self.args['verbose'] and splits_len > 0)
 
-    def list_files(self, dspec) -> list:
+    def _list_files(self, dspec) -> list:
         ext = dspec.get('extension', '*').replace('.', '')
         rec = dspec.get('recursive', False)
         rec_pattern = '**/' if rec else ''
