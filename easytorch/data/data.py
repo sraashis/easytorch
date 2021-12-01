@@ -150,6 +150,10 @@ class ETDataHandle:
         for k in loader_args.keys():
             loader_args[k] = args.get(k, loader_args.get(k))
 
+        if loader_args['sampler'] is not None:
+            """Sampler and shuffle are mutually exclusive"""
+            loader_args['shuffle'] = False
+
         if args['distributed']:
             sampler_args = {
                 'num_replicas': args.get('replicas'),
