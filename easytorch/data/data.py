@@ -5,6 +5,7 @@ import os as _os
 from collections import Callable
 from functools import partial as _partial
 from os import sep as _sep
+import glob as _glob
 
 import numpy as _np
 import torch as _torch
@@ -172,13 +173,29 @@ class ETDataHandle:
 
     def create_splits(self, dataspec, out_dir):
         if _du.should_create_splits_(out_dir, dataspec, self.args):
-            _du.default_data_splitter_(dspec=dataspec, args=self.args)
+            _du.default_data_splitter_(files=self.list_files(dataspec), dspec=dataspec, args=self.args)
             info(f"{len(_os.listdir(dataspec['split_dir']))} split(s) created in '{dataspec['split_dir']}' directory.",
                  self.args['verbose'])
         else:
             splits_len = len(_os.listdir(dataspec['split_dir']))
             info(f"{splits_len} split(s) loaded from '{dataspec['split_dir']}' directory.",
                  self.args['verbose'] and splits_len > 0)
+
+    def list_files(self, dspec) -> list:
+        ext = dspec.get('extension', '*').replace('.', '')
+        rec = dspec.get('recursive', False)
+        rec_pattern = '**/' if rec else ''
+        if dspec.get('sub_folders') is None:
+            path = dspec['data_dir']
+            return [f.replace(path + _sep, '') for f in
+                    _glob.glob(f"{path}/{rec_pattern}*.{ext}", recursive=rec)]
+
+        files = []
+        for sub in dspec['sub_folders']:
+            path = dspec['data_dir'] + _sep + sub
+            files += [f.replace(dspec['data_dir'] + _sep, '') for f in
+                      _glob.glob(f"{path}/{rec_pattern}*.{ext}", recursive=rec)]
+        return files
 
     def init_dataspec_(self, dataspec: dict):
         for k in dataspec:
