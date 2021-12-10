@@ -190,9 +190,10 @@ class ETDataHandle:
         rec = dspec.get('recursive', False)
         rec_pattern = '**/' if rec else ''
         if dspec.get('sub_folders') is None:
-            path = dspec['data_dir']
-            return [f.replace(path + _sep, '') for f in
-                    _glob.glob(f"{path}/{rec_pattern}*.{ext}", recursive=rec)]
+            _path = dspec['data_dir']
+            _pattern = f"{_path}/{rec_pattern}*.{ext}"
+            _files = _glob.glob(_pattern, recursive=rec)
+            return [f.replace(_path + _sep, '') for f in _files]
 
         files = []
         for sub in dspec['sub_folders']:
@@ -345,9 +346,6 @@ class ETDataset(_Dataset):
 
     def __len__(self):
         return len(self.indices)
-
-    def transforms(self, **kw):
-        return None
 
     def add(self, files, verbose=True, **kw):
         r""" An extra layer for added flexibility."""
