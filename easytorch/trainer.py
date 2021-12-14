@@ -382,7 +382,7 @@ class ETTrainer:
         i, e = kw['i'], kw['epoch']
 
         if lazy_debug(i, add=e) or i == N:
-            info(f"Ep:{e}/{self.args['epochs']},Itr:{i}/{N}, {running_meter.get()}", self.args['verbose'])
+            info(f"Ep:{e}/{self.args['epochs']}, Itr:{i}/{N}, {running_meter.get()}", self.args['verbose'])
             r"""Debug and reset running accumulators"""
 
             if not self.args['use_ddp']:
