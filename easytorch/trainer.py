@@ -184,7 +184,7 @@ class ETTrainer:
         """
         return {}
 
-    def save_predictions(self, dataset, its) -> dict:
+    def save_predictions(self, dataset, its):
         r"""
         If one needs to save complex predictions result like predicted segmentations.
          -Especially with U-Net architectures, we split images and train.
@@ -192,7 +192,7 @@ class ETTrainer:
         the argument 'its' will receive all the patches of single image at a time.
         From there, we can recreate the whole image.
         """
-        return {}
+        return None
 
     def evaluation(self,
                    epoch=1,
@@ -210,10 +210,10 @@ class ETTrainer:
         info(f'{mode} ...', self.args['verbose'])
 
         def _update_scores(_out, _it, _meter):
-            if _out is None:
-                _out = {}
-            _m = _out.get('meter', _it['meter'])
-            _meter.accumulate(_m.averages, _m.metrics)
+            if isinstance(_out, _metrics.ETMeter):
+                _meter.accumulate(_out.averages, _out.metrics)
+            else:
+                _meter.accumulate(_it['meter'].averages, _it['meter'].metrics)
 
         with _torch.no_grad():
             for loader in dataloaders:
