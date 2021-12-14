@@ -180,24 +180,7 @@ class ETTrainer:
 
     def iteration(self, batch) -> dict:
         r"""
-        Left for user to implement one mini-bath iteration:
-        Example:{
-                    inputs = batch['input'].to(self.device['gpu']).float()
-                    labels = batch['label'].to(self.device['gpu']).long()
-                    out = self.nn['model'](inputs)
-                    loss = F.cross_entropy(out, labels)
-                    out = F.softmax(out, 1)
-                    _, pred = torch.max(out, 1)
-                    sc = self.new_metrics()
-                    sc.add(pred, labels)
-                    avg = self.new_averages()
-                    avg.add(loss.item(), len(inputs))
-                    return {'loss': loss, 'averages': avg, 'output': out, 'metrics': sc, 'predictions': pred}
-                }
-        Note: loss, averages, and metrics are required, whereas others are optional
-            -we will have to do backward on loss
-            -we need to keep track of loss
-            -we need to keep track of metrics
+        Note: 'loss' adn 'meter' keys are required in the return dict, whereas others are optional
         """
         return {}
 
