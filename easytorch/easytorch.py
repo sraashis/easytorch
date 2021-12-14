@@ -241,17 +241,17 @@ class EasyTorch:
         if cache['metric_direction'] == 'minimize':
             cache['best_val_score'] = MAX_SIZE
 
-    def _global_experiment_end(self, trainer, scores: dict):
-        "Save reduced scores"
-        if scores is not None:
+    def _global_experiment_end(self, trainer, meter):
+        """Save reduced scores"""
+        if meter is not None:
             """ Finally, save the global score to a file  """
             trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
-                ['Global', *scores['averages'].get(), *scores['metrics'].get()])
+                ['Global', *meter.get()])
             _utils.save_scores(trainer.cache, file_keys=[LogKey.GLOBAL_TEST_METRICS])
 
             with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:
-                log = {'averages': vars(scores['averages']),
-                       'metrics': vars(scores['metrics'])}
+                log = {'averages': vars(meter.averages),
+                       'metrics': vars(meter.metrics)}
                 f.write(_json.dumps(log))
 
     def _train(self, trainer, train_dataset, validation_dataset, dspec):
@@ -270,10 +270,8 @@ class EasyTorch:
 
         """ Run and save experiment test scores """
         test_out = trainer.inference(mode='test', save_predictions=True, datasets=test_dataset)
-        test_scores = trainer.reduce_scores([test_out], distributed=False)
-        trainer.cache[LogKey.TEST_METRICS] = [[split_file,
-                                               *test_scores['averages'].get(),
-                                               *test_scores['metrics'].get()]]
+        test_meter = trainer.reduce_scores([test_out], distributed=False)
+        trainer.cache[LogKey.TEST_METRICS] = [[split_file, *test_meter.get()]]
         _utils.save_scores(trainer.cache, experiment_id=trainer.cache['experiment_id'],
                            file_keys=[LogKey.TEST_METRICS])
 
