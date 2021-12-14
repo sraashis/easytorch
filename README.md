@@ -16,7 +16,7 @@
 #### `'How to use? Please check out the MNIST Example:`
 
 ```python
-from easytorch import EasyTorch, ETTrainer, ConfusionMatrix
+from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
 from torchvision import datasets, transforms
 from torch import nn
 import torch.nn.functional as F
@@ -70,20 +70,21 @@ class MNISTTrainer(ETTrainer):
         loss = F.nll_loss(out, labels)
 
         _, pred = torch.max(out, 1)
-        sc = self.new_metrics()
-        sc.add(pred, labels.float())
+        meter = self.new_meter()
+        meter.averages.add(loss.item(), len(inputs))
+        meter.metrics.add(pred, labels.float())
 
-        avg = self.new_averages()
-        avg.add(loss.item(), len(inputs))
-
-        return {'loss': loss, 'averages': avg, 'metrics': sc, 'predictions': pred}
+        return {'loss': loss, 'meter': meter, 'predictions': pred}
 
     def init_experiment_cache(self):
         self.cache['log_header'] = 'Loss|Accuracy,F1,Precision,Recall'
         self.cache.update(monitor_metric='f1', metric_direction='maximize')
 
-    def new_metrics(self):
-        return ConfusionMatrix(num_classes=10)
+    def new_meter(self):
+        return ETMeter(
+            metrics=ConfusionMatrix(num_classes=10)
+        )
+
 
 if __name__ == "__main__":
   train_dataset = datasets.MNIST('../data', train=True, download=True,
@@ -119,7 +120,7 @@ if __name__ == "__main__":
 #### 1. Define your trainer
 
 ```python
-from easytorch import ETTrainer, Prf1a, ConfusionMatrix
+from easytorch import ETTrainer, Prf1a, ETMeter
 
 
 class MyTrainer(ETTrainer):
@@ -135,24 +136,30 @@ class MyTrainer(ETTrainer):
         loss = F.nll_loss(out, labels)
 
         _, pred = torch.max(out, 1)
-        sc = self.new_metrics()
-        sc.add(pred, labels)
+        meter = self.new_meter()
+        meter.averages.add(loss.item(), len(inputs))
+        meter.metrics.add(pred, labels.float())
 
-        avg = self.new_averages()
-        avg.add(loss.item(), len(inputs))
+        """Must have loss and meter"""
+        return {'loss': loss, 'meter': meter, 'predictions': pred}
 
-        return {'loss': loss, 'averages': avg, 'metrics': sc, 'predictions': pred}
-
-    def new_metrics(self):
-        return Prf1a()
+    def new_meter(self):
+        """Any implementation of easytorch.metrics.ETMetrics. Prf1a() is provided for Precision, Recall and F1 Score"""
+        """num_averages=how manu averages(like loss, default=1) to track. Can track as many as you want. Check GAN example above."""
+        return ETMeter(
+            num_averages=1,
+            metrics=Prf1a()
+        )
 
     def init_experiment_cache(self):
-        self.cache['log_header'] = 'Loss|Accuracy,F1_score'  # Will plot Loss in one plot, and Accuracy,F1 in another.
-        self.cache.update(monitor_metric='f1', metric_direction='maximize')  # Model selection
+        """Will plot Loss in one plot, and Accuracy,F1 in another."""
+        self.cache['log_header'] = 'Loss|Accuracy,F1_score' 
+        """Model selection"""
+        self.cache.update(monitor_metric='f1', metric_direction='maximize')
 
 ````
 
-* Method new_metrics() uses:
+* Method new_meter() uses:
     * Prf1a() for binary classification that computes accuracy,f1,precision,recall.
     * Or ConfusionMatrix(num_classes=...) for multiclass classification that also computes global
       accuracy,f1,precision,recall.

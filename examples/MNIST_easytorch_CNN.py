@@ -1,4 +1,4 @@
-from easytorch import EasyTorch, ETTrainer, ConfusionMatrix
+from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
 from torchvision import datasets, transforms
 from torch import nn
 import torch.nn.functional as F
@@ -49,20 +49,21 @@ class MNISTTrainer(ETTrainer):
         loss = F.nll_loss(out, labels)
 
         _, pred = torch.max(out, 1)
-        sc = self.new_metrics()
-        sc.add(pred, labels.float())
 
-        avg = self.new_averages()
-        avg.add(loss.item(), len(inputs))
+        meter = self.new_meter()
+        meter.averages.add(loss.item(), len(inputs))
+        meter.metrics.add(pred, labels.float())
 
-        return {'loss': loss, 'averages': avg, 'metrics': sc, 'predictions': pred}
+        return {'loss': loss, 'meter': meter, 'predictions': pred}
 
     def init_experiment_cache(self):
         self.cache['log_header'] = 'Loss|Accuracy,F1,Precision,Recall'
         self.cache.update(monitor_metric='f1', metric_direction='maximize')
 
-    def new_metrics(self):
-        return ConfusionMatrix(num_classes=10)
+    def new_meter(self):
+        return ETMeter(
+            metrics=ConfusionMatrix(num_classes=10)
+        )
 
 
 train_dataset = datasets.MNIST('../data', train=True, download=True,

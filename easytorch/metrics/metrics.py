@@ -5,6 +5,7 @@ added in the ETAverages, ETMetrics respectively.
 
 import abc as _abc
 import time as _time
+from abc import ABC
 
 import numpy as _np
 import torch as _torch
@@ -13,7 +14,7 @@ from typing import List
 from easytorch.config.state import *
 
 
-class SerializableMetrics:
+class ETMetrics:
     def __init__(self, **kw):
         pass
 
@@ -33,11 +34,6 @@ class SerializableMetrics:
     def serialize(self, **kw):
         """The order of serialization reduction and update method should be same"""
         pass
-
-
-class ETMetrics(SerializableMetrics):
-    def __init__(self, **kw):
-        super().__init__(**kw)
 
     @_abc.abstractmethod
     def update(self, *args, **kw):
@@ -157,7 +153,7 @@ class ETAverages(ETMetrics):
         """
         counts = self.counts.copy()
         counts[counts == 0] = _np.inf
-        return _np.round(self.values / counts, self.num_precision)
+        return _np.round(self.values / counts, self.num_precision).tolist()
 
     def average(self, reduce_mean=True):
         avgs = self.get()
@@ -167,6 +163,37 @@ class ETAverages(ETMetrics):
 
     def serialize(self, **kw):
         return [self.values, self.counts]
+
+
+class ETMeter:
+    def __init__(self, num_averages=1, metrics: ETMetrics= None, **kw):
+        super().__init__(**kw)
+        self.averages = ETAverages(num_averages)
+        self.metrics = metrics
+
+    def get(self):
+        res = self.averages.get()
+        if self.metrics:
+            res = [*res, *self.metrics.get()]
+        return res
+
+    def extract(self, field):
+        if self.metrics:
+            return self.metrics.extract(field)
+        else:
+            return self.averages.extract(field)
+
+    def reset(self):
+        if self.averages:
+            self.averages.reset()
+        if self.metrics:
+            self.metrics.reset()
+
+    def accumulate(self, averages=None, metrics=None):
+        if averages:
+            self.averages.accumulate(averages)
+        if metrics:
+            self.metrics.accumulate(metrics)
 
 
 class Prf1a(ETMetrics):
