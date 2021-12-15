@@ -250,8 +250,10 @@ class EasyTorch:
             _utils.save_scores(trainer.cache, file_keys=[LogKey.GLOBAL_TEST_METRICS])
 
             with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:
-                log = {'averages': vars(meter.averages),
-                       'metrics': vars(meter.metrics)}
+                log = {'averages': vars(meter.averages)}
+                if meter.metrics:
+                    log['metrics'] = vars(meter.metrics)
+
                 f.write(_json.dumps(log))
 
     def _train(self, trainer, train_dataset, validation_dataset, dspec):
