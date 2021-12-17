@@ -346,7 +346,7 @@ class EasyTorch:
     def run_pooled(self, trainer_cls: typing.Type[ETTrainer],
                    dataset_cls: typing.Type[ETDataset] = None,
                    data_handle_cls: typing.Type[ETDataHandle] = ETDataHandle):
-
+        self.args['pooled_run'] = True
         if self.args.get('use_ddp'):
             _mp.spawn(_ddp_worker, nprocs=self.args['num_gpus'],
                       args=(self, trainer_cls, dataset_cls, data_handle_cls, True))
