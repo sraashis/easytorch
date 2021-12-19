@@ -318,7 +318,7 @@ if __name__ == "__main__":
       one item given.
 * [...see more (ddp args)](assets/DefaultArgs.md)
 
-### All the best! for whatever you are working on. Cheers!
+### All the best! Cheers! 🎉
 
 #### Please star or cite if you find it useful.
 
