@@ -158,10 +158,21 @@ class ETMeter:
         self.metrics = {**kw}
 
     def get(self):
-        res = {'avg': self.averages.get()}
+        res = self.averages.get()
         for mk in self.metrics:
-            res[mk] = self.metrics[mk].get()
+            res += self.metrics[mk].get()
         return res
+
+    def __repr__(self):
+        metrics = {}
+        for mk in self.metrics:
+            metrics[mk] = self.metrics[mk].get()
+
+        avg = self.averages.get()
+        if self.metrics:
+            return f"{avg}, {metrics}"
+
+        return f"{avg}"
 
     def extract(self, field):
         for mk in self.metrics:
@@ -318,6 +329,6 @@ class ConfusionMatrix(ETMetrics):
                 round(self.precision(), self.num_precision), round(self.recall(), self.num_precision)]
 
     def dist_gather(self, device='cpu'):
-        serial = _torch.tensor(self.matrix).to(device)
+        serial = self.matrix.clone().detach().to(device)
         _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
         self.matrix = serial.cpu()

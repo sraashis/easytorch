@@ -20,13 +20,13 @@ from easytorch.utils.logger import *
 _sep = _os.sep
 
 
-def _ddp_worker(gpu, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled):
-    self.args['gpu'] = gpu
-    self.args['verbose'] = gpu == MASTER_RANK
+def _ddp_worker(rank, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled):
+    self.args['gpu'] = self.args['gpus'][rank]
+    self.args['verbose'] = rank == MASTER_RANK
     world_size = self.args['world_size']
     if not world_size:
         world_size = self.args['num_gpus'] * self.args['num_nodes']
-    world_rank = self.args['node_rank'] * self.args['num_gpus'] + gpu
+    world_rank = self.args['node_rank'] * self.args['num_gpus'] + rank
 
     self.args['is_master'] = world_rank == MASTER_RANK
     _dist.init_process_group(backend=self.args['dist_backend'],
@@ -150,8 +150,12 @@ class EasyTorch:
                  f"Using {str(NUM_GPUS) + ' GPU(s)' if CUDA_AVAILABLE else 'CPU(Much slower)'}.")
             self.args['gpus'] = list(range(NUM_GPUS))
 
+        if self.args.get('world_size') and self.args.get('dist_backend') == 'gloo':
+            """Reserved gloo and world_size for CPU multi process use case."""
+            self.args['gpus'] = [None] * self.args.get('world_size')
+
     def _ddp_setup(self):
-        if all([self.args['use_ddp'], NUM_GPUS >= 1, len(self.args['gpus']) >= 1]):
+        if all([self.args['use_ddp'], len(self.args['gpus']) >= 1]):
             self.args['num_gpus'] = len(self.args['gpus'])
             _os.environ['MASTER_ADDR'] = self.args.get('master_addr', '127.0.0.1')  #
             _os.environ['MASTER_PORT'] = self.args.get('master_port', '12355')
@@ -242,19 +246,21 @@ class EasyTorch:
             cache['best_val_score'] = MAX_SIZE
 
     def _global_experiment_end(self, trainer, meter):
-        """Save reduced scores"""
-        if meter is not None:
-            """ Finally, save the global score to a file  """
-            trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
-                ['Global', *meter.get()])
-            _utils.save_scores(trainer.cache, file_keys=[LogKey.GLOBAL_TEST_METRICS])
+        """ Finally, save the global score to a file  """
+        trainer.cache[LogKey.GLOBAL_TEST_METRICS].append(
+            ['Global', *meter.get()])
+        _utils.save_scores(trainer.cache, file_keys=[LogKey.GLOBAL_TEST_METRICS])
 
-            with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:
-                log = {'averages': vars(meter.averages)}
-                if meter.metrics:
-                    log['metrics'] = vars(meter.metrics)
+        with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:
+            log = {
+                'averages': vars(meter.averages),
+                'metrics': {}
+            }
 
-                f.write(_json.dumps(log))
+            for mk in meter.metrics:
+                log['metrics'][mk] = vars(meter.metrics[mk])
+
+            f.write(_json.dumps(log))
 
     def _train(self, trainer, train_dataset, validation_dataset, dspec):
         trainer.train(train_dataset, validation_dataset)
@@ -394,8 +400,8 @@ class EasyTorch:
         if self.args['is_master']:
             test_dataset = ETDataHandle.pooled_load('test', self.dataspecs, self.args,
                                                     dataset_cls=dataset_cls, load_sparse=self.args['load_sparse'])
-            scores = trainer.reduce_scores(
+            meter = trainer.reduce_scores(
                 [self._test('Pooled', trainer, test_dataset, {'dataspecs': self.dataspecs})],
                 distributed=False
             )
-            self._global_experiment_end(trainer, scores)
+            self._global_experiment_end(trainer, meter)

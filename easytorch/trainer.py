@@ -117,11 +117,15 @@ class ETTrainer:
         If no GPU is present, CPU is used.
         """
         if self.args.get('use_ddp'):
+            _device_ids = []
+            if self.args['gpu'] is not None:
+                _device_ids.append(self.device['gpu'])
+
             for model_key in self.nn:
                 self.nn[model_key] = self.nn[model_key].to(self.device['gpu'])
             for model_key in self.nn:
                 self.nn[model_key] = _torch.nn.parallel.DistributedDataParallel(self.nn[model_key],
-                                                                                device_ids=[self.device['gpu']])
+                                                                                device_ids=_device_ids)
         elif len(self.args['gpus']) >= 1:
             self.device['gpu'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
             if len(self.args['gpus']) >= 2:
@@ -231,14 +235,14 @@ class ETTrainer:
                         _update_scores(None, it, meter)
 
                     if self.args['verbose'] and len(dataloaders) <= 1 and lazy_debug(i, add=epoch):
-                        info(f"  Itr:{i}/{len(loader)}, {it['meter'].get()}")
+                        info(f"  Itr:{i}/{len(loader)}, {it['meter']}")
 
                 if save_pred and self.args['load_sparse']:
                     its = self._reduce_iteration(its)
                     _update_scores(self.save_predictions(loader.dataset, its), its, meter)
 
                 if self.args['verbose'] and len(dataloaders) > 1:
-                    info(f" {mode}, {meter.get()}")
+                    info(f" {mode}, {meter}")
 
                 eval_meter.accumulate(meter)
 
@@ -355,8 +359,8 @@ class ETTrainer:
         N = kw['num_iters']
         i, e = kw['i'], kw['epoch']
 
-        if lazy_debug(i, add=e) or i == N:
-            info(f"Ep:{e}/{self.args['epochs']}, Itr:{i}/{N}, {running_meter.get()}", self.args['verbose'])
+        if lazy_debug(i, add=e + 1) or i == N:
+            info(f"Ep:{e}/{self.args['epochs']}, Itr:{i}/{N}, {running_meter}", self.args['verbose'])
             r"""Debug and reset running accumulators"""
 
             if not self.args['use_ddp']:
