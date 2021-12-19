@@ -5,18 +5,18 @@ added in the ETAverages, ETMetrics respectively.
 
 import abc as _abc
 import time as _time
-from abc import ABC
+from typing import List
 
 import numpy as _np
 import torch as _torch
-from typing import List
+import torch.distributed as _dist
 
 from easytorch.config.state import *
 
 
 class ETMetrics:
-    def __init__(self, **kw):
-        pass
+    def __init__(self, device='cpu', **kw):
+        self.device = device
 
     def __getattribute__(self, attribute):
         if attribute == "__dict__":
@@ -29,11 +29,6 @@ class ETMetrics:
             return obj
         else:
             return object.__getattribute__(self, attribute)
-
-    @_abc.abstractmethod
-    def serialize(self, **kw):
-        """The order of serialization reduction and update method should be same"""
-        pass
 
     @_abc.abstractmethod
     def update(self, *args, **kw):
@@ -105,14 +100,17 @@ class ETMetrics:
             sc = sc()
         return sc
 
+    def all_reduce(self, device='cpu'):
+        pass
+
 
 class ETAverages(ETMetrics):
-    def __init__(self, num_averages=1, **kw):
+    def __init__(self, num_averages=1, device='cpu'):
         r"""
         This class can keep track of K averages.
         For example, in GAN we need to keep track of Generators loss
         """
-        super().__init__(**kw)
+        super().__init__(device=device)
         self.values = _np.array([0.0] * num_averages, dtype=_np.float)
         self.counts = _np.array([0.0] * num_averages, dtype=_np.float)
         self.num_averages = num_averages
@@ -161,39 +159,48 @@ class ETAverages(ETMetrics):
             return round(sum(avgs) / len(avgs), self.num_precision)
         return avgs
 
-    def serialize(self, **kw):
-        return [self.values, self.counts]
+    def all_reduce(self, device='cpu'):
+        serial = _torch.tensor([self.counts, self.values]).to(device)
+        _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
+        self.counts, self.values = serial.cpu().numpy()
 
 
 class ETMeter:
-    def __init__(self, num_averages=1, metrics: ETMetrics= None, **kw):
+    def __init__(self, num_averages=1, **kw):
         super().__init__(**kw)
         self.averages = ETAverages(num_averages)
-        self.metrics = metrics
+        self.metrics = {**kw}
 
     def get(self):
         res = self.averages.get()
-        if self.metrics:
-            res = [*res, *self.metrics.get()]
+        for mk in self.metrics:
+            res += self.metrics[mk].get()
         return res
 
     def extract(self, field):
-        if self.metrics:
-            return self.metrics.extract(field)
-        else:
-            return self.averages.extract(field)
+        for mk in self.metrics:
+            try:
+                return self.metrics[mk].extract(field)
+            except:
+                pass
+
+        return self.averages.extract(field)
 
     def reset(self):
         if self.averages:
             self.averages.reset()
-        if self.metrics:
-            self.metrics.reset()
 
-    def accumulate(self, averages=None, metrics=None):
-        if averages:
-            self.averages.accumulate(averages)
-        if metrics:
-            self.metrics.accumulate(metrics)
+        for mk in self.metrics:
+            self.metrics[mk].reset()
+
+    def accumulate(self, meter):
+        self.averages.accumulate(meter.averages)
+
+        for mk in meter.metrics:
+            self.metrics[mk].accumulate(meter.metrics[mk])
+
+    def __call__(self, key):
+        return self.metrics.get(key)
 
 
 class Prf1a(ETMetrics):
@@ -202,8 +209,8 @@ class Prf1a(ETMetrics):
         Precision, Recall, F1 Score, Accuracy, and Overlap(IOU).
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, device='cpu'):
+        super().__init__(device=device)
         self.tn, self.fp, self.fn, self.tp = 0, 0, 0, 0
 
     def update(self, tn=0, fp=0, fn=0, tp=0, **kw):
@@ -271,6 +278,11 @@ class Prf1a(ETMetrics):
     def serialize(self, **kw):
         return [self.tn, self.fp, self.fn, self.tp]
 
+    def all_reduce(self, device='cpu'):
+        serial = _torch.tensor([self.tn, self.fp, self.fn, self.tp]).to(device)
+        _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
+        self.tn, self.fp, self.fn, self.tp = serial.cpu().numpy()
+
 
 class ConfusionMatrix(ETMetrics):
     """
@@ -332,5 +344,7 @@ class ConfusionMatrix(ETMetrics):
         return [round(self.accuracy(), self.num_precision), round(self.f1(), self.num_precision),
                 round(self.precision(), self.num_precision), round(self.recall(), self.num_precision)]
 
-    def serialize(self, **kw):
-        return [self.matrix.numpy().tolist()]
+    def all_reduce(self, device='cpu'):
+        serial = _torch.tensor(self.matrix).to(device)
+        _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
+        self.matrix = serial.cpu()

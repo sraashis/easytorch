@@ -6,7 +6,6 @@ import math as _math
 import os as _os
 
 import torch as _torch
-import torch.distributed as _dist
 
 import easytorch.utils as _etutils
 from easytorch.config.state import *
@@ -211,9 +210,9 @@ class ETTrainer:
 
         def _update_scores(_out, _it, _meter):
             if isinstance(_out, _metrics.ETMeter):
-                _meter.accumulate(_out.averages, _out.metrics)
+                _meter.accumulate(_out)
             else:
-                _meter.accumulate(_it['meter'].averages, _it['meter'].metrics)
+                _meter.accumulate(_it['meter'])
 
         with _torch.no_grad():
             for loader in dataloaders:
@@ -241,7 +240,7 @@ class ETTrainer:
                 if self.args['verbose'] and len(dataloaders) > 1:
                     info(f" {mode}, {meter.get()}")
 
-                eval_meter.accumulate(meter.averages, meter.metrics)
+                eval_meter.accumulate(meter)
 
         info(f"{self.cache['experiment_id']} {mode} {eval_meter.get()}", self.args['verbose'])
         return eval_meter
@@ -328,19 +327,11 @@ class ETTrainer:
             return meter
 
         for m in accumulator:
-            meter.accumulate(m.averages, m.metrics)
+            meter.accumulate(m)
 
         if distributed:
-            avg_serial = _torch.tensor(meter.averages.serialize()).to(self.device['gpu'])
-            _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
-
-            metrics_serial = _torch.tensor(meter.metrics.serialize()).to(self.device['gpu'])
-            _dist.reduce(metrics_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
-
-            if self.args['is_master']:
-                meter.reset()
-                meter.averages.update(*avg_serial.cpu().numpy().tolist())
-                meter.metrics.update(*metrics_serial.cpu().numpy().tolist())
+            for mk in meter.metrics:
+                meter.metrics[mk].all_reduce(device=self.device['gpu'])
 
         return meter
 
@@ -358,7 +349,7 @@ class ETTrainer:
 
     def _global_debug(self, running_meter, **kw):
         """Update running accumulators."""
-        running_meter.accumulate(kw['meter'].averages, kw['meter'].metrics)
+        running_meter.accumulate(kw['meter'])
 
         """ Reset iteration accumulator """
         N = kw['num_iters']
@@ -440,7 +431,7 @@ class ETTrainer:
                     its = []
                     it['num_iters'] = num_iters
                     it['i'] = i // self.args['grad_accum_iters']
-                    epoch_meter.accumulate(it['meter'].averages, it['meter'].metrics)
+                    epoch_meter.accumulate(it['meter'])
 
                     if self.args['is_master']:
                         self._global_debug(_meter, epoch=ep, **it)
