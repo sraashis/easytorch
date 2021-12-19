@@ -52,9 +52,9 @@ easytorch = EasyTorch(['list-of-dataspecs'], args=ap, additional_args='some_valu
     * Total nodes (N)
 * **--world_size** [None]
     * Total participating processes (optional).
-* **--dist_url** [env://]
+* **--init-method** [env://]
     * Url to set up distributed training.
-* **--dist_backend** [nccl]
+* **--dist-backend** [nccl]
     * Backend for distributed training.
 * **--master-addr** [127.0.0.1]
     * Address of the master node.

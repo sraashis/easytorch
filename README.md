@@ -13,7 +13,7 @@
 1. `Install latest pytorch and torchvision from` [Pytorch](https://pytorch.org/)
 2. `pip install easytorch`
 
-#### `'How to use? Please check out the MNIST Example:`
+#### `How to use? Check out the MNIST Example:`
 
 ```python
 from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
@@ -72,7 +72,7 @@ class MNISTTrainer(ETTrainer):
         _, pred = torch.max(out, 1)
         meter = self.new_meter()
         meter.averages.add(loss.item(), len(inputs))
-        meter.metrics.add(pred, labels.float())
+        meter.metrics['cfm'].add(pred, labels.float())
 
         return {'loss': loss, 'meter': meter, 'predictions': pred}
 
@@ -82,7 +82,7 @@ class MNISTTrainer(ETTrainer):
 
     def new_meter(self):
         return ETMeter(
-            metrics=ConfusionMatrix(num_classes=10)
+            cfm=ConfusionMatrix(num_classes=10)
         )
 
 
@@ -120,7 +120,7 @@ if __name__ == "__main__":
 #### 1. Define your trainer
 
 ```python
-from easytorch import ETTrainer, Prf1a, ETMeter
+from easytorch import ETTrainer, Prf1a, ETMeter, AUCROCMetrics
 
 
 class MyTrainer(ETTrainer):
@@ -138,7 +138,8 @@ class MyTrainer(ETTrainer):
         _, pred = torch.max(out, 1)
         meter = self.new_meter()
         meter.averages.add(loss.item(), len(inputs))
-        meter.metrics.add(pred, labels.float())
+        meter.metrics['prf1a'].add(pred, labels)
+        meter.metrics['auc'].add(out[:, 1], labels)
 
         """Must have loss and meter"""
         return {'loss': loss, 'meter': meter, 'predictions': pred}
@@ -148,7 +149,8 @@ class MyTrainer(ETTrainer):
         """num_averages=how manu averages(like loss, default=1) to track. Can track as many as you want. Check GAN example above."""
         return ETMeter(
             num_averages=1,
-            metrics=Prf1a()
+            prf1a=Prf1a(),
+            auc=AUCROCMetrics()
         )
 
     def init_experiment_cache(self):
@@ -288,6 +290,7 @@ if __name__ == "__main__":
       Loss in one plot, and F1,Accuracy in another plot.
     * **Logs:** all arguments/generated data will be saved in logs.json file after the experiment finishes.
 * Gradient accumulation, automatic logging/plotting, model checkpointing
+* Multiple metrics implementation at easytorch.metrics: Precision, Recall, Accuracy, Overlap, F1, ROC-AUC, Confusion matrix
   [..more features](assets/Features.md)
 * **For advanced training with multiple networks, and complex training steps,
   click [here](assets/AdvancedTraining.md):**

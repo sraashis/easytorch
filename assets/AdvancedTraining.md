@@ -3,7 +3,7 @@
 * #### Implement complex training and backprop. steps with them.
 * #### Easily save predictions for any prediction task(Like segmentation results).
 
-### Override the following:
+### Override the following by extending easytorch.trainer.ETTrainer:
 ```python
 def _init_optimizer(self):
     r"""
@@ -11,7 +11,7 @@ def _init_optimizer(self):
     """
     self.optimizer['adam'] = torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
 
-def training_iteration(self, batch):
+def training_iteration(self, i, batch):
     '''
     ### Optional
     If you need complex/mixed training steps, it can be done here. 
@@ -30,19 +30,9 @@ def save_predictions(self, dataset, its):
     '''
     pass
 
- def new_metrics(self):
-        r"""
-        User can override to supply desired implementation of easytorch.core.metrics.ETMetrics().
-            Example: easytorch.metrics.Prf1a() will work with precision, recall, F1, Accuracy, IOU scores.
-        """
-        return easytorch.Prf1a()
-
-def new_averages(self):
-    r""""
-    Should supply an implementation of easytorch.metrics.ETAverages() that can keep track of multiple averages.
-        Example: multiple loss, or any other values.
-    """
-    return easytorch.ETAverages(num_averages=1)
+def new_meter(self):
+    """Track two averages like GAN losses(Generator and Fiscriminator)"""
+    return ETMeter(num_averages=2)
 
 def init_experiment_cache(self):
     r"""
