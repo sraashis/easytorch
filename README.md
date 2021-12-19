@@ -161,7 +161,7 @@ class MyTrainer(ETTrainer):
 
 ````
 
-* Method new_meter() return ETMeter that takes any implementation of easytorch.meter.ETMetrics as:
+* Method new_meter() returns ETMeter that takes any implementation of easytorch.meter.ETMetrics as:
     * Prf1a() for binary classification that computes accuracy,f1,precision,recall, overlap/IOU.
     * Or ConfusionMatrix(num_classes=...) for multiclass classification that also computes global
       accuracy,f1,precision,recall.
