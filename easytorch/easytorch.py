@@ -163,8 +163,7 @@ class EasyTorch:
             self.args['use_ddp'] = False
 
         """Check if want to do distributed validation"""
-        self.args['distributed_validation'] = self.args['use_ddp'] and self.args.get('distributed_validation')
-
+        self.args['distributed_validation'] = self.args['use_ddp'] and self.args.get('distributed_validation', False)
 
     def _show_args(self):
         info('Starting with the following parameters:', self.args['verbose'])

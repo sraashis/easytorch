@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch import nn
 from torchvision import datasets, transforms
 
-from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
+from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter, AUCROCMetrics
 
 transform = transforms.Compose([
     transforms.ToTensor(),
@@ -53,7 +53,9 @@ class MNISTTrainer(ETTrainer):
 
         meter = self.new_meter()
         meter.averages.add(loss.item(), len(inputs))
+        meter.averages.add(loss.item() * 0.3, len(inputs), 1)
         meter.metrics['cmf'].add(pred, labels.float())
+        meter.metrics['auc'].add(pred, labels.float())
 
         return {'loss': loss, 'meter': meter, 'predictions': pred}
 
@@ -63,7 +65,9 @@ class MNISTTrainer(ETTrainer):
 
     def new_meter(self):
         return ETMeter(
-            cmf=ConfusionMatrix(num_classes=10)
+            num_averages=2,
+            cmf=ConfusionMatrix(num_classes=10),
+            auc=AUCROCMetrics()
         )
 
 
@@ -72,8 +76,9 @@ train_dataset = datasets.MNIST('../data', train=True, download=True,
 val_dataset = datasets.MNIST('../data', train=False,
                              transform=transform)
 
-dataloader_args = {'train': {'dataset': train_dataset}}
-runner = EasyTorch(phase='train',
+dataloader_args = {'train': {'dataset': train_dataset},
+                   'validation': {'dataset': val_dataset}}
+runner = EasyTorch(phase='train', distributed_validation=True,
                    batch_size=512, epochs=2,
                    dataloader_args=dataloader_args)
 

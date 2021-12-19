@@ -158,9 +158,9 @@ class ETAverages(ETMetrics):
         return avgs
 
     def dist_gather(self, device='cpu'):
-        serial = _torch.tensor([self.counts, self.values]).to(device)
+        serial = _torch.from_numpy(_np.array([self.counts, self.values])).to(device)
         _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
-        self.counts, self.values = serial.cpu().numpy().tolist()
+        self.counts, self.values = serial.cpu().numpy()
 
 
 class ETMeter:
@@ -278,7 +278,7 @@ class Prf1a(ETMetrics):
         return [self.tn, self.fp, self.fn, self.tp]
 
     def dist_gather(self, device='cpu'):
-        serial = _torch.tensor([self.tn, self.fp, self.fn, self.tp]).to(device)
+        serial = _torch.from_numpy(_np.array([self.tn, self.fp, self.fn, self.tp])).to(device)
         _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
         self.tn, self.fp, self.fn, self.tp = serial.cpu().numpy().tolist()
 

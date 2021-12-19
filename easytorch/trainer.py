@@ -334,6 +334,7 @@ class ETTrainer:
             meter.accumulate(m)
 
         if distributed:
+            meter.averages.dist_gather(device=self.device['gpu'])
             for mk in meter.metrics:
                 meter.metrics[mk].dist_gather(device=self.device['gpu'])
 
@@ -460,7 +461,7 @@ class ETTrainer:
                     distributed=self.args['use_ddp'] and self.args.get('distributed_validation')
                 )
 
-            info('--')
+            info('--', self.args['is_master'])
             self._on_epoch_end(**epoch_details)
             if self.args['is_master']:
                 self._global_epoch_end(**epoch_details)
