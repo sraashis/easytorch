@@ -10,6 +10,7 @@ from typing import List
 import numpy as _np
 import torch as _torch
 import torch.distributed as _dist
+from sklearn import metrics as _metrics
 
 from easytorch.config.state import *
 
@@ -26,6 +27,16 @@ class ETMetrics:
                     obj[k] = obj[k].tolist()
                 elif isinstance(obj[k], _torch.Tensor):
                     obj[k] = obj[k].cpu().tolist()
+
+                if isinstance(obj[k], list) and len(obj[k]) > 1111:
+                    obj[k] = "<Truncated>"
+
+                if isinstance(obj[k], _np.ndarray) and obj[k].size > 11111:
+                    obj[k] = "<Truncated>"
+
+                if isinstance(obj[k], _torch.Tensor) and obj[k].numel() > 11111:
+                    obj[k] = "<Truncated>"
+
             return obj
         else:
             return object.__getattribute__(self, attribute)
@@ -177,11 +188,11 @@ class ETMeter:
     def extract(self, field):
         for mk in self.metrics:
             try:
-                return self.metrics[mk].extract(field)
+                return mk, self.metrics[mk].extract(field)
             except:
                 pass
 
-        return self.averages.extract(field)
+        return 'averages', self.averages.extract(field)
 
     def reset(self):
         if self.averages:
@@ -270,6 +281,41 @@ class Prf1a(ETMetrics):
         serial = _torch.tensor([self.tn, self.fp, self.fn, self.tp]).to(device)
         _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
         self.tn, self.fp, self.fn, self.tp = serial.cpu().numpy().tolist()
+
+
+class AUCROCMetrics(ETMetrics):
+    __doc__ = "Restricted to binary case"
+
+    def __init__(self, device='cpu'):
+        super().__init__(device=device)
+        self.probabilities = []
+        self.labels = []
+        self.fpr = None
+        self.tpr = None
+        self.thresholds = None
+
+    def accumulate(self, other):
+        self.probabilities += other.probabilities
+        self.labels += other.labels
+
+    def reset(self):
+        self.probabilities = []
+        self.labels = []
+
+    def auc(self):
+        self.fpr, self.tpr, self.thresholds = _metrics.roc_curve(self.labels, self.probabilities, pos_label=1)
+        return _metrics.auc(self.fpr, self.tpr)
+
+    def get(self, *args, **kw) -> List[float]:
+        return [round(self.auc(), self.num_precision)]
+
+    def dist_gather(self, device='cpu'):
+        # Todo
+        pass
+
+    def add(self, pred: _torch.Tensor, true: _torch.Tensor):
+        self.probabilities += pred.flatten().clone().detach().cpu().tolist()
+        self.labels += true.clone().flatten().detach().cpu().tolist()
 
 
 class ConfusionMatrix(ETMetrics):

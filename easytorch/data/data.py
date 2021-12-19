@@ -1,3 +1,4 @@
+import glob as _glob
 import json as _json
 import math as _math
 import multiprocessing as _mp
@@ -5,13 +6,11 @@ import os as _os
 from collections import Callable
 from functools import partial as _partial
 from os import sep as _sep
-import glob as _glob
 
 import numpy as _np
 import torch as _torch
 import torch.distributed as _dist
 import torch.utils.data as _data
-from sklearn.model_selection import KFold as _KFold
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
 from torch.utils.data._utils.collate import default_collate as _default_collate
 
@@ -256,23 +255,23 @@ class ETDataHandle:
         return all_d
 
 
-class KfoldDataHandle(ETDataHandle):
+class KFoldDataHandle(ETDataHandle):
     """Use this when needed to run k-fold(train,test one each fold) on directly passed Dataset from dataloader_args"""
 
     def create_splits(self, dataspec, out_dir):
         if self.args.get('num_folds') is None:
-            super(KfoldDataHandle, self).create_splits(dataspec, out_dir)
+            super(KFoldDataHandle, self).create_splits(dataspec, out_dir)
         else:
             dataspec['split_dir'] = out_dir + _os.sep + 'splits'
             _os.makedirs(dataspec['split_dir'], exist_ok=True)
-            kf = _KFold(self.args['num_folds'])
-            for i, (train_ix, test_ix) in enumerate(kf.split(self.dataloader_args['train']['dataset'])):
-                with open(dataspec['split_dir'] + _os.sep + f'experiment{i}.json', 'w') as sp:
-                    sp.write(_json.dumps({'train': train_ix.tolist(), 'test': test_ix.tolist()}))
+            _du.create_k_fold_splits(
+                list(range(len(self.dataloader_args['train']['dataset']))), self.args['num_folds'],
+                save_to_dir=dataspec['split_dir']
+            )
 
     def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None):
         if self.args.get('num_folds') is None:
-            return super(KfoldDataHandle, self).get_test_dataset(split_file, dataspec, dataset_cls)
+            return super(KFoldDataHandle, self).get_test_dataset(split_file, dataspec, dataset_cls)
         else:
             with open(dataspec['split_dir'] + _os.sep + split_file) as file:
                 test_ix = _json.loads(file.read()).get('test', [])
@@ -280,11 +279,19 @@ class KfoldDataHandle(ETDataHandle):
 
     def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None):
         if self.args.get('num_folds') is None:
-            return super(KfoldDataHandle, self).get_train_dataset(split_file, dataspec, dataset_cls)
+            return super(KFoldDataHandle, self).get_train_dataset(split_file, dataspec, dataset_cls)
         else:
             with open(dataspec['split_dir'] + _os.sep + split_file) as file:
                 train_ix = _json.loads(file.read()).get('train', [])
                 return _data.Subset(self.dataloader_args['train']['dataset'], train_ix)
+
+    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None):
+        if self.args.get('num_folds') is None:
+            return super(KFoldDataHandle, self).get_validation_dataset(split_file, dataspec, dataset_cls)
+        else:
+            with open(dataspec['split_dir'] + _os.sep + split_file) as file:
+                val_ix = _json.loads(file.read()).get('validation', [])
+                return _data.Subset(self.dataloader_args['train']['dataset'], val_ix)
 
 
 class ETDataset(_Dataset):

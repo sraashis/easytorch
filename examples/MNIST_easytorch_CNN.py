@@ -1,8 +1,9 @@
-from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
-from torchvision import datasets, transforms
-from torch import nn
-import torch.nn.functional as F
 import torch
+import torch.nn.functional as F
+from torch import nn
+from torchvision import datasets, transforms
+
+from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
 
 transform = transforms.Compose([
     transforms.ToTensor(),
@@ -18,7 +19,7 @@ class MNISTNet(nn.Module):
         self.conv2 = nn.Conv2d(8, 16, 3, 1)
         self.dropout1 = nn.Dropout(0.25)
         self.dropout2 = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(9216//4, 128)
+        self.fc1 = nn.Linear(9216 // 4, 128)
         self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
@@ -71,8 +72,7 @@ train_dataset = datasets.MNIST('../data', train=True, download=True,
 val_dataset = datasets.MNIST('../data', train=False,
                              transform=transform)
 
-dataloader_args = {'train': {'dataset': train_dataset},
-                   'validation': {'dataset': val_dataset}}
+dataloader_args = {'train': {'dataset': train_dataset}}
 runner = EasyTorch(phase='train',
                    batch_size=512, epochs=2,
                    dataloader_args=dataloader_args)

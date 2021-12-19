@@ -283,7 +283,7 @@ class ETTrainer:
         r"""
         Save the current model as best if it has better validation scores.
         """
-        sc = validation_meter.extract(self.cache['monitor_metric'])
+        self.cache['_monitored_metrics_key_'], sc = validation_meter.extract(self.cache['monitor_metric'])
         improved = False
         if self.cache['metric_direction'] == 'maximize':
             improved = sc > self.cache['best_val_score'] + self.args.get('score_delta', SCORE_DELTA)
@@ -401,7 +401,7 @@ class ETTrainer:
             handle_key='validation',
             shuffle=False,
             dataset=validation_dataset,
-            distributed=self.args['use_ddp'],
+            distributed=self.args['use_ddp'] and self.args.get('distributed_validation'),
             use_unpadded_sampler=True
         )
 
@@ -455,8 +455,12 @@ class ETTrainer:
             """Validation step"""
             if val_loader is not None:
                 val_out = self.evaluation(ep, mode='validation', dataloaders=val_loader, save_pred=False)
-                epoch_details['validation_meter'] = self.reduce_scores([val_out], distributed=self.args['use_ddp'])
+                epoch_details['validation_meter'] = self.reduce_scores(
+                    [val_out],
+                    distributed=self.args['use_ddp'] and self.args.get('distributed_validation')
+                )
 
+            info('--')
             self._on_epoch_end(**epoch_details)
             if self.args['is_master']:
                 self._global_epoch_end(**epoch_details)
