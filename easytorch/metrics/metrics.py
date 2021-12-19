@@ -31,16 +31,6 @@ class ETMetrics:
             return object.__getattribute__(self, attribute)
 
     @_abc.abstractmethod
-    def update(self, *args, **kw):
-        raise NotImplementedError('Must be implemented to update from serialized ETMetrics.')
-
-    def update_all(self, kws: list = None):
-        if isinstance(kws[0], dict):
-            [self.update(**kw) for kw in kws]
-        elif isinstance(kws[0], list):
-            [self.update(*kw) for kw in kws]
-
-    @_abc.abstractmethod
     def add(self, *args, **kw):
         r"""
         Add two tensor to collect scores.
@@ -94,13 +84,14 @@ class ETMetrics:
     def time(self):
         return _time.time()
 
-    def extract(self, name):
-        sc = getattr(self, name)
+    def extract(self, field):
+        sc = getattr(self, field)
         if callable(sc):
             sc = sc()
         return sc
 
-    def all_reduce(self, device='cpu'):
+    @_abc.abstractmethod
+    def dist_gather(self, device='cpu'):
         pass
 
 
@@ -126,10 +117,6 @@ class ETAverages(ETMetrics):
         """
         self.values[index] += val * n
         self.counts[index] += n
-
-    def update(self, values: List[float] = None, counts: List[int] = None, **kw):
-        self.values += _np.array(values)
-        self.counts += _np.array(counts)
 
     def accumulate(self, other):
         r"""
@@ -159,22 +146,21 @@ class ETAverages(ETMetrics):
             return round(sum(avgs) / len(avgs), self.num_precision)
         return avgs
 
-    def all_reduce(self, device='cpu'):
+    def dist_gather(self, device='cpu'):
         serial = _torch.tensor([self.counts, self.values]).to(device)
         _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
-        self.counts, self.values = serial.cpu().numpy()
+        self.counts, self.values = serial.cpu().numpy().tolist()
 
 
 class ETMeter:
     def __init__(self, num_averages=1, **kw):
-        super().__init__(**kw)
         self.averages = ETAverages(num_averages)
         self.metrics = {**kw}
 
     def get(self):
-        res = self.averages.get()
+        res = {'avg': self.averages.get()}
         for mk in self.metrics:
-            res += self.metrics[mk].get()
+            res[mk] = self.metrics[mk].get()
         return res
 
     def extract(self, field):
@@ -199,9 +185,6 @@ class ETMeter:
         for mk in meter.metrics:
             self.metrics[mk].accumulate(meter.metrics[mk])
 
-    def __call__(self, key):
-        return self.metrics.get(key)
-
 
 class Prf1a(ETMetrics):
     r"""
@@ -212,12 +195,6 @@ class Prf1a(ETMetrics):
     def __init__(self, device='cpu'):
         super().__init__(device=device)
         self.tn, self.fp, self.fn, self.tp = 0, 0, 0, 0
-
-    def update(self, tn=0, fp=0, fn=0, tp=0, **kw):
-        self.tp += tp
-        self.fp += fp
-        self.tn += tn
-        self.fn += fn
 
     def add(self, pred: _torch.Tensor, true: _torch.Tensor):
         y_true = true.clone().int().view(1, -1).squeeze()
@@ -278,10 +255,10 @@ class Prf1a(ETMetrics):
     def serialize(self, **kw):
         return [self.tn, self.fp, self.fn, self.tp]
 
-    def all_reduce(self, device='cpu'):
+    def dist_gather(self, device='cpu'):
         serial = _torch.tensor([self.tn, self.fp, self.fn, self.tp]).to(device)
         _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
-        self.tn, self.fp, self.fn, self.tp = serial.cpu().numpy()
+        self.tn, self.fp, self.fn, self.tp = serial.cpu().numpy().tolist()
 
 
 class ConfusionMatrix(ETMetrics):
@@ -291,17 +268,13 @@ class ConfusionMatrix(ETMetrics):
     F1 score from average precision and recall is calculated
     """
 
-    def __init__(self, num_classes=None, device='cpu', **kw):
-        super().__init__(**kw)
+    def __init__(self, num_classes=None, device='cpu'):
+        super().__init__(device=device)
         self.num_classes = num_classes
         self.matrix = _torch.zeros(num_classes, num_classes).float()
-        self.device = device
 
     def reset(self):
         self.matrix = _torch.zeros(self.num_classes, self.num_classes).float()
-
-    def update(self, matrix=0, **kw):
-        self.matrix += _torch.tensor(matrix)
 
     def accumulate(self, other: ETMetrics):
         self.matrix += other.matrix
@@ -344,7 +317,7 @@ class ConfusionMatrix(ETMetrics):
         return [round(self.accuracy(), self.num_precision), round(self.f1(), self.num_precision),
                 round(self.precision(), self.num_precision), round(self.recall(), self.num_precision)]
 
-    def all_reduce(self, device='cpu'):
+    def dist_gather(self, device='cpu'):
         serial = _torch.tensor(self.matrix).to(device)
         _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
         self.matrix = serial.cpu()

@@ -250,7 +250,7 @@ class ETTrainer:
         for key in reduced:
             if isinstance(its[0][key], _metrics.ETMeter):
                 reduced[key] = self.new_meter()
-                [reduced[key].accumulate(ik[key].averages, ik[key].metrics) for ik in its]
+                [reduced[key].accumulate(ik[key]) for ik in its]
             else:
                 def collect(k=key, src=its):
                     _data = []
@@ -331,7 +331,7 @@ class ETTrainer:
 
         if distributed:
             for mk in meter.metrics:
-                meter.metrics[mk].all_reduce(device=self.device['gpu'])
+                meter.metrics[mk].dist_gather(device=self.device['gpu'])
 
         return meter
 
