@@ -161,11 +161,11 @@ class MyTrainer(ETTrainer):
 
 ````
 
-* Method new_meter() uses:
-    * Prf1a() for binary classification that computes accuracy,f1,precision,recall.
+* Method new_meter() return ETMeter that takes any implementation of easytorch.meter.ETMetrics as:
+    * Prf1a() for binary classification that computes accuracy,f1,precision,recall, overlap/IOU.
     * Or ConfusionMatrix(num_classes=...) for multiclass classification that also computes global
       accuracy,f1,precision,recall.
-    * Or any custom implementation of easytorch.metrics.ETMetrics()
+    * AUCROCMetrics for binary ROC-AUC score.
 
 #### 2. Use custom dataset as below, or pytorch based Datasets class as in MNIST example above.
 
