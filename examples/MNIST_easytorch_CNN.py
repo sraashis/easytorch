@@ -1,8 +1,9 @@
-from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
-from torchvision import datasets, transforms
-from torch import nn
-import torch.nn.functional as F
 import torch
+import torch.nn.functional as F
+from torch import nn
+from torchvision import datasets, transforms
+
+from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter, AUCROCMetrics
 
 transform = transforms.Compose([
     transforms.ToTensor(),
@@ -14,11 +15,11 @@ transform = transforms.Compose([
 class MNISTNet(nn.Module):
     def __init__(self):
         super(MNISTNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
+        self.conv1 = nn.Conv2d(1, 8, 3, 1)
+        self.conv2 = nn.Conv2d(8, 16, 3, 1)
         self.dropout1 = nn.Dropout(0.25)
         self.dropout2 = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(9216, 128)
+        self.fc1 = nn.Linear(9216 // 4, 128)
         self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
@@ -52,7 +53,9 @@ class MNISTTrainer(ETTrainer):
 
         meter = self.new_meter()
         meter.averages.add(loss.item(), len(inputs))
-        meter.metrics.add(pred, labels.float())
+        meter.averages.add(loss.item() * 0.3, len(inputs), 1)
+        meter.metrics['cmf'].add(pred, labels.float())
+        meter.metrics['auc'].add(pred, labels.float())
 
         return {'loss': loss, 'meter': meter, 'predictions': pred}
 
@@ -62,7 +65,9 @@ class MNISTTrainer(ETTrainer):
 
     def new_meter(self):
         return ETMeter(
-            metrics=ConfusionMatrix(num_classes=10)
+            num_averages=2,
+            cmf=ConfusionMatrix(num_classes=10),
+            auc=AUCROCMetrics()
         )
 
 
@@ -73,7 +78,9 @@ val_dataset = datasets.MNIST('../data', train=False,
 
 dataloader_args = {'train': {'dataset': train_dataset},
                    'validation': {'dataset': val_dataset}}
-runner = EasyTorch(phase='train',
-                   batch_size=512, epochs=2, gpus=[0],
+runner = EasyTorch(phase='train', distributed_validation=True,
+                   batch_size=512, epochs=2,
                    dataloader_args=dataloader_args)
-runner.run(MNISTTrainer)
+
+if __name__ == "__main__":
+    runner.run(MNISTTrainer)

@@ -6,7 +6,6 @@ import math as _math
 import os as _os
 
 import torch as _torch
-import torch.distributed as _dist
 
 import easytorch.utils as _etutils
 from easytorch.config.state import *
@@ -118,11 +117,15 @@ class ETTrainer:
         If no GPU is present, CPU is used.
         """
         if self.args.get('use_ddp'):
+            _device_ids = []
+            if self.args['gpu'] is not None:
+                _device_ids.append(self.device['gpu'])
+
             for model_key in self.nn:
                 self.nn[model_key] = self.nn[model_key].to(self.device['gpu'])
             for model_key in self.nn:
                 self.nn[model_key] = _torch.nn.parallel.DistributedDataParallel(self.nn[model_key],
-                                                                                device_ids=[self.device['gpu']])
+                                                                                device_ids=_device_ids)
         elif len(self.args['gpus']) >= 1:
             self.device['gpu'] = _torch.device(f"cuda:{self.args['gpus'][0]}")
             if len(self.args['gpus']) >= 2:
@@ -211,9 +214,9 @@ class ETTrainer:
 
         def _update_scores(_out, _it, _meter):
             if isinstance(_out, _metrics.ETMeter):
-                _meter.accumulate(_out.averages, _out.metrics)
+                _meter.accumulate(_out)
             else:
-                _meter.accumulate(_it['meter'].averages, _it['meter'].metrics)
+                _meter.accumulate(_it['meter'])
 
         with _torch.no_grad():
             for loader in dataloaders:
@@ -232,16 +235,16 @@ class ETTrainer:
                         _update_scores(None, it, meter)
 
                     if self.args['verbose'] and len(dataloaders) <= 1 and lazy_debug(i, add=epoch):
-                        info(f"  Itr:{i}/{len(loader)}, {it['meter'].get()}")
+                        info(f"  Itr:{i}/{len(loader)}, {it['meter']}")
 
                 if save_pred and self.args['load_sparse']:
                     its = self._reduce_iteration(its)
                     _update_scores(self.save_predictions(loader.dataset, its), its, meter)
 
                 if self.args['verbose'] and len(dataloaders) > 1:
-                    info(f" {mode}, {meter.get()}")
+                    info(f" {mode}, {meter}")
 
-                eval_meter.accumulate(meter.averages, meter.metrics)
+                eval_meter.accumulate(meter)
 
         info(f"{self.cache['experiment_id']} {mode} {eval_meter.get()}", self.args['verbose'])
         return eval_meter
@@ -251,7 +254,7 @@ class ETTrainer:
         for key in reduced:
             if isinstance(its[0][key], _metrics.ETMeter):
                 reduced[key] = self.new_meter()
-                [reduced[key].accumulate(ik[key].averages, ik[key].metrics) for ik in its]
+                [reduced[key].accumulate(ik[key]) for ik in its]
             else:
                 def collect(k=key, src=its):
                     _data = []
@@ -280,7 +283,7 @@ class ETTrainer:
         r"""
         Save the current model as best if it has better validation scores.
         """
-        sc = validation_meter.extract(self.cache['monitor_metric'])
+        self.cache['_monitored_metrics_key_'], sc = validation_meter.extract(self.cache['monitor_metric'])
         improved = False
         if self.cache['metric_direction'] == 'maximize':
             improved = sc > self.cache['best_val_score'] + self.args.get('score_delta', SCORE_DELTA)
@@ -328,19 +331,12 @@ class ETTrainer:
             return meter
 
         for m in accumulator:
-            meter.accumulate(m.averages, m.metrics)
+            meter.accumulate(m)
 
         if distributed:
-            avg_serial = _torch.tensor(meter.averages.serialize()).to(self.device['gpu'])
-            _dist.reduce(avg_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
-
-            metrics_serial = _torch.tensor(meter.metrics.serialize()).to(self.device['gpu'])
-            _dist.reduce(metrics_serial, dst=MASTER_RANK, op=_dist.ReduceOp.SUM)
-
-            if self.args['is_master']:
-                meter.reset()
-                meter.averages.update(*avg_serial.cpu().numpy().tolist())
-                meter.metrics.update(*metrics_serial.cpu().numpy().tolist())
+            meter.averages.dist_gather(device=self.device['gpu'])
+            for mk in meter.metrics:
+                meter.metrics[mk].dist_gather(device=self.device['gpu'])
 
         return meter
 
@@ -358,14 +354,14 @@ class ETTrainer:
 
     def _global_debug(self, running_meter, **kw):
         """Update running accumulators."""
-        running_meter.accumulate(kw['meter'].averages, kw['meter'].metrics)
+        running_meter.accumulate(kw['meter'])
 
         """ Reset iteration accumulator """
         N = kw['num_iters']
         i, e = kw['i'], kw['epoch']
 
-        if lazy_debug(i, add=e) or i == N:
-            info(f"Ep:{e}/{self.args['epochs']}, Itr:{i}/{N}, {running_meter.get()}", self.args['verbose'])
+        if lazy_debug(i, add=e + 1) or i == N:
+            info(f"Ep:{e}/{self.args['epochs']}, Itr:{i}/{N}, {running_meter}", self.args['verbose'])
             r"""Debug and reset running accumulators"""
 
             if not self.args['use_ddp']:
@@ -406,7 +402,7 @@ class ETTrainer:
             handle_key='validation',
             shuffle=False,
             dataset=validation_dataset,
-            distributed=self.args['use_ddp'],
+            distributed=self.args['use_ddp'] and self.args.get('distributed_validation'),
             use_unpadded_sampler=True
         )
 
@@ -440,7 +436,7 @@ class ETTrainer:
                     its = []
                     it['num_iters'] = num_iters
                     it['i'] = i // self.args['grad_accum_iters']
-                    epoch_meter.accumulate(it['meter'].averages, it['meter'].metrics)
+                    epoch_meter.accumulate(it['meter'])
 
                     if self.args['is_master']:
                         self._global_debug(_meter, epoch=ep, **it)
@@ -460,8 +456,12 @@ class ETTrainer:
             """Validation step"""
             if val_loader is not None:
                 val_out = self.evaluation(ep, mode='validation', dataloaders=val_loader, save_pred=False)
-                epoch_details['validation_meter'] = self.reduce_scores([val_out], distributed=self.args['use_ddp'])
+                epoch_details['validation_meter'] = self.reduce_scores(
+                    [val_out],
+                    distributed=self.args['use_ddp'] and self.args.get('distributed_validation')
+                )
 
+            info('--', self.args['is_master'])
             self._on_epoch_end(**epoch_details)
             if self.args['is_master']:
                 self._global_epoch_end(**epoch_details)

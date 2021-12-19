@@ -9,4 +9,5 @@
 * Reconstruction of the predicted image is very easy even if we train on patches of images like U-Net. Please check the example below.
 * Limit data loading for easy debugging
 * Save everything: the logs, seeds, models, plots...etc. Thus, easy to replicate experiments.
+* Multiple metrics Precision, Recall, Accuracy, Overlap, F1, ROC-AUC, Confusion matrix
 * **...will keep on addding. Stay tuned!**
