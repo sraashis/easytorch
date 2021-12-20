@@ -290,9 +290,8 @@ class AUCROCMetrics(ETMetrics):
         super().__init__(device=device)
         self.probabilities = []
         self.labels = []
-        self.fpr = None
-        self.tpr = None
         self.thresholds = None
+        self._auc = 0
 
     def accumulate(self, other):
         self.probabilities += other.probabilities
@@ -303,15 +302,16 @@ class AUCROCMetrics(ETMetrics):
         self.labels = []
 
     def auc(self):
-        self.fpr, self.tpr, self.thresholds = _metrics.roc_curve(self.labels, self.probabilities, pos_label=1)
-        return _metrics.auc(self.fpr, self.tpr)
+        fpr, tpr, self.thresholds = _metrics.roc_curve(self.labels, self.probabilities, pos_label=1)
+        return max(_metrics.auc(fpr, tpr), self._auc)
 
     def get(self, *args, **kw) -> List[float]:
         return [round(self.auc(), self.num_precision)]
 
     def dist_gather(self, device='cpu'):
-        # Todo
-        pass
+        auc = _torch.from_numpy(_np.array([self.auc()])).to(device)
+        _dist.all_reduce(auc, op=_dist.ReduceOp.SUM)
+        self._auc = float(auc.item() / _dist.get_world_size())
 
     def add(self, pred: _torch.Tensor, true: _torch.Tensor):
         self.probabilities += pred.flatten().clone().detach().cpu().tolist()
