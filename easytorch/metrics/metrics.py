@@ -302,8 +302,10 @@ class AUCROCMetrics(ETMetrics):
         self.labels = []
 
     def auc(self):
-        fpr, tpr, self.thresholds = _metrics.roc_curve(self.labels, self.probabilities, pos_label=1)
-        return max(_metrics.auc(fpr, tpr), self._auc)
+        if len(self.labels) > 0:
+            fpr, tpr, self.thresholds = _metrics.roc_curve(self.labels, self.probabilities, pos_label=1)
+            return max(_metrics.auc(fpr, tpr), self._auc)
+        return 0.0
 
     def get(self, *args, **kw) -> List[float]:
         return [round(self.auc(), self.num_precision)]
