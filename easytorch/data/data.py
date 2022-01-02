@@ -242,7 +242,7 @@ class ETDataHandle:
                 split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
                 files = split.get(split_key, [])[:args['load_limit']]
 
-                if load_sparse and len(files) > 1:
+                if load_sparse and len(files) > 1 and args.get('multi_load'):
                     all_d += ETDataHandle.multi_load(split_key, files, dspec, args, dataset_cls, func=work_function)
                 else:
                     if len(all_d) <= 0:
@@ -317,7 +317,7 @@ class ETDataset(_Dataset):
         Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
         """
         _files = files[:self.limit]
-        if len(_files) > 1:
+        if len(_files) > 1 and self.args.get('multi_load'):
             dataset_objs = ETDataHandle.multi_load(
                 self.mode, _files, self.dataspecs[dataspec_name], self.args, self.__class__
             )
