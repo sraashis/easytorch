@@ -317,7 +317,7 @@ class ETDataset(_Dataset):
         Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
         """
         _files = files[:self.limit]
-        if len(_files) > 1:
+        if len(_files) > 1 and self.args.get('multi_load'):
             dataset_objs = ETDataHandle.multi_load(
                 self.mode, _files, self.dataspecs[dataspec_name], self.args, self.__class__
             )
