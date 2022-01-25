@@ -17,13 +17,17 @@ from torch.utils.data._utils.collate import default_collate as _default_collate
 import easytorch.data.datautils as _du
 import easytorch.utils as _etutils
 from easytorch.utils.logger import *
+import traceback as _tb
 
 _LOG_FREQ = 200
 
 
 def _job(total, func, i, f):
     print(f"Working on: [ {i}/{total} ]", end='\n' if i % _LOG_FREQ == 0 else '\r')
-    return func(f)
+    try:
+        return func(f)
+    except:
+        _tb.print_exc()
 
 
 def multiRun(nproc: int, data_list: list, func: Callable) -> list:
@@ -61,7 +65,10 @@ def _seed_worker(worker_id):
 
 def _et_data_job_func(mode, file, dataspec, args, dataset_cls):
     test_dataset = dataset_cls(mode=mode, **args)
-    test_dataset.add(files=[file], verbose=False, **dataspec)
+    try:
+        test_dataset.add(files=[file], verbose=False, **dataspec)
+    except:
+        _tb.print_exc()
     return test_dataset
 
 
@@ -319,13 +326,18 @@ class ETDataset(_Dataset):
         Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
         """
         _files = files[:self.limit]
-        if len(_files) > 1 and self.args.get('multi_load'):
-            dataset_objs = ETDataHandle.multi_load(
-                self.mode, _files, self.dataspecs[dataspec_name], self.args, self.__class__
-            )
-            self.gather(dataset_objs)
+        _files_len: int = len(files)
+        if self.args.get('multi_load'):
+            if _files_len > 1:
+                dataset_objs = ETDataHandle.multi_load(
+                    self.mode, _files, self.dataspecs[dataspec_name], self.args, self.__class__
+                )
+                self.gather(dataset_objs)
+            else:
+                self.load_index(dataspec_name, _files[0])
         else:
-            for f in _files:
+            for i, f in enumerate(_files):
+                info(f"Loading [{i}/{_files_len}]", i % _LOG_FREQ == 0)
                 self.load_index(dataspec_name, f)
 
         success(f'\n{dataspec_name}, {self.mode}, {len(self)} indices Loaded.', verbose)
