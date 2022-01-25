@@ -20,7 +20,7 @@ from easytorch.utils.logger import *
 
 
 def _job(total, func, i, f):
-    print(f"Working on: [ {i}/{total} ]", end='\r')
+    print(f"Working on: [ {i}/{total} ]", end='\n' if i % 300 == 0 else '\r')
     return func(f)
 
 
