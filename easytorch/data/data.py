@@ -20,7 +20,7 @@ from easytorch.utils.logger import *
 
 
 def _job(total, func, i, f):
-    print(f"Working on: [ {i}/{total} ]", end='\n' if i % 300 == 0 else '\r')
+    print(f"Working on: [ {i}/{total} ]", end='\n' if i % 100 == 0 else '\r')
     return func(f)
 
 
@@ -65,7 +65,7 @@ def _et_data_job_func(mode, file, dataspec, args, dataset_cls):
 
 def _et_data_job(mode, arg, dspec, cls, total, func, verbose, i, file):
     if verbose:
-        print(f"Working on: [ {i} / {total} ]", end='\r')
+        print(f"Working on: [ {i} / {total} ]", end='\n' if i % 100 == 0 else '\r')
     return func(mode, file, dspec, arg, cls)
 
 
