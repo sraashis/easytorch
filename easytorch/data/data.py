@@ -19,7 +19,7 @@ import easytorch.utils as _etutils
 from easytorch.utils.logger import *
 import traceback as _tb
 
-_LOG_FREQ = 200
+_LOG_FREQ = 100
 
 
 def _job(total, func, i, f):
