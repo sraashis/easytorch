@@ -47,6 +47,9 @@ default_ap.add_argument('-pat', '--patience', default=None, type=int, help='Earl
 default_ap.add_argument('-mld', '--multi_load', default=True, type=boolean_string,
                         help='Pre load dataset with multiple threads in the Dataset class.'
                         )
+default_ap.add_argument('-chs', '--chunk_size', default=10, type=int,
+                        help='Chunk size for pooled run to Pre-load dataset with multiple threads in the Dataset class.'
+                        )
 default_ap.add_argument('-lsp', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')
 default_ap.add_argument('-nf', '--num_folds', default=None, type=int, help='Number of folds.')
 default_ap.add_argument('-spl', '--split_ratio', default=None, nargs='*', type=float,
