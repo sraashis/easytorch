@@ -232,7 +232,9 @@ class ETDataHandle:
             dataset_list = list(
                 pool.starmap(
                     _partial(_et_data_job, mode, args, dataspec, dataset_cls, len(_files), func, args.get('verbose')),
-                    _files)
+                    _files,
+                    chunksize=len(_files) // _LOG_FREQ + 2
+                )
             )
             return [_d for _d in dataset_list if len(_d) >= 1]
 
