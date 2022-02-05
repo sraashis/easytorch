@@ -13,6 +13,27 @@ import easytorch.data.datautils as _du
 import easytorch.utils as _etutils
 import easytorch.data.multiproc as _multi
 from easytorch.utils.logger import *
+import diskcache as _diskcache
+import pickle as _pickle
+import shutil as _shu
+
+
+class DiskCache:
+    def __init__(self, path):
+        _os.makedirs(path, exist_ok=True)
+        self.path = path
+
+    def add(self, key, value):
+        with open(self.path + _os.sep + key, 'wb') as file:
+            _pickle.dump(value, file, _pickle.HIGHEST_PROTOCOL)
+        return key
+
+    def get(self, key):
+        with open(self.path + _os.sep + key, 'rb') as file:
+            return _pickle.load(file)
+
+    def clear(self):
+        _shu.rmtree(self.path)
 
 
 class ETDataHandle:
@@ -205,6 +226,7 @@ class ETDataset(_Dataset):
 
         self.args = _etutils.FrozenDict(kw)
         self.dataspecs = _etutils.FrozenDict({})
+        self.diskcache = None
 
     def load_index(self, dataset_name, file):
         r"""
@@ -264,6 +286,9 @@ class ETDataset(_Dataset):
         r""" An extra layer for added flexibility."""
         self.dataspecs[kw['name']] = kw
         self._load_indices(dataspec_name=kw['name'], files=files, verbose=verbose)
+        if len(files) > 1:
+            self.diskcache = _diskcache.Cache(self.args['log_dir'] + _os.sep + "_cache")
+            self.diskcache.clear()
 
 
 class UnPaddedDDPSampler(_data.Sampler):
