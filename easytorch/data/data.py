@@ -225,7 +225,6 @@ class ETDataset(_Dataset):
 
         self.args = _etutils.FrozenDict(kw)
         self.dataspecs = _etutils.FrozenDict({})
-        self.diskcache = None
 
     def load_index(self, dataset_name, file):
         r"""
