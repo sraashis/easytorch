@@ -13,7 +13,6 @@ import easytorch.data.datautils as _du
 import easytorch.utils as _etutils
 import easytorch.data.multiproc as _multi
 from easytorch.utils.logger import *
-import diskcache as _diskcache
 import pickle as _pickle
 import shutil as _shu
 
@@ -286,9 +285,6 @@ class ETDataset(_Dataset):
         r""" An extra layer for added flexibility."""
         self.dataspecs[kw['name']] = kw
         self._load_indices(dataspec_name=kw['name'], files=files, verbose=verbose)
-        if len(files) > 1:
-            self.diskcache = _diskcache.Cache(self.args['log_dir'] + _os.sep + "_cache")
-            self.diskcache.clear()
 
 
 class UnPaddedDDPSampler(_data.Sampler):
