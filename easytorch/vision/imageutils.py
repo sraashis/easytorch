@@ -364,7 +364,7 @@ def binarize(arr, thr=100, max=255):
     return _arr
 
 
-def masked_bboxcrop(arr, offset=15):
+def masked_bboxcrop(arr, *apply_to, offset=15):
     """
     Binarize, mask, bbox crop image for largest connected component.
     """
@@ -378,8 +378,11 @@ def masked_bboxcrop(arr, offset=15):
 
     mask = (output == max_label).astype(_np.uint8) * 255
     a, b, c, d = _IMG.fromarray(mask).getbbox()
+    a, b, c, d = max(0, b - offset), min(_arr.shape[0], d + offset), max(0, a - offset), min(_arr.shape[1], c + offset)
 
-    return (
-        arr[max(0, b - offset):min(_arr.shape[0], d + offset), max(0, a - offset):min(_arr.shape[1], c + offset)],
-        mask[max(0, b - offset):min(_arr.shape[0], d + offset), max(0, a - offset):min(_arr.shape[1], c + offset)]
-    )
+    res = [arr[a:b, c:d]]
+    for dat in apply_to:
+        res.append(dat[a:b, c:d])
+    res.append(mask[a:b, c:d])
+
+    return res
