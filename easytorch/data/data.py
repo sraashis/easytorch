@@ -18,6 +18,7 @@ import easytorch.data.datautils as _du
 import easytorch.utils as _etutils
 from easytorch.utils.logger import *
 import traceback as _tb
+import diskcache as _dcache
 
 _LOG_FREQ = 100
 
@@ -313,6 +314,7 @@ class ETDataset(_Dataset):
 
         self.args = _etutils.FrozenDict(kw)
         self.dataspecs = _etutils.FrozenDict({})
+        self.diskcache = _dcache.Cache(kw['log_dir'] + _os.sep + '_cache')
 
     def load_index(self, dataset_name, file):
         r"""
@@ -335,7 +337,7 @@ class ETDataset(_Dataset):
             self.gather(dataset_objs)
         else:
             self.load_index(dataspec_name, _files[0])
-        
+
         success(f'\n{dataspec_name}, {self.mode}, {len(self)} indices Loaded.', verbose)
 
     def gather(self, dataset_objs):

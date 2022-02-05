@@ -17,12 +17,13 @@ _requires = ['numpy',
              'matplotlib',
              'opencv-python-headless',
              'pandas',
-             'seaborn']
+             'seaborn',
+             'diskcache']
 
 # This call to setup() does all the work
 setup(
     name="easytorch",
-    version="3.2.23",
+    version="3.2.24",
     description="Easy Neural Network Experiments with pytorch",
     long_description=_README,
     long_description_content_type="text/markdown",

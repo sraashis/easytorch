@@ -353,3 +353,18 @@ def get_pix_neigh(i, j, eight=False):
         return [n1, n2, n3, n4, n5, n6, n7, n8]
     else:
         return [n2, n5, n7, n4]
+
+
+def masked_bboxcrop(arr, offset=5):
+    ret, mask = _cv2.threshold(arr[:, :, 1], 0, 255, _cv2.THRESH_BINARY + _cv2.THRESH_OTSU)
+
+    nb_components, output, stats, centroids = _cv2.connectedComponentsWithStats(mask, connectivity=4)
+    max_label, _ = max([(i, stats[i, _cv2.CC_STAT_AREA]) for i in range(1, nb_components)], key=lambda x: x[1])
+
+    mask = (output == max_label).astype(_np.uint8) * 255
+    a, b, c, d = _IMG.fromarray(mask).getbbox()
+
+    return (
+        arr[max(0, b - offset):min(arr.shape[0], d + offset), max(0, a - offset):min(arr.shape[1], c + offset)],
+        mask[max(0, b - offset):min(arr.shape[0], d + offset), max(0, a - offset):min(arr.shape[1], c + offset)]
+    )
