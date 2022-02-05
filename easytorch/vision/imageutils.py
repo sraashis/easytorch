@@ -355,9 +355,24 @@ def get_pix_neigh(i, j, eight=False):
         return [n2, n5, n7, n4]
 
 
-def masked_bboxcrop(arr, offset=5):
-    ret, mask = _cv2.threshold(arr[:, :, 1], 0, 255, _cv2.THRESH_BINARY + _cv2.THRESH_OTSU)
+def binarize(arr, thr=100, max=255):
+    _arr = arr.copy()
+    if _arr.max() > thr:
+        _arr[_arr < thr] = 0
+        _arr[_arr >= thr] = max
 
+    return _arr
+
+
+def masked_bboxcrop(arr, offset=15):
+    """
+    Binarize, mask, bbox crop image for largest connected component.
+    """
+    _arr = arr.copy()
+    if len(_arr.shape) > 2:
+        _arr = _arr[:, :, 1]
+
+    ret, mask = _cv2.threshold(_arr, 0, 255, _cv2.THRESH_BINARY + _cv2.THRESH_OTSU)
     nb_components, output, stats, centroids = _cv2.connectedComponentsWithStats(mask, connectivity=4)
     max_label, _ = max([(i, stats[i, _cv2.CC_STAT_AREA]) for i in range(1, nb_components)], key=lambda x: x[1])
 
@@ -365,6 +380,6 @@ def masked_bboxcrop(arr, offset=5):
     a, b, c, d = _IMG.fromarray(mask).getbbox()
 
     return (
-        arr[max(0, b - offset):min(arr.shape[0], d + offset), max(0, a - offset):min(arr.shape[1], c + offset)],
-        mask[max(0, b - offset):min(arr.shape[0], d + offset), max(0, a - offset):min(arr.shape[1], c + offset)]
+        arr[max(0, b - offset):min(_arr.shape[0], d + offset), max(0, a - offset):min(_arr.shape[1], c + offset)],
+        mask[max(0, b - offset):min(_arr.shape[0], d + offset), max(0, a - offset):min(_arr.shape[1], c + offset)]
     )
