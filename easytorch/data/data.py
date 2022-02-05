@@ -1,82 +1,38 @@
 import glob as _glob
 import json as _json
 import math as _math
-import multiprocessing as _mp
 import os as _os
-from collections import Callable
-from functools import partial as _partial
 from os import sep as _sep
 
-import numpy as _np
 import torch as _torch
 import torch.distributed as _dist
 import torch.utils.data as _data
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
-from torch.utils.data._utils.collate import default_collate as _default_collate
 
 import easytorch.data.datautils as _du
 import easytorch.utils as _etutils
+import easytorch.data.multiproc as _multi
 from easytorch.utils.logger import *
-import traceback as _tb
-import diskcache as _dcache
-
-_LOG_FREQ = 100
+import pickle as _pickle
+import shutil as _shu
 
 
-def _job(total, func, i, f):
-    print(f"Working on: [ {i}/{total} ]", end='\n' if i % _LOG_FREQ == 0 else '\r')
-    try:
-        return func(f)
-    except:
-        _tb.print_exc()
+class DiskCache:
+    def __init__(self, path):
+        _os.makedirs(path, exist_ok=True)
+        self.path = path
 
+    def add(self, key, value):
+        with open(self.path + _os.sep + key + ".pkl", 'wb') as file:
+            _pickle.dump(value, file, _pickle.HIGHEST_PROTOCOL)
+        return key
 
-def multiRun(nproc: int, data_list: list, func: Callable) -> list:
-    _files = []
-    for ix, file in enumerate(data_list, 1):
-        _files.append([ix, file])
+    def get(self, key):
+        with open(self.path + _os.sep + key + ".pkl", 'rb') as file:
+            return _pickle.load(file)
 
-    with _mp.Pool(processes=nproc) as pool:
-        return list(
-            pool.starmap(_partial(_job, len(_files), func), _files)
-        )
-
-
-def safe_collate(batch):
-    r"""Safely select batches/skip dataset_cls(errors in file loading."""
-    return _default_collate([b for b in batch if b])
-
-
-def num_workers(args, loader_args, distributed=False):
-    if distributed:
-        return (loader_args['num_workers'] + args['num_gpus'] - 1) // args['num_gpus']
-    return loader_args.get('num_workers', 0)
-
-
-def batch_size(args, loader_args, distributed=False):
-    if distributed:
-        loader_args['batch_size'] = loader_args['batch_size'] // args['num_gpus']
-    return loader_args['batch_size']
-
-
-def _seed_worker(worker_id):
-    seed = (int(_torch.initial_seed()) + worker_id) % (2 ** 32 - 1)
-    _np.random.seed(seed)
-
-
-def _et_data_job_func(mode, file, dataspec, args, dataset_cls):
-    test_dataset = dataset_cls(mode=mode, **args)
-    try:
-        test_dataset.add(files=[file], verbose=False, **dataspec)
-    except:
-        _tb.print_exc()
-    return test_dataset
-
-
-def _et_data_job(mode, arg, dspec, cls, total, func, verbose, i, file):
-    if verbose:
-        print(f"Working on: [ {i} / {total} ]", end='\n' if i % _LOG_FREQ == 0 else '\r')
-    return func(mode, file, dspec, arg, cls)
+    def clear(self):
+        _shu.rmtree(self.path)
 
 
 class ETDataHandle:
@@ -125,7 +81,7 @@ class ETDataHandle:
         with open(dataspec['split_dir'] + _sep + split_file) as file:
             _files = _json.loads(file.read()).get('test', [])[:self.args['load_limit']]
             if self.args['load_sparse'] and len(_files) > 1:
-                datasets = ETDataHandle.multi_load('test', _files, dataspec, self.args, dataset_cls)
+                datasets = _multi.multi_load('test', _files, dataspec, self.args, dataset_cls)
                 success(f'\n{len(datasets)} sparse dataset loaded.', self.args['verbose'])
             else:
                 datasets = self.get_dataset('test', _files, dataspec, dataset_cls=dataset_cls)
@@ -153,7 +109,7 @@ class ETDataHandle:
             'pin_memory': False,
             'drop_last': False,
             'timeout': 0,
-            'worker_init_fn': _seed_worker if args.get('seed_all') else None
+            'worker_init_fn': _multi.seed_worker if args.get('seed_all') else None
         }
 
         for k in loader_args.keys():
@@ -179,10 +135,10 @@ class ETDataHandle:
                     loader_args['sampler'] = _data.distributed.DistributedSampler(loader_args['dataset'],
                                                                                   **sampler_args)
 
-            loader_args['num_workers'] = num_workers(args, loader_args, True)
-            loader_args['batch_size'] = batch_size(args, loader_args, True)
+            loader_args['num_workers'] = _multi.num_workers(args, loader_args, True)
+            loader_args['batch_size'] = _multi.batch_size(args, loader_args, True)
 
-        return _DataLoader(collate_fn=safe_collate, **loader_args)
+        return _DataLoader(collate_fn=_multi.safe_collate, **loader_args)
 
     def create_splits(self, dataspec, out_dir):
         if _du.should_create_splits_(out_dir, dataspec, self.args):
@@ -219,51 +175,6 @@ class ETDataHandle:
                 if path.endswith(_sep):
                     path = path[:-1]
                 dataspec[k] = path
-
-    @staticmethod
-    def multi_load(mode, files, dataspec, args, dataset_cls, func=_et_data_job_func) -> list:
-
-        r"""Note: Only works with easytorch's default args from easytorch import args"""
-        _files = []
-        for ix, f in enumerate(files, 1):
-            _files.append([ix, f])
-
-        nw = min(num_workers(args, args, args.get('use_ddp')), len(_files))
-        with _mp.Pool(processes=max(1, nw)) as pool:
-            dataset_list = list(
-                pool.starmap(
-                    _partial(_et_data_job, mode, args, dataspec, dataset_cls, len(_files), func, args.get('verbose')),
-                    _files
-                )
-            )
-            return [_d for _d in dataset_list if len(_d) >= 1]
-
-    @staticmethod
-    def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False,
-                    work_function=_et_data_job_func) -> list:
-        r"""
-        Note: Only works with easytorch's default args from easytorch import args
-        This method takes multiple dataspecs and pools the first splits of all the datasets.
-        So that we can train one single model on all the datasets. It will automatically refer correct data files,
-            no need to move files in single folder.
-        """
-        all_d = []
-        for dspec in dataspecs:
-            for split in sorted(_os.listdir(dspec['split_dir'])):
-                split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
-                files = split.get(split_key, [])[:args['load_limit']]
-
-                if load_sparse and len(files) > 1:
-                    all_d += ETDataHandle.multi_load(split_key, files, dspec, args, dataset_cls, func=work_function)
-                else:
-                    if len(all_d) <= 0:
-                        all_d.append(dataset_cls(mode=split_key, limit=args['load_limit'], **args))
-                    all_d[0].add(files=files, verbose=args['verbose'], **dspec)
-                """Pooling only works with 1 split at the moment."""
-                break
-
-        success(f'\nPooled {len(all_d)} dataset loaded.', args['verbose'] and len(all_d) > 1)
-        return all_d
 
 
 class KFoldDataHandle(ETDataHandle):
@@ -314,7 +225,7 @@ class ETDataset(_Dataset):
 
         self.args = _etutils.FrozenDict(kw)
         self.dataspecs = _etutils.FrozenDict({})
-        self.diskcache = _dcache.Cache(kw['log_dir'] + _os.sep + '_cache')
+        self.diskcache = None
 
     def load_index(self, dataset_name, file):
         r"""
@@ -331,8 +242,12 @@ class ETDataset(_Dataset):
         _files = files[:self.limit]
         _files_len: int = len(files)
         if _files_len > 1:
-            dataset_objs = ETDataHandle.multi_load(
-                self.mode, _files, self.dataspecs[dataspec_name], self.args, self.__class__
+            dataset_objs = _multi.multi_load(
+                self.mode,
+                _files,
+                self.dataspecs[dataspec_name],
+                self.args,
+                self.__class__
             )
             self.gather(dataset_objs)
         else:
