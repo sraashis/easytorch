@@ -232,8 +232,7 @@ class ETDataHandle:
             dataset_list = list(
                 pool.starmap(
                     _partial(_et_data_job, mode, args, dataspec, dataset_cls, len(_files), func, args.get('verbose')),
-                    _files,
-                    chunksize=len(_files) // _LOG_FREQ + 2
+                    _files
                 )
             )
             return [_d for _d in dataset_list if len(_d) >= 1]
@@ -253,7 +252,7 @@ class ETDataHandle:
                 split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
                 files = split.get(split_key, [])[:args['load_limit']]
 
-                if load_sparse and len(files) > 1 and args.get('multi_load'):
+                if load_sparse and len(files) > 1:
                     all_d += ETDataHandle.multi_load(split_key, files, dspec, args, dataset_cls, func=work_function)
                 else:
                     if len(all_d) <= 0:
@@ -329,19 +328,14 @@ class ETDataset(_Dataset):
         """
         _files = files[:self.limit]
         _files_len: int = len(files)
-        if self.args.get('multi_load'):
-            if _files_len > 1:
-                dataset_objs = ETDataHandle.multi_load(
-                    self.mode, _files, self.dataspecs[dataspec_name], self.args, self.__class__
-                )
-                self.gather(dataset_objs)
-            else:
-                self.load_index(dataspec_name, _files[0])
+        if _files_len > 1:
+            dataset_objs = ETDataHandle.multi_load(
+                self.mode, _files, self.dataspecs[dataspec_name], self.args, self.__class__
+            )
+            self.gather(dataset_objs)
         else:
-            for i, f in enumerate(_files):
-                info(f"Loading [{i}/{_files_len}]", i % _LOG_FREQ == 0)
-                self.load_index(dataspec_name, f)
-
+            self.load_index(dataspec_name, _files[0])
+        
         success(f'\n{dataspec_name}, {self.mode}, {len(self)} indices Loaded.', verbose)
 
     def gather(self, dataset_objs):

@@ -44,9 +44,6 @@ default_ap.add_argument('-seed-all', '--seed_all', default=False, type=boolean_s
 default_ap.add_argument('-seed', '--seed', default=None, type=int, help='Seed everything.')
 default_ap.add_argument('-f', '--force', default=False, type=boolean_string, help='Force')
 default_ap.add_argument('-pat', '--patience', default=None, type=int, help='Early Stopping patience epochs.')
-default_ap.add_argument('-mld', '--multi_load', default=True, type=boolean_string,
-                        help='Pre load dataset with multiple threads in the Dataset class.'
-                        )
 default_ap.add_argument('-lsp', '--load_sparse', default=False, type=boolean_string, help='Load sparse dataset.')
 default_ap.add_argument('-nf', '--num_folds', default=None, type=int, help='Number of folds.')
 default_ap.add_argument('-spl', '--split_ratio', default=None, nargs='*', type=float,
