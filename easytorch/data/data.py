@@ -24,12 +24,12 @@ class DiskCache:
         self.path = path
 
     def add(self, key, value):
-        with open(self.path + _os.sep + key, 'wb') as file:
+        with open(self.path + _os.sep + key + ".pkl", 'wb') as file:
             _pickle.dump(value, file, _pickle.HIGHEST_PROTOCOL)
         return key
 
     def get(self, key):
-        with open(self.path + _os.sep + key, 'rb') as file:
+        with open(self.path + _os.sep + key + ".pkl", 'rb') as file:
             return _pickle.load(file)
 
     def clear(self):
