@@ -20,6 +20,12 @@ from easytorch.utils.logger import *
 _sep = _os.sep
 
 
+def _clear(trainer):
+    for dataset in trainer.data_handle.datasets.values():
+        if hasattr(dataset, 'diskcache'):
+            dataset.diskcache.clear()
+
+
 def _ddp_worker(rank, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled):
     self.args['gpu'] = self.args['gpus'][rank]
     self.args['verbose'] = rank == MASTER_RANK
@@ -349,6 +355,7 @@ class EasyTorch:
                 global_scores = trainer.reduce_scores(test_accum, distributed=False)
                 self._global_experiment_end(trainer, global_scores)
 
+            _clear(trainer)
             if trainer.args.get('use_ddp'):
                 _dist.barrier()
 
@@ -408,3 +415,4 @@ class EasyTorch:
                 distributed=False
             )
             self._global_experiment_end(trainer, meter)
+        _clear(trainer)
