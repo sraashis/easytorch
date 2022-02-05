@@ -13,17 +13,11 @@ import torch.multiprocessing as _mp
 import easytorch.config as _conf
 import easytorch.utils as _utils
 from easytorch.config.state import *
-from easytorch.data import ETDataset, ETDataHandle
+from easytorch.data import ETDataset, ETDataHandle, multiproc as _mproc
 from easytorch.trainer import ETTrainer
 from easytorch.utils.logger import *
 
 _sep = _os.sep
-
-
-def _clear(trainer):
-    for dataset in trainer.data_handle.datasets.values():
-        if hasattr(dataset, 'diskcache'):
-            dataset.diskcache.clear()
 
 
 def _ddp_worker(rank, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled):
@@ -355,7 +349,6 @@ class EasyTorch:
                 global_scores = trainer.reduce_scores(test_accum, distributed=False)
                 self._global_experiment_end(trainer, global_scores)
 
-            _clear(trainer)
             if trainer.args.get('use_ddp'):
                 _dist.barrier()
 
@@ -400,19 +393,30 @@ class EasyTorch:
 
         trainer.init_nn()
         if self.args['phase'] == Phase.TRAIN:
-            train_dataset = ETDataHandle.pooled_load('train', self.dataspecs, self.args,
-                                                     dataset_cls=dataset_cls, load_sparse=False)[0]
-            val_dataset = ETDataHandle.pooled_load('validation', self.dataspecs, self.args,
-                                                   dataset_cls=dataset_cls, load_sparse=False)[0]
+            train_dataset = _mproc.pooled_load(
+                'train', self.dataspecs, self.args,
+                dataset_cls=dataset_cls,
+                load_sparse=False
+            )[0]
+
+            val_dataset = _mproc.pooled_load(
+                'validation', self.dataspecs, self.args,
+                dataset_cls=dataset_cls,
+                load_sparse=False
+            )[0]
+
             self._train(trainer, train_dataset, val_dataset, {'dataspecs': self.dataspecs})
 
         """Only do test in master rank node"""
         if self.args['is_master']:
-            test_dataset = ETDataHandle.pooled_load('test', self.dataspecs, self.args,
-                                                    dataset_cls=dataset_cls, load_sparse=self.args['load_sparse'])
+            test_dataset = _mproc.pooled_load(
+                'test', self.dataspecs, self.args,
+                dataset_cls=dataset_cls,
+                load_sparse=self.args['load_sparse']
+            )
+
             meter = trainer.reduce_scores(
                 [self._test('Pooled', trainer, test_dataset, {'dataspecs': self.dataspecs})],
                 distributed=False
             )
             self._global_experiment_end(trainer, meter)
-        _clear(trainer)
