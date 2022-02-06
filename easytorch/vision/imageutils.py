@@ -388,11 +388,10 @@ def masked_bboxcrop(arr, *apply_to, offset=15):
     return res
 
 
-def resize(array, size):
+def resize(array, size, dtype=_np.uint8):
     img = _IMG.fromarray(array)
     down = any([a < b for a, b in zip(size, array.shape[:2])])
     array = _IMG.fromarray(array)
-    print(down)
 
     if down:
         array.thumbnail(size, _IMG.ANTIALIAS)

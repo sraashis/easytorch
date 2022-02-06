@@ -132,6 +132,7 @@ class BinarySemSegImgPatchDataset(PatchedImgDataset):
         return {'indices': self.indices[index], 'input': img, 'label': gt.squeeze()}
 
     def _validate_image_data(self, dspec, img_obj):
+        thr_manual = dspec.setdefault('thr_manual', 50)
         if dspec.get('has_gt'):
             gt_unique = _np.unique(img_obj.ground_truth)
             if len(img_obj.ground_truth.shape) > 2:
@@ -150,7 +151,7 @@ class BinarySemSegImgPatchDataset(PatchedImgDataset):
                     f"Number of unique ground truth items != {self.args.get('num_class')} in  {dspec['name']}. "
                     f"\nBinarizing ... {gt_unique}: "
                 )
-                _imgutils.binarize(img_obj.ground_truth, dspec.setdefault('thr_manual', self.thr_manual))
+                _imgutils.binarize(img_obj.ground_truth, thr_manual)
 
         if dspec.get('has_mask'):
             mask_unique = _np.unique(img_obj.mask)
@@ -162,28 +163,28 @@ class BinarySemSegImgPatchDataset(PatchedImgDataset):
                 _warn.warn(f"Mask truth 1 converted to 255")
                 img_obj.mask[img_obj.mask == 1] = 255
 
-            if len(mask_unique) != self.args.get('num_class', 2):
+            if len(mask_unique) != 2:
                 _warn.warn(
-                    f"Number of unique mask items: {mask_unique} in gt not equal to "
-                    f"num_class: {self.args.get('num_class')}. {dspec['name']}"
+                    f"Number of unique items in mask: {mask_unique} in {dspec['name']}"
                 )
 
         if dspec.get('bbox_crop'):
             img_obj.array, img_obj.ground_truth, img_obj.mask = _imgutils.masked_bboxcrop(img_obj.array,
                                                                                           img_obj.ground_truth)
+            dspec['has_mask'] = True
 
         if dspec.get('resize'):
-            img_obj.array = _imgutils.resize(img_obj.array, dspec)
-            img_obj.ground_truth = _imgutils.resize(img_obj.ground_truth, dspec)
+            img_obj.array = _imgutils.resize(img_obj.array, dspec['resize'])
+            img_obj.ground_truth = _imgutils.resize(img_obj.ground_truth, dspec['resize'])
 
             if dspec.get('has_mask'):
-                img_obj.mask = _imgutils.resize(img_obj.mask, dspec)
+                img_obj.mask = _imgutils.resize(img_obj.mask, dspec['resize'])
 
         """Must binarize after resize"""
         if self.args['num_class'] == 2 and dspec.get('resize'):
-            _imgutils.binarize(img_obj.ground_truth)
+            _imgutils.binarize(img_obj.ground_truth, thr_manual)
             if dspec.get('has_mask'):
-                _imgutils.binarize(img_obj.mask)
+                _imgutils.binarize(img_obj.mask, thr_manual)
         return img_obj
 
 
