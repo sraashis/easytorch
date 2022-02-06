@@ -252,9 +252,22 @@ class FullImgDataset(BaseImageDataset):
 
     def _validate_image_data(self, dspec, img_obj):
 
+        if dspec.get('bbox_crop'):
+            copy = img_obj.copy()
+            img_obj.array, img_obj.mask = _imgutils.masked_bboxcrop(
+                img_obj.array,
+                dspec.setdefault('bbox_crop_offset', 31)
+            )
+
+            if img_obj.array.shape[0] / copy.array.shape[0] < 0.65 \
+                    or img_obj.array.shape[1] / copy.array.shape[1] < 0.65:
+                _warn.warn(f"BBOX crop reversing for {dspec['name']}:{img_obj.file}, shape: {img_obj.array.shape}")
+                img_obj = copy.copy()
+
         if dspec.get('resize'):
-            img_obj.array = _imgutils.resize(img_obj.array, dspec)
-            if dspec.get('has_mask'):
-                img_obj.mask = _imgutils.resize(img_obj.mask, dspec)
+            img_obj.array = _imgutils.resize(img_obj.array, dspec['resize'])
+
+            if img_obj.mask is not None:
+                img_obj.mask = _imgutils.resize(img_obj.mask, dspec['resize'])
 
         return img_obj
