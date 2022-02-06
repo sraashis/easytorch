@@ -33,7 +33,7 @@ def _read_img(file_path):
 
 
 def mean(json_path, data_path=".", json_key='train', nw=4):
-    files = [f + _os.sep + data_path for f in _json.load(open(json_path))[json_key]]
+    files = [_os.path.join(f, data_path) for f in _json.load(open(json_path))[json_key]]
     return _np.array(multiRun(nproc=nw, data_list=files, func=_read_img)).mean(0)
 
 
