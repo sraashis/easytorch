@@ -250,7 +250,8 @@ class ETDataset(_Dataset):
             )
             self.gather(dataset_objs)
         else:
-            self.load_index(dataspec_name, _files[0])
+            for file in _files:
+                self.load_index(dataspec_name, file)
 
         success(f'\n{dataspec_name}, {self.mode}, {len(self)} indices Loaded.', verbose)
 

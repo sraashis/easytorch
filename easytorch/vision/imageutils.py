@@ -355,7 +355,7 @@ def get_pix_neigh(i, j, eight=False):
         return [n2, n5, n7, n4]
 
 
-def binarize(arr, thr=100, max=255):
+def binarize(arr, thr=50, max=255):
     _arr = arr.copy()
     if _arr.max() > thr:
         _arr[_arr < thr] = 0
@@ -386,3 +386,15 @@ def masked_bboxcrop(arr, *apply_to, offset=15):
     res.append(mask[a:b, c:d])
 
     return res
+
+
+def resize(array, size, dtype=_np.uint8):
+    img = _IMG.fromarray(array)
+    down = any([a < b for a, b in zip(size, array.shape[:2])])
+    array = _IMG.fromarray(array)
+
+    if down:
+        array.thumbnail(size, _IMG.ANTIALIAS)
+    else:
+        array = array.resize((int(size[0]), int(img.size[1] / img.size[0] * size[0])))
+    return _np.array(array)
