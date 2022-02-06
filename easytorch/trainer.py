@@ -13,6 +13,7 @@ from easytorch.metrics import metrics as _metrics
 from easytorch.utils.logger import *
 from easytorch.utils.tensorutils import initialize_weights as _init_weights
 from .vision import plotter as _log_utils
+import traceback as _tb
 
 _sep = _os.sep
 
@@ -220,31 +221,34 @@ class ETTrainer:
 
         with _torch.no_grad():
             for loader in dataloaders:
-                its = []
-                meter = self.new_meter()
+                try:
+                    its = []
+                    meter = self.new_meter()
 
-                for i, batch in enumerate(loader, 1):
-                    it = self.iteration(batch)
+                    for i, batch in enumerate(loader, 1):
+                        it = self.iteration(batch)
 
-                    if save_pred:
-                        if self.args['load_sparse']:
-                            its.append(it)
+                        if save_pred:
+                            if self.args['load_sparse']:
+                                its.append(it)
+                            else:
+                                _update_scores(self.save_predictions(loader.dataset, it), it, meter)
                         else:
-                            _update_scores(self.save_predictions(loader.dataset, it), it, meter)
-                    else:
-                        _update_scores(None, it, meter)
+                            _update_scores(None, it, meter)
 
-                    if self.args['verbose'] and len(dataloaders) <= 1 and lazy_debug(i, add=epoch):
-                        info(f"  Itr:{i}/{len(loader)}, {it['meter']}")
+                        if self.args['verbose'] and len(dataloaders) <= 1 and lazy_debug(i, add=epoch):
+                            info(f"  Itr:{i}/{len(loader)}, {it['meter']}")
 
-                if save_pred and self.args['load_sparse']:
-                    its = self._reduce_iteration(its)
-                    _update_scores(self.save_predictions(loader.dataset, its), its, meter)
+                    if save_pred and self.args['load_sparse']:
+                        its = self._reduce_iteration(its)
+                        _update_scores(self.save_predictions(loader.dataset, its), its, meter)
 
-                if self.args['verbose'] and len(dataloaders) > 1:
-                    info(f" {mode}, {meter}")
+                    if self.args['verbose'] and len(dataloaders) > 1:
+                        info(f" {mode}, {meter}")
 
-                eval_meter.accumulate(meter)
+                    eval_meter.accumulate(meter)
+                except:
+                    _tb.print_exc()
 
         info(f"{self.cache['experiment_id']} {mode} {eval_meter.get()}", self.args['verbose'])
         return eval_meter
