@@ -169,7 +169,7 @@ class BinarySemSegImgPatchDataset(PatchedImgDataset):
                 )
 
         if dspec.get('bbox_crop'):
-            orig = (img_obj.array.copy(), img_obj.ground_truth.copy(), img_obj.mask.copy())
+            cp = img_obj.copy()
             img_obj.array, img_obj.ground_truth, img_obj.mask = _imgutils.masked_bboxcrop(img_obj.array,
                                                                                           img_obj.ground_truth)
 

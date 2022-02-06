@@ -80,14 +80,14 @@ class Image:
         else:
             error('More than three channels')
 
-    def __copy__(self):
+    def copy(self):
         copy_obj = Image()
         copy_obj.file = _copy.copy(self.file)
         copy_obj.array = _copy.copy(self.array)
         copy_obj.mask = _copy.copy(self.mask)
         copy_obj.ground_truth = _copy.copy(self.ground_truth)
+        copy_obj.dtype = _copy.copy(self.dtype)
         copy_obj.extras = _copy.deepcopy(self.extras)
-        copy_obj.dtype = _copy.deepcopy(self.dtype)
         return copy_obj
 
     @property
