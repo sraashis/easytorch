@@ -367,7 +367,7 @@ def binarize(arr, thr=50, max=255):
     return _arr
 
 
-def masked_bboxcrop(arr, *apply_to, offset=21):
+def masked_bboxcrop(arr, *apply_to, offset=51):
     """
     Binarize, mask, bbox crop image for largest connected component.
     """
