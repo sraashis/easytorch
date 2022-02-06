@@ -7,34 +7,8 @@ import numpy as _np
 import torchvision.transforms as _tmf
 from easytorch.data import DiskCache as _DiskCache, ETDataset as _ETDataset
 import easytorch.vision.imageutils as _imgutils
-from easytorch.data.multiproc import multiRun
-from PIL import Image as _IMG
-import json as _json
-import traceback as _tb
 
 sep = _os.sep
-
-
-def _read_img(file_path):
-    arr = _np.array(_IMG.open(file_path))
-
-    result = []
-
-    try:
-        if len(arr.shape) == 2:
-            result.append([arr.mean(), arr.std()])
-        elif len(arr.shape) > 2:
-            mean = [arr[:, :, i].mean() for i in range(arr.shape[2])]
-            std = [arr[:, :, i].std() for i in range(arr.shape[2])]
-            result.append([mean, std])
-    except:
-        _tb.print_exc()
-    return _np.array(result)
-
-
-def mean(json_path, data_path=".", json_key='train', nw=4):
-    files = [_os.path.join(f, data_path) for f in _json.load(open(json_path))[json_key]]
-    return _np.array(multiRun(nproc=nw, data_list=files, func=_read_img)).mean(0)
 
 
 class BaseImageDataset(_ETDataset, _ABC):
