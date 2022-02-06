@@ -4,8 +4,11 @@ import os as _os
 
 import cv2 as _cv2
 import numpy as _np
-from PIL import Image as _IMG
 from easytorch.utils.logger import *
+from easytorch.data.multiproc import multiRun
+from PIL import Image as _IMG
+import json as _json
+import traceback as _tb
 
 """
 ##################################################################################################
@@ -398,3 +401,30 @@ def resize(array, size, dtype=_np.uint8):
     else:
         array = array.resize((int(size[0]), int(img.size[1] / img.size[0] * size[0])))
     return _np.array(array)
+
+
+def _mean_std(file_path):
+    arr = _np.array(_IMG.open(file_path))
+
+    result = []
+
+    try:
+        if len(arr.shape) == 2:
+            result.append([arr.mean(), arr.std()])
+        elif len(arr.shape) > 2:
+            mean = [arr[:, :, i].mean() for i in range(arr.shape[2])]
+            std = [arr[:, :, i].std() for i in range(arr.shape[2])]
+            result.append([mean, std])
+    except:
+        _tb.print_exc()
+    return _np.array(result)
+
+
+def mean_std(images_path=".", json_path=None, json_key='train', nw=4):
+    if not json_path:
+        files = [_os.path.join(images_path, f) for f in _os.listdir(images_path)]
+
+    else:
+        files = [_os.path.join(images_path, f) for f in _json.load(open(json_path))[json_key]]
+
+    return _np.array(multiRun(nproc=nw, data_list=files, func=_mean_std)).mean(0) / 255.0
