@@ -176,9 +176,11 @@ class BinarySemSegImgPatchDataset(PatchedImgDataset):
                 offset=dspec.setdefault('bbox_crop_offset', 51)
             )
 
-            if img_obj.array.shape[0] / copy.array.shape[0] < 0.7 \
-                    or img_obj.array.shape[1] / copy.array.shape[1] < 0.7:
-                _warn.warn(f"BBOX crop reversing for {dspec['name']}:{img_obj.file}, shape: {img_obj.array.shape}")
+            if img_obj.array.shape[0] / copy.array.shape[0] < 0.51 \
+                    or img_obj.array.shape[1] / copy.array.shape[1] < 0.51:
+                _warn.warn(f"BBOX crop reversing for "
+                           f"{dspec['name']}:{img_obj.file}, shape: {img_obj.array.shape}, {copy.array.shape}"
+                           )
                 img_obj = copy.copy()
 
         if dspec.get('resize'):
@@ -260,8 +262,8 @@ class FullImgDataset(BaseImageDataset):
                 offset=dspec.setdefault('bbox_crop_offset', 31)
             )
 
-            if img_obj.array.shape[0] / copy.array.shape[0] < 0.7 \
-                    or img_obj.array.shape[1] / copy.array.shape[1] < 0.7:
+            if img_obj.array.shape[0] / copy.array.shape[0] < 0.51 \
+                    or img_obj.array.shape[1] / copy.array.shape[1] < 0.51:
                 _warn.warn(f"BBOX crop reversing for {dspec['name']}:{img_obj.file}, shape: {img_obj.array.shape}")
                 img_obj = copy.copy()
 
