@@ -176,7 +176,8 @@ class BinarySemSegImgPatchDataset(PatchedImgDataset):
                 offset=dspec.setdefault('bbox_crop_offset', 51)
             )
 
-            if img_obj.array.shape[0] < dspec['patch_shape'][0] or img_obj.array.shape[1] < dspec['patch_shape'][1]:
+            if img_obj.array.shape[0] / copy.array.shape[0] < 0.7 \
+                    or img_obj.array.shape[1] / copy.array.shape[1] < 0.7:
                 _warn.warn(f"BBOX crop reversing for {dspec['name']}:{img_obj.file}, shape: {img_obj.array.shape}")
                 img_obj = copy.copy()
 
@@ -259,8 +260,8 @@ class FullImgDataset(BaseImageDataset):
                 offset=dspec.setdefault('bbox_crop_offset', 31)
             )
 
-            if img_obj.array.shape[0] / copy.array.shape[0] < 0.65 \
-                    or img_obj.array.shape[1] / copy.array.shape[1] < 0.65:
+            if img_obj.array.shape[0] / copy.array.shape[0] < 0.7 \
+                    or img_obj.array.shape[1] / copy.array.shape[1] < 0.7:
                 _warn.warn(f"BBOX crop reversing for {dspec['name']}:{img_obj.file}, shape: {img_obj.array.shape}")
                 img_obj = copy.copy()
 
