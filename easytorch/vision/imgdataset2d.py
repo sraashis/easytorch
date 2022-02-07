@@ -259,10 +259,6 @@ class FullImgDataset(BaseImageDataset):
             _warn.warn(f"Suspicious Image shape: {img_obj.array.shape}, clipping to RGB: {dspec['name']}")
             img_obj.array = img_obj.array[:, :, :3]
 
-        if self.args.get('num_channel', 1) == 1:
-            _warn.warn(f"Using green channel only: {dspec['name']}")
-            img_obj.array = img_obj.array[:, :, 1]
-
         """Load mask"""
         dspec['has_mask'] = any(['mask_dir' in dspec.keys()])
         if dspec['has_mask']:
@@ -273,23 +269,17 @@ class FullImgDataset(BaseImageDataset):
 
     def load_index(self, dataset_name, file):
         dspec = self.dataspecs[dataset_name]
-        img_obj = _imgutils.Image()
-        img_obj.load(dspec['data_dir'], file)
-        img_obj.apply_clahe()
-
         if self.labels is None:
             self.labels = self._load_labels(dspec)
 
-        if len(img_obj.array.shape) > 2 and img_obj.array.shape[-1] != 3:
-            _warn.warn(f"Suspicious Image shape: {img_obj.array.shape}, clipping to RGB: {dspec['name']}")
-            img_obj.array = img_obj.array[:, :, :3]
-
-        self._validate_image_data(dspec, img_obj)
-        self.indices.append([dataset_name, file, self._get_label(file)])
+        img_obj = self.load_img(dspec, file)
+        cache_key = f"{dataset_name}_{file}"
+        self.diskcache.add(cache_key, img_obj)
+        self.indices.append([dataset_name, file, self._get_label(file), cache_key])
 
     def __getitem__(self, index):
-        _name, file, label = self.indices[index]
-        obj = self.load_img(self.dataspecs[_name], file)
+        _dname, file, label, cache_key = self.indices[index]
+        obj = self.diskcache.get(cache_key)
         img = obj.array
 
         if self.mode == 'train':
