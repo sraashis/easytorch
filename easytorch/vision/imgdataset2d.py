@@ -173,7 +173,8 @@ class BinarySemSegImgPatchDataset(PatchedImgDataset):
             img_obj.array, img_obj.ground_truth, img_obj.mask = _imgutils.masked_bboxcrop(
                 img_obj.array,
                 img_obj.ground_truth,
-                offset=dspec.setdefault('bbox_crop_offset', 51)
+                offset=dspec.setdefault('bbox_crop_offset', 51),
+                threshold=dspec.setdefault('bbox_crop_threshold', 5)
             )
 
             if img_obj.array.shape[0] / copy.array.shape[0] < 0.51 \
@@ -231,7 +232,8 @@ class FullImgDataset(BaseImageDataset):
             copy = img_obj.copy()
             img_obj.array, img_obj.mask = _imgutils.masked_bboxcrop(
                 img_obj.array,
-                offset=dspec.setdefault('bbox_crop_offset', 31)
+                offset=dspec.setdefault('bbox_crop_offset', 31),
+                threshold=dspec.setdefault('bbox_crop_threshold', 5)
             )
 
             if img_obj.array.shape[0] / copy.array.shape[0] < 0.51 \
