@@ -392,7 +392,7 @@ def masked_bboxcrop(arr, *apply_to, offset=51, threshold=5):
     return res
 
 
-def resize(array, size, dtype=_np.uint8):
+def resize(array, size):
     img = _IMG.fromarray(array)
     down = any([a < b for a, b in zip(size, array.shape[:2])])
     array = _IMG.fromarray(array)
