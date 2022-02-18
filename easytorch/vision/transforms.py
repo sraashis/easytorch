@@ -5,7 +5,7 @@ from PIL import Image as _IMG
 
 
 class RandomGaussJitter:
-    def __init__(self, gauss_factor=0.2, jitter_factor=0.2):
+    def __init__(self, gauss_factor=0.2, jitter_factor=0.3):
         self.gauss_factor = gauss_factor
         self.jitter_factor = jitter_factor
         self.gauss_factor = _np.arange(0, self.gauss_factor + 0.01, 0.05)
@@ -19,10 +19,10 @@ class RandomGaussJitter:
         arr = ((arr + noise) * 255).astype(_np.uint8)
 
         pick = _random.random()
-        if pick > 0.6:
+        if pick > 0.67:
             arr = _cv2.GaussianBlur(arr, (3, 3), 0)
             arr = _cv2.medianBlur(arr, 3)
-        elif pick > 0.3:
+        elif pick > 0.33:
             arr = _cv2.medianBlur(arr, 3)
             arr = _cv2.GaussianBlur(arr, (3, 3), 0)
         else:
