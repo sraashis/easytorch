@@ -11,19 +11,6 @@ import easytorch.vision.imageutils as _imgutils
 sep = _os.sep
 
 
-class GaussJitter:
-    def __init__(self, gauss_factor=0.2, jitter_factor=0.2):
-        self.gauss_factor = gauss_factor
-        self.jitter_factor = jitter_factor
-
-    def __call__(self, arr2d):
-        arr = arr2d.copy() / 255.0
-        noise = _np.abs(_np.random.rand(*arr.shape) * self.gauss_factor)
-        jitt = _np.random.randint(0, 2, arr.shape)
-        noise[jitt == 1] *= self.jitter_factor
-        return ((arr + noise) * 255).astype(_np.uint8)
-
-
 class BaseImageDataset(_ETDataset, _ABC):
     def __init__(self, **kw):
         super().__init__(**kw)
