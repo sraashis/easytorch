@@ -14,15 +14,11 @@ sep = _os.sep
 class BaseImageDataset(_ETDataset, _ABC):
     def __init__(self, **kw):
         super().__init__(**kw)
-        self.train_transforms = self.get_train_transform()
-        self.eval_transforms = self.get_eval_transform()
-        self._to_tensor = _tmf.Compose([_tmf.ToPILImage(), _tmf.ToTensor()])
+        self.transforms = self.get_transforms()
+        self.pil_to_tensor = _tmf.Compose([_tmf.ToPILImage(), _tmf.ToTensor()])
         self.diskcache = _DiskCache(self.args['log_dir'] + _os.sep + "_cache")
 
-    def get_train_transform(self):
-        return _tmf.Compose([_tmf.ToPILImage(), _tmf.ToTensor()])
-
-    def get_eval_transform(self):
+    def get_transforms(self):
         return _tmf.Compose([_tmf.ToPILImage(), _tmf.ToTensor()])
 
     def _validate_image_data(self, dspec, img_obj):
@@ -76,6 +72,7 @@ class PatchedImgDataset(BaseImageDataset, _ABC):
         """
         dt = self.dataspecs[dataset_name]
         obj = self.load_img(dt, file)
+
         cache_key = f"{dataset_name}_{file}"
         self.diskcache.add(cache_key, obj)
         for corners in _imgutils.get_chunk_indexes(
@@ -123,12 +120,8 @@ class BinarySemSegImgPatchDataset(PatchedImgDataset):
             img = _np.flip(img, 1)
             gt = _np.flip(gt, 1)
 
-        if self.mode == 'train':
-            img = self.train_transforms(img)
-        else:
-            img = self.eval_transforms(img)
-
-        gt = self._to_tensor(gt)
+        img = self.transforms(img)
+        gt = self.pil_to_tensor(gt)
         return {'indices': self.indices[index], 'input': img, 'label': gt.squeeze()}
 
     def _validate_image_data(self, dspec, img_obj):
@@ -206,20 +199,17 @@ class FullImgDataset(BaseImageDataset):
         Initialize necessary shapes for unet.
         """
         super().__init__(**kw)
-        self.eval_transforms = self.get_eval_transform()
-        self.train_transforms = self.get_train_transform()
-        self._to_tensor = _tmf.Compose([_tmf.ToPILImage(), _tmf.ToTensor()])
         self.labels = None
 
-    def get_train_transform(self):
-        return _tmf.Compose(
-            [_tmf.ToPILImage(),
-             _tmf.RandomHorizontalFlip(), _tmf.RandomVerticalFlip(),
-             _tmf.ToTensor()]
-        )
-
-    def get_eval_transform(self):
-        return _tmf.Compose([_tmf.ToPILImage(), _tmf.ToTensor()])
+    def get_transforms(self):
+        if self.mode == "train":
+            return _tmf.Compose(
+                [_tmf.ToPILImage(),
+                 _tmf.RandomHorizontalFlip(),
+                 _tmf.RandomVerticalFlip(),
+                 _tmf.ToTensor()]
+            )
+        return self.pil_to_tensor
 
     def _load_labels(self, dspec):
         return None
@@ -284,9 +274,5 @@ class FullImgDataset(BaseImageDataset):
         obj = self.diskcache.get(cache_key)
         img = obj.array
 
-        if self.mode == 'train':
-            img = self.train_transforms(img)
-        else:
-            img = self.eval_transforms(img)
-
+        img = self.transforms(img)
         return {'indices': self.indices[index], 'input': img, 'label': _np.array(label)}
