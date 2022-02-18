@@ -18,13 +18,13 @@ class RandomGaussSaltAndPepper:
         arr = ((arr + noise) * 255).astype(_np.uint8)
 
         pick = _random.random()
-        if pick > 0.6:
+        if pick > 0.75:
             arr = _cv2.GaussianBlur(arr, (3, 3), 0)
             arr = _cv2.medianBlur(arr, 3)
-        elif pick > 0.3:
+        elif pick > 0.5:
             arr = _cv2.medianBlur(arr, 3)
             arr = _cv2.GaussianBlur(arr, (3, 3), 0)
-        else:
+        elif pick > 0.25:
             arr = _cv2.GaussianBlur(arr, (3, 3), 0)
 
         return arr
