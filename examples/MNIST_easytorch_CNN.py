@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
-from torch import nn
 from torchvision import datasets, transforms
+from examples.models import MNISTNet
 
 from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter, AUCROCMetrics
 
@@ -9,33 +9,6 @@ transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))
 ])
-
-
-# **Define neural network. I just burrowed from here: https://github.com/pytorch/examples/blob/master/mnist/main.py**
-class MNISTNet(nn.Module):
-    def __init__(self):
-        super(MNISTNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 8, 3, 1)
-        self.conv2 = nn.Conv2d(8, 16, 3, 1)
-        self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(9216 // 4, 128)
-        self.fc2 = nn.Linear(128, 10)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = F.relu(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = F.max_pool2d(x, 2)
-        x = self.dropout1(x)
-        x = torch.flatten(x, 1)
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout2(x)
-        x = self.fc2(x)
-        output = F.log_softmax(x, dim=1)
-        return output
 
 
 class MNISTTrainer(ETTrainer):
