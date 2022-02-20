@@ -34,10 +34,6 @@ class BaseImageDataset(_ETDataset, _ABC):
             _warn.warn(f"Suspicious Image shape: {img_obj.array.shape}, clipping to RGB: {dspec['name']}")
             img_obj.array = img_obj.array[:, :, :3]
 
-        if self.args.get('num_channel', 1) == 1:
-            _warn.warn(f"Using green channel only: {dspec['name']}")
-            img_obj.array = img_obj.array[:, :, 1]
-
         """Load ground truth"""
         dspec['has_gt'] = any(['label_dir' in dspec.keys()])
         if dspec['has_gt']:
@@ -90,39 +86,6 @@ class PatchedImgDataset(BaseImageDataset, _ABC):
 class BinarySemSegImgPatchDataset(PatchedImgDataset):
     def __init__(self, **kw):
         super().__init__(**kw)
-
-    def __getitem__(self, index):
-        """
-        :param index:
-        :return: dict with keys - indices, input, label
-            We need indices to get the file name to save the respective predictions.
-        """
-        dname, file, row_from, row_to, col_from, col_to, cache_key = self.indices[index]
-
-        obj = self.diskcache.get(cache_key)
-        img = obj.array
-        gt = obj.ground_truth[row_from:row_to, col_from:col_to]
-
-        p, q, r, s, pad = _imgutils.expand_and_mirror_patch(
-            img.shape,
-            [row_from, row_to, col_from, col_to],
-            self.dataspecs[dname]['expand_by']
-        )
-        if len(img.shape) == 3:
-            pad = [*pad, (0, 0)]
-
-        img = _np.pad(img[p:q, r:s], pad, 'reflect')
-        if self.mode == 'train' and _random.uniform(0, 1) <= 0.5:
-            img = _np.flip(img, 0)
-            gt = _np.flip(gt, 0)
-
-        if self.mode == 'train' and _random.uniform(0, 1) <= 0.5:
-            img = _np.flip(img, 1)
-            gt = _np.flip(gt, 1)
-
-        img = self.transforms(img)
-        gt = self.pil_to_tensor(gt)
-        return {'indices': self.indices[index], 'input': img, 'label': gt.squeeze()}
 
     def _validate_image_data(self, dspec, img_obj):
         thr_manual = dspec.setdefault('thr_manual', 50)
@@ -191,6 +154,39 @@ class BinarySemSegImgPatchDataset(PatchedImgDataset):
             if dspec.get('has_mask'):
                 _imgutils.binarize(img_obj.mask, thr_manual)
         return img_obj
+
+    def __getitem__(self, index):
+        """
+        :param index:
+        :return: dict with keys - indices, input, label
+            We need indices to get the file name to save the respective predictions.
+        """
+        dname, file, row_from, row_to, col_from, col_to, cache_key = self.indices[index]
+
+        obj = self.diskcache.get(cache_key)
+        img = obj.array
+        gt = obj.ground_truth[row_from:row_to, col_from:col_to]
+
+        p, q, r, s, pad = _imgutils.expand_and_mirror_patch(
+            img.shape,
+            [row_from, row_to, col_from, col_to],
+            self.dataspecs[dname]['expand_by']
+        )
+        if len(img.shape) == 3:
+            pad = [*pad, (0, 0)]
+
+        img = _np.pad(img[p:q, r:s], pad, 'reflect')
+        if self.mode == 'train' and _random.uniform(0, 1) <= 0.5:
+            img = _np.flip(img, 0)
+            gt = _np.flip(gt, 0)
+
+        if self.mode == 'train' and _random.uniform(0, 1) <= 0.5:
+            img = _np.flip(img, 1)
+            gt = _np.flip(gt, 1)
+
+        img = self.transforms(img)
+        gt = self.pil_to_tensor(gt)
+        return {'indices': self.indices[index], 'input': img, 'label': gt.squeeze()}
 
 
 class FullImgDataset(BaseImageDataset):
