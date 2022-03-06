@@ -1,6 +1,6 @@
-![Logo](assets/easytorchlogo.png)
+## A transfer-learning framework for PyTorch.
 
-### A transfer-learning framework for PyTorch.
+![Logo](assets/easytorchlogo.png)
 
 ![PyPi version](https://img.shields.io/pypi/v/easytorch)
 [![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/build/badge.svg)](https://github.com/sraashis/easytorch/actions)
@@ -8,10 +8,38 @@
 
 <hr />
 
-Easytorch introduces **2 extra data augmentation points** in addition to PyTorch's data transforms.
+* #### Introduces two extra data augmentation handles in addition to PyTorch's data transforms.
+  * Pooled run that allows to combine multiple datasets without moving from there original locations 
+  * Data specifications specifying data(and its augmentations) specifications.
 
-1. Pooled run that allows to combine multiple datasets withput moving from there original locations
-2. Data specifications that are json files specifying data(and its augmentation specific) specifications.
+* #### Introduces two extra multi-processing handles for blazing fast training by extending the easytorch.ETDataset class:
+  * Multi-threaded data pre-loading. 
+  * Disk caching for faster access.
+```
+from easytorch import ETDataset
+
+class MyDataset(ETDataset):
+    def load_index(self, dataset_name, file):
+        """(Optional) Load/Process something and add to diskcache as:
+                self.diskcahe.add(file, value)"""
+        """This method runs in multiple processes by default"""
+    
+        self.indices.append([dataset_name, file])
+
+    def __getitem__(self, index):
+        dataset_name, file = self.indices[index]
+        dataspec = self.dataspecs[dataset_name]
+        """(Optional) Retrieve from diskcache as self.diskcache.get(file)"""
+
+        image =  # Todo # Load file/Image. 
+        label =  # Todo # Load corresponding label.
+        
+        # Extra preprocessing, if needed.
+        # Apply transforms, if needed.
+
+        return image, label
+```
+
 
 #### Installation
 
@@ -43,13 +71,12 @@ class MNISTTrainer(ETTrainer):
         self.nn['model'] = MNISTNet()
 
     def iteration(self, batch):
-        inputs = batch[0].to(self.device['gpu']).float()
-        labels = batch[1].to(self.device['gpu']).long()
+        inputs, labels = batch[0].to(self.device['gpu']).float(), batch[1].to(self.device['gpu']).long()
 
         out = self.nn['model'](inputs)
         loss = F.nll_loss(out, labels)
-
         _, pred = torch.max(out, 1)
+        
         meter = self.new_meter()
         meter.averages.add(loss.item(), len(inputs))
         meter.metrics['cfm'].add(pred, labels.float())
@@ -79,7 +106,7 @@ if __name__ == "__main__":
 
 <hr />
 
-#### General use case:
+## General use case:
 
 #### 1. Define your trainer
 
@@ -95,7 +122,7 @@ class MyTrainer(ETTrainer):
     def iteration(self, batch):
         """Handle a single batch"""
         """Must have loss and meter"""
-        return {'loss': ..., 'meter': ..., 'out': ...}
+        return {'loss': ..., 'meter': ..., 'predictions': ...}
 
     def new_meter(self):
        return ETMeter(
@@ -105,7 +132,7 @@ class MyTrainer(ETTrainer):
         )
 
     def init_experiment_cache(self):
-        """Will plot Loss in one plot, and Accuracy,F1 in another."""
+        """Will plot Loss in one plot, and Accuracy,F1_score in another."""
         self.cache['log_header'] = 'Loss|Accuracy,F1_score'
         
         """Model selection using validation set if present"""
@@ -113,15 +140,13 @@ class MyTrainer(ETTrainer):
 
 ````
 
-* Method new_meter() returns ETMeter that takes any implementation of easytorch.meter.ETMetrics. (examples):
+* Method new_meter() returns ETMeter that takes any implementation of easytorch.meter.ETMetrics. Provided ones:
     * easytorch.metrics.Prf1a() for binary classification that computes accuracy,f1,precision,recall, overlap/IOU.
     * easytorch.metrics.ConfusionMatrix(num_classes=...) for multiclass classification that also computes global
       accuracy,f1,precision,recall.
     * easytorch.metrics.AUCROCMetrics for binary ROC-AUC score.
-
-#### 2. Use custom dataset as below, or pytorch based Datasets class as in MNIST example above.
-
-Define specification for your datasets:
+    
+#### 2. Define specification for your datasets:
 
 ```python
 
@@ -146,67 +171,22 @@ MyOTHERDATA = {
 }
 ```
 
-* EasyTorch automatically splits the data/images in 'data_dir' of dataspec as specified (split_ratio, or num_folds in
-  EasyTorch Module as below), and runs accordingly.
+* EasyTorch automatically splits the training data in 'data_dir' as specified (split_ratio, or num_folds in
+  EasyTorch Module as below).
 * One can also provide custom splits(json files with train, validation, test data list) in the directory specified by
   split_dir in dataspec.
 * Additional options in dataspecs:
     * Load from sub-folders, "sub_folders": ["class0", "class1", ... "class_K"]
     * Load recursively, "recursive": True
     * Filter by an extension, "extension": "png"
-* Example:
 
-```python
-DATA_A = {
-    'name': 'DATA_A',
-    'data_dir': 'DRIVE' + sep + 'images',
-    'label_dir': 'DRIVE' + sep + 'manual',
-    'mask_dir': 'DRIVE' + sep + 'mask',
-    'split_dir': 'DRIVE' + sep + 'splits',
-    'label_getter': get_data_label_fn
-}
-DATA_B = {
-    'name': 'DATA_B',
-    'data_dir': 'DRIVE' + sep + 'images',
-    'label_dir': 'DRIVE' + sep + 'manual',
-    'mask_dir': 'DRIVE' + sep + 'mask',
-    'split_dir': 'DRIVE' + sep + 'splits',
-    'label_getter': get_data_label_fn
-}
-```
-
-Define how to load each data item by using EasyTorch's base ETDataset class to get extra benefits like limit loading for
-debugging, pooling data, super-fast pre-processing with multiple processes, and many more ...
-
-```python
-from easytorch import ETDataset
-
-
-class MyDataset(ETDataset):
-    def __init__(self, **kw):
-        super().__init__(**kw)
-
-    def load_index(self, dataset_name, file):
-        self.indices.append([dataset_name, file])
-
-    def __getitem__(self, index):
-        dataset_name, file = self.indices[index]
-        dataspec = self.dataspecs[dataset_name]
-
-        image =  # Todo # Load file/Image. 
-        label =  # Todo # Load corresponding label.
-        # Extra preprocessing, if needed.
-        # Apply transforms.
-
-        return image, label
-```
-
-#### 3. Entry point
+#### 3. Entry point (say main.py)
 
 ```python
 from easytorch import EasyTorch
 
-runner = EasyTorch([DATA_A, DATA_B],
+datasets_and_augments = [DATA_A, DATA_B]
+runner = EasyTorch(datasets_and_augments,
                    phase="train", batch_size=4, epochs=21,
                    num_channel=1, num_class=2,
                    split_ratio=[0.6, 0.2, 0.2])  # or num_folds=5 (exclusive with split_ratio)
@@ -215,10 +195,39 @@ if __name__ == "__main__":
 
     runner.run_pooled(MyTrainer, MyDataset)
 ```
+#### Run from the command line:
 
+```python main.py -ph train -b 4 -e 21 -spl 0.6 0.2 0.2```
+
+Note: directly given(EasyTorch constructor) args precedes command line arguments. See below for  a list of default arguments.
 <hr />
 
-#### `Feature Higlights`
+### All the best! Cheers! 🎉
+
+#### Cite the following papers if you use this library:
+
+```
+@article{deeddyn_10.3389/fcomp.2020.00035,
+	title        = {Dynamic Deep Networks for Retinal Vessel Segmentation},
+	author       = {Khanal, Aashis and Estrada, Rolando},
+	year         = 2020,
+	journal      = {Frontiers in Computer Science},
+	volume       = 2,
+	pages        = 35,
+	doi          = {10.3389/fcomp.2020.00035},
+	issn         = {2624-9898}
+}
+
+@misc{2202.02382,
+        Author       = {Aashis Khanal and Saeid Motevali and Rolando Estrada},
+        Title        = {Fully Automated Tree Topology Estimation and Artery-Vein Classification},
+        Year         = {2022},
+        Eprint       = {arXiv:2202.02382},
+}
+```
+
+
+### Feature Higlights:
 
 * Minimal configuration to setup any simple/complex experiment (Single GPU, DP, and [DDP usage](assets/DefaultArgs.md)).
 * DataHandle that is always available, and decoupled from other modules enabling easy
@@ -267,26 +276,3 @@ if __name__ == "__main__":
       one item given.
 * [...see more (ddp args)](assets/DefaultArgs.md)
 
-### All the best! Cheers! 🎉
-
-#### Cite the following papers if you use this library:
-
-```
-@article{deeddyn_10.3389/fcomp.2020.00035,
-	title        = {Dynamic Deep Networks for Retinal Vessel Segmentation},
-	author       = {Khanal, Aashis and Estrada, Rolando},
-	year         = 2020,
-	journal      = {Frontiers in Computer Science},
-	volume       = 2,
-	pages        = 35,
-	doi          = {10.3389/fcomp.2020.00035},
-	issn         = {2624-9898}
-}
-
-@misc{2202.02382,
-        Author       = {Aashis Khanal and Saeid Motevali and Rolando Estrada},
-        Title        = {Fully Automated Tree Topology Estimation and Artery-Vein Classification},
-        Year         = {2022},
-        Eprint       = {arXiv:2202.02382},
-}
-```

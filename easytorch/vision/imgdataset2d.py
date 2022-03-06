@@ -5,7 +5,7 @@ from abc import ABC as _ABC
 
 import numpy as _np
 import torchvision.transforms as _tmf
-from easytorch.data import DiskCache as _DiskCache, ETDataset as _ETDataset
+from easytorch.data import ETDataset as _ETDataset
 import easytorch.vision.imageutils as _imgutils
 
 sep = _os.sep
@@ -16,7 +16,6 @@ class BaseImageDataset(_ETDataset, _ABC):
         super().__init__(**kw)
         self.transforms = self.get_transforms()
         self.pil_to_tensor = _tmf.Compose([_tmf.ToPILImage(), _tmf.ToTensor()])
-        self.diskcache = _DiskCache(self.args['log_dir'] + _os.sep + "_cache")
 
     def get_transforms(self):
         return _tmf.Compose([_tmf.ToPILImage(), _tmf.ToTensor()])
