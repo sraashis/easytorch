@@ -1,6 +1,6 @@
 ![Logo](assets/easytorchlogo.png)
 
-### A transfer-learning framework for pytorch.
+### A transfer-learning framework for PyTorch.
 
 ![PyPi version](https://img.shields.io/pypi/v/easytorch)
 [![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/build/badge.svg)](https://github.com/sraashis/easytorch/actions)
@@ -282,20 +282,10 @@ if __name__ == "__main__":
 	doi          = {10.3389/fcomp.2020.00035},
 	issn         = {2624-9898}
 }
-
 @misc{2202.02382,
-  Author = {Aashis Khanal and Saeid Motevali and Rolando Estrada},
-  Title = {Fully Automated Tree Topology Estimation and Artery-Vein Classification},
-  Year = {2022},
-  Eprint = {arXiv:2202.02382},
-}
-
-@misc{easytorch,
-  author = {Khanal, Aashis},
-  title = {Easy Torch}
-  year = {2020},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  url = {https://github.com/sraashis/easytorch}
+    Author = {Aashis Khanal and Saeid Motevali and Rolando Estrada},
+    Title = {Fully Automated Tree Topology Estimation and Artery-Vein Classification},
+    Year = {2022},
+    Eprint = {arXiv:2202.02382},
 }
 ```
