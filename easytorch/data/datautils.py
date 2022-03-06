@@ -1,3 +1,4 @@
+import copy as _copy
 import json as _json
 import os as _os
 import random as _rd
@@ -10,6 +11,7 @@ _sep = _os.sep
 def create_ratio_split(files, save_to_dir=None, ratio: list = None, first_key='train', name='SPLIT',
                        shuffle_files=True):
     if shuffle_files:
+        _rd.seed(len(files))
         _rd.shuffle(files)
 
     keys = [first_key]
@@ -34,6 +36,7 @@ def create_ratio_split(files, save_to_dir=None, ratio: list = None, first_key='t
 
 def create_k_fold_splits(files, k=0, save_to_dir=None, shuffle_files=True, name='SPLIT'):
     if shuffle_files:
+        _rd.seed(len(files))
         _rd.shuffle(files)
 
     file_ix = _np.arange(len(files))
