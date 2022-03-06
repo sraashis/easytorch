@@ -296,6 +296,24 @@ if __name__ == "__main__":
 #### Please star or cite if you find it useful.
 
 ```
+@article{deeddyn_10.3389/fcomp.2020.00035,
+	title        = {Dynamic Deep Networks for Retinal Vessel Segmentation},
+	author       = {Khanal, Aashis and Estrada, Rolando},
+	year         = 2020,
+	journal      = {Frontiers in Computer Science},
+	volume       = 2,
+	pages        = 35,
+	doi          = {10.3389/fcomp.2020.00035},
+	issn         = {2624-9898}
+}
+
+@misc{2202.02382,
+  Author = {Aashis Khanal and Saeid Motevali and Rolando Estrada},
+  Title = {Fully Automated Tree Topology Estimation and Artery-Vein Classification},
+  Year = {2022},
+  Eprint = {arXiv:2202.02382},
+}
+
 @misc{easytorch,
   author = {Khanal, Aashis},
   title = {Easy Torch}
