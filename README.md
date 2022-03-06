@@ -282,10 +282,11 @@ if __name__ == "__main__":
 	doi          = {10.3389/fcomp.2020.00035},
 	issn         = {2624-9898}
 }
+
 @misc{2202.02382,
-    Author       = {Aashis Khanal and Saeid Motevali and Rolando Estrada},
-    Title        = {Fully Automated Tree Topology Estimation and Artery-Vein Classification},
-    Year         = {2022},
-    Eprint       = {arXiv:2202.02382},
+        Author       = {Aashis Khanal and Saeid Motevali and Rolando Estrada},
+        Title        = {Fully Automated Tree Topology Estimation and Artery-Vein Classification},
+        Year         = {2022},
+        Eprint       = {arXiv:2202.02382},
 }
 ```
