@@ -208,7 +208,7 @@ Note: directly given(EasyTorch constructor) args precedes command line arguments
 #### Cite the following papers if you use this library:
 
 ```
-@article{deeddyn_10.3389/fcomp.2020.00035,
+@article{deepdyn_10.3389/fcomp.2020.00035,
 	title        = {Dynamic Deep Networks for Retinal Vessel Segmentation},
 	author       = {Khanal, Aashis and Estrada, Rolando},
 	year         = 2020,
