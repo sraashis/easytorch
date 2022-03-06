@@ -15,7 +15,8 @@
 * #### Introduces two extra multi-processing handles for blazing fast training by extending the easytorch.ETDataset class:
   * Multi-threaded data pre-loading. 
   * Disk caching for faster access.
-```
+  
+```python
 from easytorch import ETDataset
 
 class MyDataset(ETDataset):
