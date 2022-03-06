@@ -1,6 +1,6 @@
 ![Logo](assets/easytorchlogo.png)
 
-### A complete, robust and super easy pytorch prototyping framework to get started on deep learning within minutes.
+### A transfer-learning framework for pytorch.
 
 ![PyPi version](https://img.shields.io/pypi/v/easytorch)
 [![YourActionName Actions Status](https://github.com/sraashis/easytorch/workflows/build/badge.svg)](https://github.com/sraashis/easytorch/actions)
@@ -8,12 +8,22 @@
 
 <hr />
 
+Easytorch introduces **2 extra data augmentation points** in addition to PyTorch's data transforms.
+
+1. Pooled run that allows to combine multiple datasets withput moving from there original locations
+2. Data specifications that are json files specifying data(and its augmentation specific) specifications.
+
 #### Installation
 
 1. `Install latest pytorch and torchvision from` [Pytorch](https://pytorch.org/)
 2. `pip install easytorch`
 
-#### `How to use? Check out the MNIST Example:`
+* [MNIST](./examples/MNIST_easytorch_CNN.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
+* [Retinal fundus image transfer learning tasks.](https://github.com/sraashis/retinal-fundus-transfer)
+* [Covid-19 chest x-ray classification.](https://github.com/sraashis/covidxfactory)
+* [DCGAN.](https://github.com/sraashis/gan-easytorch-celeb-faces)
+
+#### Lets start something simple like MNIST digit classification:
 
 ```python
 from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
@@ -26,6 +36,7 @@ transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))
 ])
+
 
 class MNISTTrainer(ETTrainer):
     def _init_nn_model(self):
@@ -57,7 +68,7 @@ class MNISTTrainer(ETTrainer):
 
 if __name__ == "__main__":
     train_dataset = datasets.MNIST('../data', train=True, download=True, transform=transform)
-    val_dataset = datasets.MNIST('../data', train=False,  transform=transform)
+    val_dataset = datasets.MNIST('../data', train=False, transform=transform)
 
     dataloader_args = {'train': {'dataset': train_dataset}, 'validation': {'dataset': val_dataset}}
     runner = EasyTorch(phase='train', batch_size=512,
@@ -65,18 +76,10 @@ if __name__ == "__main__":
     runner.run(MNISTTrainer)
 ```
 
-* [MNIST](./examples/MNIST_easytorch_CNN.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
-* [Retinal fundus image transfer learning tasks.](https://github.com/sraashis/retinal-fundus-transfer)
-* [Covid-19 chest x-ray classification.](https://github.com/sraashis/covidxfactory)
-* [DCGAN.](https://github.com/sraashis/gan-easytorch-celeb-faces)
 
 <hr />
 
-#### Easytorch saves everything of the experiments including each iteration/epoch scores, losses, parameters, seeds and more in a json file.
-
-It has a lightweight plotter to plot accuracies and losses on every epoch. [examples](assets/mnist_plots.png)
-
-### General use case:
+#### General use case:
 
 #### 1. Define your trainer
 
@@ -90,25 +93,12 @@ class MyTrainer(ETTrainer):
         self.nn['model'] = NeuralNetModel(out_size=self.args['num_class'])
 
     def iteration(self, batch):
-        inputs = batch[0].to(self.device['gpu']).float()
-        labels = batch[1].to(self.device['gpu']).long()
-
-        out = self.nn['model'](inputs)
-        loss = F.nll_loss(out, labels)
-
-        _, pred = torch.max(out, 1)
-        meter = self.new_meter()
-        meter.averages.add(loss.item(), len(inputs))
-        meter.metrics['prf1a'].add(pred, labels)
-        meter.metrics['auc'].add(out[:, 1], labels)
-
+        """Handle a single batch"""
         """Must have loss and meter"""
-        return {'loss': loss, 'meter': meter, 'predictions': pred}
+        return {'loss': ..., 'meter': ..., 'out': ...}
 
     def new_meter(self):
-        """Any implementation of easytorch.metrics.ETMetrics. Prf1a() is provided for Precision, Recall and F1 Score"""
-        """num_averages=how manu averages(like loss, default=1) to track. Can track as many as you want. Check GAN example above."""
-        return ETMeter(
+       return ETMeter(
             num_averages=1,
             prf1a=Prf1a(),
             auc=AUCROCMetrics()
@@ -117,6 +107,7 @@ class MyTrainer(ETTrainer):
     def init_experiment_cache(self):
         """Will plot Loss in one plot, and Accuracy,F1 in another."""
         self.cache['log_header'] = 'Loss|Accuracy,F1_score'
+        
         """Model selection using validation set if present"""
         self.cache.update(monitor_metric='f1', metric_direction='maximize')
 
@@ -133,32 +124,25 @@ class MyTrainer(ETTrainer):
 Define specification for your datasets:
 
 ```python
+
 import os
 
-
-def get_label1(x):
-    return x.split('_')[0] + 'label.csv'
-
+def get_label(x):
+    return x.split('_')[0] + '_label.png'
 
 sep = os.sep
 MYDATA = {
     'name': 'mydata',
     'data_dir': 'MYDATA' + sep + 'images',
     'label_dir': 'MYDATA' + sep + 'labels',
-    'split_dir': 'MYDATA' + sep + 'splits', """For custom splits."""
-                                            'label_getter': get_label1
+    'label_getter': get_label
 }
-
-
-def get_label2(x):
-    return x.split('_')[0] + 'label.csv'
-
 
 MyOTHERDATA = {
     'name': 'otherdata',
     'data_dir': 'OTHERDATA' + sep + 'images',
     'label_dir': 'OTHERDATA' + sep + 'labels',
-    'label_getter': get_label2
+    'label_getter': get_label
 }
 ```
 
@@ -173,17 +157,21 @@ MyOTHERDATA = {
 * Example:
 
 ```python
-DRIVE = {
-    'name': 'DRIVE',
+DATA_A = {
+    'name': 'DATA_A',
     'data_dir': 'DRIVE' + sep + 'images',
     'label_dir': 'DRIVE' + sep + 'manual',
     'mask_dir': 'DRIVE' + sep + 'mask',
     'split_dir': 'DRIVE' + sep + 'splits',
-    'label_getter': get_label_drive,
-    'mask_getter': get_mask_drive,
-    'sub_folders': ['None', 'Mild', 'Severe', "Proliferative"],
-    'extension': '.tif',
-    'recursive': True
+    'label_getter': get_data_label_fn
+}
+DATA_B = {
+    'name': 'DATA_B',
+    'data_dir': 'DRIVE' + sep + 'images',
+    'label_dir': 'DRIVE' + sep + 'manual',
+    'mask_dir': 'DRIVE' + sep + 'mask',
+    'split_dir': 'DRIVE' + sep + 'splits',
+    'label_getter': get_data_label_fn
 }
 ```
 
@@ -192,7 +180,6 @@ debugging, pooling data, super-fast pre-processing with multiple processes, and 
 
 ```python
 from easytorch import ETDataset
-import torchvision
 
 
 class MyDataset(ETDataset):
@@ -200,20 +187,12 @@ class MyDataset(ETDataset):
         super().__init__(**kw)
 
     def load_index(self, dataset_name, file):
-        """1. This method is a pre-processing step for all the files in the specified folders in dataspec."""
-        """2. It is parallelized and uses num_workers number of processes to pre-load, preprocess data enabling us"""
-        """   to perform such operations super fast"""
-        """3. It is a pre-training step. So, a different mechanism then num_worker in data_loader object"""
-        """   Example: any pre-processing masking, cropping patches for uneven images in U-Net"""
-        pass
+        self.indices.append([dataset_name, file])
 
     def __getitem__(self, index):
         dataset_name, file = self.indices[index]
         dataspec = self.dataspecs[dataset_name]
 
-        """
-        All the info. (data_dir, label_dir, label_getter...) defined above will be in dataspec.
-        """
         image =  # Todo # Load file/Image. 
         label =  # Todo # Load corresponding label.
         # Extra preprocessing, if needed.
@@ -227,17 +206,14 @@ class MyDataset(ETDataset):
 ```python
 from easytorch import EasyTorch
 
-runner = EasyTorch([MYDATA, MyOTHERDATA],
+runner = EasyTorch([DATA_A, DATA_B],
                    phase="train", batch_size=4, epochs=21,
                    num_channel=1, num_class=2,
                    split_ratio=[0.6, 0.2, 0.2])  # or num_folds=5 (exclusive with split_ratio)
 
 if __name__ == "__main__":
-    """Runs experiment for each dataspec items in the same order"""
-    runner.run(MyTrainer, MyDataset)
 
-    """Runs by pooling all dataspecs as a single experiment"""
-    # runner.run_pooled(MyTrainer, MyDataset)
+    runner.run_pooled(MyTrainer, MyDataset)
 ```
 
 <hr />
@@ -293,7 +269,7 @@ if __name__ == "__main__":
 
 ### All the best! Cheers! 🎉
 
-#### Please star or cite if you find it useful.
+#### Cite the following papers if you use this library:
 
 ```
 @article{deeddyn_10.3389/fcomp.2020.00035,
