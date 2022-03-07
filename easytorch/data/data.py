@@ -14,7 +14,6 @@ import easytorch.utils as _etutils
 import easytorch.data.multiproc as _multi
 from easytorch.utils.logger import *
 import pickle as _pickle
-from easytorch.data import DiskCache as _DiskCache
 import shutil as _shu
 
 
@@ -227,7 +226,7 @@ class ETDataset(_Dataset):
 
         self.args = _etutils.FrozenDict(kw)
         self.dataspecs = _etutils.FrozenDict({})
-        self.diskcache = _DiskCache(self.args['log_dir'] + _os.sep + "_cache")
+        self.diskcache = DiskCache(self.args['log_dir'] + _os.sep + "_cache")
 
     def load_index(self, dataset_name, file):
         r"""
