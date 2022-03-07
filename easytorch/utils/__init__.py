@@ -65,6 +65,9 @@ def clean_recursive(obj):
 
 def save_cache(cache, experiment_id=''):
     with open(cache['log_dir'] + _os.sep + f"{experiment_id}_log.json", 'w') as fp:
-        log = _copy.deepcopy(cache)
-        clean_recursive(log)
-        _json.dump(log, fp)
+        try:
+            log = _copy.deepcopy(cache)
+            clean_recursive(log)
+            _json.dump(log, fp)
+        except Exception as e:
+            print(f"{e}:", cache)
