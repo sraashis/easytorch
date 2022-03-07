@@ -72,4 +72,4 @@ def save_cache(cache, experiment_id=''):
         except Exception as e:
             with open(cache['log_dir'] + _os.sep + f"{experiment_id}_log.txt", 'w') as raw:
                 raw.write(f"{e}\n")
-                raw.write(f"cache")
+                raw.write(f"{cache}")
