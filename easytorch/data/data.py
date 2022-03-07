@@ -37,7 +37,7 @@ class DiskCache:
     def clear(self):
         if _os.path.exists(self.path):
             _shu.rmtree(self.path, ignore_errors=True)
-            info(f"Disckcache : {self.path} cleared.", self.verbose)
+            info(f"Diskcache : {self.path} cleared.", self.verbose)
 
 
 class ETDataHandle:
