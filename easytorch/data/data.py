@@ -24,8 +24,8 @@ class DiskCache:
         self.path = path
 
     def add(self, key, value):
-        key = _uuid.uuid4().hex[:8].upper() + _os.path.basename(key)
-        with open(self.path + _os.sep + '-' + key + ".pkl", 'wb') as file:
+        key = _uuid.uuid4().hex[:8].upper() + '-' + _os.path.basename(key)
+        with open(self.path + _os.sep + key + ".pkl", 'wb') as file:
             _pickle.dump(value, file, _pickle.HIGHEST_PROTOCOL)
         return key
 
