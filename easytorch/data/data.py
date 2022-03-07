@@ -15,6 +15,7 @@ import easytorch.data.multiproc as _multi
 from easytorch.utils.logger import *
 import pickle as _pickle
 import shutil as _shu
+import uuid as _uuid
 
 
 class DiskCache:
@@ -23,8 +24,8 @@ class DiskCache:
         self.path = path
 
     def add(self, key, value):
-        key = _os.path.normpath(key).replace(_sep, '-')
-        with open(self.path + _os.sep + key + ".pkl", 'wb') as file:
+        key = _uuid.uuid4().hex[:8].upper() + _os.path.basename(key)
+        with open(self.path + _os.sep + '-' + key + ".pkl", 'wb') as file:
             _pickle.dump(value, file, _pickle.HIGHEST_PROTOCOL)
         return key
 
