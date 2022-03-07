@@ -24,6 +24,7 @@ class DiskCache:
         self.path = path
 
     def add(self, key, value):
+        key = _os.path.normpath(key).replace(_sep, '-')
         with open(self.path + _os.sep + key + ".pkl", 'wb') as file:
             _pickle.dump(value, file, _pickle.HIGHEST_PROTOCOL)
         return key
