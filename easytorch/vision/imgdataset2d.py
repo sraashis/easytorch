@@ -68,8 +68,7 @@ class PatchedImgDataset(BaseImageDataset, _ABC):
         dt = self.dataspecs[dataset_name]
         obj = self.load_img(dt, file)
 
-        cache_key = f"{dataset_name}_{file}"
-        self.diskcache.add(cache_key, obj)
+        cache_key = self.diskcache.add(f"{dataset_name}_{file}", obj)
         for corners in _imgutils.get_chunk_indexes(
                 obj.array.shape[:2],
                 dt['patch_shape'],
@@ -260,8 +259,7 @@ class FullImgDataset(BaseImageDataset):
             self.labels = self._load_labels(dspec)
 
         img_obj = self.load_img(dspec, file)
-        cache_key = f"{dataset_name}_{file}"
-        self.diskcache.add(cache_key, img_obj)
+        cache_key = self.diskcache.add(f"{dataset_name}_{file}", img_obj)
         self.indices.append([dataset_name, file, self._get_label(file), cache_key])
 
     def __getitem__(self, index):
