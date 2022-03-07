@@ -70,4 +70,6 @@ def save_cache(cache, experiment_id=''):
             clean_recursive(log)
             _json.dump(log, fp)
         except Exception as e:
-            print(f"{e}:", cache)
+            with open(cache['log_dir'] + _os.sep + f"{experiment_id}_log.txt", 'w') as raw:
+                raw.write(f"{e}\n")
+                raw.write(f"cache")
