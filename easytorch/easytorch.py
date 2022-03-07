@@ -13,7 +13,7 @@ import torch.multiprocessing as _mp
 import easytorch.config as _conf
 import easytorch.utils as _utils
 from easytorch.config.state import *
-from easytorch.data import ETDataset, ETDataHandle, multiproc as _mproc
+from easytorch.data import ETDataset, ETDataHandle, multiproc as _mproc, DiskCache as _DiskCache
 from easytorch.trainer import ETTrainer
 from easytorch.utils.logger import *
 
@@ -36,6 +36,13 @@ def _ddp_worker(rank, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled
         self._run_pooled(trainer_cls, dataset_cls, data_handle_cls)
     else:
         self._run(trainer_cls, dataset_cls, data_handle_cls)
+
+
+def _cleanup(trainer):
+    for data_handle_key in trainer.data_handle.datasets:
+        if hasattr(trainer.data_handle.datasets[data_handle_key], 'diskcache') and isinstance(
+                trainer.data_handle.datasets[data_handle_key].diskcache, _DiskCache):
+            trainer.data_handle.datasets[data_handle_key].diskcache.clear()
 
 
 class EasyTorch:
@@ -351,6 +358,7 @@ class EasyTorch:
 
             if trainer.args.get('use_ddp'):
                 _dist.barrier()
+            _cleanup(trainer)
 
     def run_pooled(self, trainer_cls: typing.Type[ETTrainer],
                    dataset_cls: typing.Type[ETDataset] = None,
@@ -420,3 +428,4 @@ class EasyTorch:
                 distributed=False
             )
             self._global_experiment_end(trainer, meter)
+        _cleanup(trainer)

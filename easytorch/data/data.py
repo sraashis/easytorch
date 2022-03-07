@@ -15,15 +15,17 @@ import easytorch.data.multiproc as _multi
 from easytorch.utils.logger import *
 import pickle as _pickle
 import shutil as _shu
+import uuid as _uuid
 
 
 class DiskCache:
-    def __init__(self, path):
+    def __init__(self, path, verbose=True):
         _os.makedirs(path, exist_ok=True)
         self.path = path
+        self.verbose = verbose
 
     def add(self, key, value):
-        key = _os.path.normpath(key).replace(_sep, '-')
+        key = _uuid.uuid4().hex[:8].upper() + '-' + _os.path.basename(key)
         with open(self.path + _os.sep + key + ".pkl", 'wb') as file:
             _pickle.dump(value, file, _pickle.HIGHEST_PROTOCOL)
         return key
@@ -33,7 +35,9 @@ class DiskCache:
             return _pickle.load(file)
 
     def clear(self):
-        _shu.rmtree(self.path)
+        if _os.path.exists(self.path):
+            _shu.rmtree(self.path, ignore_errors=True)
+            info(f"Diskcache : {self.path} cleared.", self.verbose)
 
 
 class ETDataHandle:
@@ -226,7 +230,7 @@ class ETDataset(_Dataset):
 
         self.args = _etutils.FrozenDict(kw)
         self.dataspecs = _etutils.FrozenDict({})
-        self.diskcache = DiskCache(self.args['log_dir'] + _os.sep + "_cache")
+        self.diskcache = DiskCache(self.args['log_dir'] + _os.sep + "_cache", self.args['verbose'])
 
     def load_index(self, dataset_name, file):
         r"""
