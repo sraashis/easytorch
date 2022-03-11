@@ -193,8 +193,8 @@ runner = EasyTorch(datasets_and_augments,
                    split_ratio=[0.6, 0.2, 0.2])  # or num_folds=5 (exclusive with split_ratio)
 
 if __name__ == "__main__":
-
-    runner.run_pooled(MyTrainer, MyDataset)
+    runner.run(MyTrainer, MyDataset) # To train an individual models for each datasets. 
+    runner.run_pooled(MyTrainer, MyDataset) # To train a single model combining both datasets.
 ```
 #### Run from the command line:
 
