@@ -15,14 +15,18 @@ _requires = ['numpy',
              'scikit-image',
              'pillow',
              'matplotlib',
-             'opencv-python-headless',
              'pandas',
              'seaborn']
+
+try:
+    import cv2
+except:
+    _requires.append('opencv-python-headless')
 
 # This call to setup() does all the work
 setup(
     name="easytorch",
-    version="3.2.332",
+    version="3.2.333",
     description="Easy Neural Network Experiments with pytorch",
     long_description=_README,
     long_description_content_type="text/markdown",
