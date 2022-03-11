@@ -26,7 +26,7 @@ except:
 # This call to setup() does all the work
 setup(
     name="easytorch",
-    version="3.2.333",
+    version="3.2.334",
     description="Easy Neural Network Experiments with pytorch",
     long_description=_README,
     long_description_content_type="text/markdown",
