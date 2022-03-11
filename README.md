@@ -186,8 +186,8 @@ MyOTHERDATA = {
 ```python
 from easytorch import EasyTorch
 
-datasets_and_augments = [DATA_A, DATA_B]
-runner = EasyTorch(datasets_and_augments,
+data_spcifications = [DATA_A, DATA_B]
+runner = EasyTorch(data_spcifications,
                    phase="train", batch_size=4, epochs=21,
                    num_channel=1, num_class=2,
                    split_ratio=[0.6, 0.2, 0.2])  # or num_folds=5 (exclusive with split_ratio)
