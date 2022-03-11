@@ -6,7 +6,14 @@ TARGET="$1"
 
 pip install $LATEST_RELEASE
 
-cp $LATEST_RELEASE $TARGET
+
+if [[ "$TARGET" =~ .*"@".* ]]
+then
+  scp $LATEST_RELEASE $TARGET
+
+else
+  cp $LATEST_RELEASE $TARGET
+fi
 
 echo *************************Success**************************
 echo  ":" $LATEST_RELEASE ">>>" $TARGET
