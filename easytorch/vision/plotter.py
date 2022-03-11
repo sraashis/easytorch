@@ -2,11 +2,14 @@ import math as _math
 import os as _os
 
 import matplotlib.pyplot as _plt
+import seaborn as _sns
+
 import numpy as _np
 import pandas as _pd
 
 _plt.switch_backend('agg')
 _plt.rcParams["figure.figsize"] = [16, 9]
+_sns.set()
 
 COLORS = ['blue', 'maroon', 'magenta', 'teal', 'red', 'blueviolet', 'brown', 'cadetblue',
           'chartreuse', 'coral', 'darkslateblue', 'cornflowerblue', 'indigo', 'black', 'cyan', 'navy']
