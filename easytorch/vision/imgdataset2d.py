@@ -81,7 +81,7 @@ class PatchedImgDataset(BaseImageDataset, _ABC):
             self.indices.append([dataset_name, file] + corners + [cache_key])
 
 
-class BinarySemSegImgPatchDataset(PatchedImgDataset):
+class BinaryPatchDataset(PatchedImgDataset):
     def __init__(self, **kw):
         super().__init__(**kw)
 
