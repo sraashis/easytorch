@@ -39,10 +39,7 @@ class BaseImageDataset(_ETDataset, _ABC):
             img_obj.load_ground_truth(dspec["label_dir"], dspec["label_getter"])
         else:
             _warn.warn(f"Random label initialized: {dspec['name']}")
-            img_obj.ground_truth = _np.random.randint(
-                0,
-                self.args.get('num_class', 2), img_obj.array.shape[:2]
-            ).astype(_np.uint8) * 255
+            img_obj.ground_truth = _np.random.randint(0, 2, img_obj.array.shape[:2]).astype(_np.uint8) * 255
 
         """Load mask"""
         dspec['has_mask'] = any(['mask_dir' in dspec.keys()])
@@ -57,6 +54,8 @@ class BaseImageDataset(_ETDataset, _ABC):
 
 
 class PatchedImgDataset(BaseImageDataset, _ABC):
+    """dataspec must have patch_shape, patch_offset, """
+
     def load_index(self, dataset_name, file):
         r"""
         :param dataset_name: name of teh dataset as provided in train_dataspecs
@@ -100,9 +99,9 @@ class BinaryPatchDataset(PatchedImgDataset):
                 _warn.warn(f"Ground truth 1 converted to 255")
                 img_obj.ground_truth[img_obj.ground_truth == 1] = 255
 
-            if len(gt_unique) != self.args.get('num_class', 2):
+            if len(gt_unique) != 2:
                 _warn.warn(
-                    f"Number of unique ground truth items != {self.args.get('num_class')} in  {dspec['name']}. "
+                    f"Number of unique ground truth items != {2} in  {dspec['name']}. "
                     f"\nBinarizing ... {gt_unique}: "
                 )
                 _imgutils.binarize(img_obj.ground_truth, thr_manual)
@@ -147,7 +146,7 @@ class BinaryPatchDataset(PatchedImgDataset):
                 img_obj.mask = _imgutils.resize(img_obj.mask, dspec['resize'])
 
         """Must binarize after resize"""
-        if self.args['num_class'] == 2 and dspec.get('resize'):
+        if dspec.get('resize'):
             _imgutils.binarize(img_obj.ground_truth, thr_manual)
             if dspec.get('has_mask'):
                 _imgutils.binarize(img_obj.mask, thr_manual)
@@ -222,7 +221,9 @@ class FullImgDataset(BaseImageDataset):
             )
 
             if dspec.get('resize') and (
-                    img_obj.array.shape[0] < dspec['resize'][0] or img_obj.array.shape[1] < dspec['resize'][1]
+                    img_obj.array.shape[0] < 0.55 * copy.array.shape[0]
+                    or
+                    img_obj.array.shape[1] < 0.55 * copy.array.shape[1]
             ):
                 _warn.warn(f"BBOX crop reversing for {dspec['name']}:{img_obj.file}, shape: {img_obj.array.shape}")
                 img_obj = copy.copy()
