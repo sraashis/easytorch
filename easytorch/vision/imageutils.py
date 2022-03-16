@@ -192,7 +192,7 @@ def get_chunk_indexes(img_shape=(0, 0), chunk_shape=(0, 0), offset_row_col=None)
     :param offset_row_col: Offset for each patch on both x, y directions
     :return:
     """
-    img_rows, img_cols = img_shape
+    img_rows, img_cols = img_shape[:2]
     chunk_row, chunk_col = chunk_shape
     offset_row, offset_col = offset_row_col
 
@@ -222,7 +222,7 @@ def get_chunk_indices_by_index(img_shape=(0, 0), chunk_shape=(0, 0), indices=Non
     x, y = chunk_shape
     ix = []
     for (c1, c2) in indices:
-        w, h = img_shape
+        w, h = img_shape[:2]
         p, q, r, s = c1 - x // 2, c1 + x // 2, c2 - y // 2, c2 + y // 2
         if p < 0:
             p, q = 0, x
@@ -239,21 +239,24 @@ def get_chunk_indices_by_index(img_shape=(0, 0), chunk_shape=(0, 0), indices=Non
 def merge_patches(patches=None, image_size=(0, 0), patch_size=(0, 0), offset_row_col=None):
     """
     Merge different pieces of image to form a full image. Overlapped regions are averaged.
-    :param patches: List of all patches to merge in order (left to right).
+    :param patches: List of all patches to merge in order (left to right). (N * W * H * C)
     :param image_size: Full image size
     :param patch_size: A patch size(Patches must be uniform in size to be able to merge)
     :param offset_row_col: Offset used to chunk the patches.
     :return:
     """
-    padded_sum = _np.zeros([image_size[0], image_size[1]])
+    padded_sum = _np.zeros(image_size)
     non_zero_count = _np.zeros_like(padded_sum)
     for i, chunk_ix in enumerate(get_chunk_indexes(image_size, patch_size, offset_row_col)):
         row_from, row_to, col_from, col_to = chunk_ix
 
-        patch = _np.array(patches[i, :, :]).squeeze()
+        patch = _np.array(patches[i]).squeeze()
 
-        padded = _np.pad(patch, [(row_from, image_size[0] - row_to), (col_from, image_size[1] - col_to)],
-                         'constant')
+        _pad = [(row_from, image_size[0] - row_to), (col_from, image_size[1] - col_to)]
+        if len(image_size) == 3:
+            _pad.append((0, 0))
+
+        padded = _np.pad(patch, _pad, 'constant')
         padded_sum = padded + padded_sum
         non_zero_count = non_zero_count + _np.array(padded > 0).astype(int)
     non_zero_count[non_zero_count == 0] = 1
