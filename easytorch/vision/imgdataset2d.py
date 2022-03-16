@@ -21,7 +21,7 @@ class BaseImageDataset(_ETDataset, _ABC):
         return _tmf.Compose([_tmf.ToPILImage(), _tmf.ToTensor()])
 
     def _validate_image_data(self, dspec, img_obj):
-        pass
+        return img_obj
 
     def load_img(self, dspec, file):
         img_obj = _imgutils.Image()
@@ -46,8 +46,7 @@ class BaseImageDataset(_ETDataset, _ABC):
         if dspec['has_mask']:
             img_obj.load_mask(dspec['mask_dir'], dspec['mask_getter'])
 
-        self._validate_image_data(dspec, img_obj)
-        return img_obj
+        return self._validate_image_data(dspec, img_obj)
 
     def __getitem__(self, index):
         raise NotImplementedError('Must implement')
@@ -251,8 +250,7 @@ class FullImgDataset(BaseImageDataset):
         if dspec['has_mask']:
             img_obj.load_mask(dspec['mask_dir'], dspec['mask_getter'])
 
-        self._validate_image_data(dspec, img_obj)
-        return img_obj
+        return self._validate_image_data(dspec, img_obj)
 
     def load_index(self, dataset_name, file):
         dspec = self.dataspecs[dataset_name]
