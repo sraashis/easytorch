@@ -18,8 +18,9 @@ def _job(total, func, i, f):
     print(f"Working on: [ {i}/{total} ]", end='\n' if i % _LOG_FREQ == 0 else '\r')
     try:
         return func(f)
-    except:
+    except Exception as e:
         _tb.print_exc()
+        print(f"{f} ### {e}")
 
 
 def multiRun(nproc: int, data_list: list, func: Callable) -> list:
@@ -59,8 +60,9 @@ def _et_data_job(file, mode, args, dspec, dataset_cls):
     dataset = dataset_cls(mode=mode, **args)
     try:
         dataset.add(files=[file], verbose=False, **dspec)
-    except:
+    except Exception as e:
         _tb.print_exc()
+        print(f"{file} ### {e}")
     return dataset
 
 
