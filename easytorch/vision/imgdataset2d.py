@@ -207,7 +207,7 @@ class FullImgDataset(BaseImageDataset):
         return None
 
     def _get_label(self, file):
-        raise NotImplementedError('Use file and self.labels to return a correct label')
+        pass
 
     def _validate_image_data(self, dspec, img_obj):
 
