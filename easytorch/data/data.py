@@ -246,7 +246,7 @@ class ETDataset(_Dataset):
         """
         _files = files[:self.limit]
         _files_len: int = len(files)
-        if _files_len > 1:
+        if self.args['multi_load'] and _files_len > 1:
             dataset_objs = _multi.multi_load(
                 self.mode,
                 _files,

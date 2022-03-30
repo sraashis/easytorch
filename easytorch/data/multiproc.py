@@ -102,7 +102,7 @@ def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False) -> l
             split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
             files = split.get(split_key, [])[:args['load_limit']]
 
-            if load_sparse and len(files) > 1:
+            if load_sparse and args['multi_load'] and len(files) > 1:
                 all_d += multi_load(split_key, files, dspec, args, dataset_cls)
             else:
                 if len(all_d) <= 0:

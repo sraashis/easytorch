@@ -50,6 +50,8 @@ default_ap.add_argument('-spl', '--split_ratio', default=None, nargs='*', type=f
                         help='Split ratio. Eg: 0.6 0.2 0.2 or 0.8 0.2. Exclusive to num_fold.')
 
 default_ap.add_argument('-ddp', '--use_ddp', default=False, type=boolean_string, help='Use DDP?')
+default_ap.add_argument('--multi-load', default=True, type=boolean_string, help='Multi loading data.')
+
 
 _im, _ = default_ap.parse_known_args()
 _args = vars(_im)
