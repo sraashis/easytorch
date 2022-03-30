@@ -8,15 +8,14 @@ import numpy as _np
 import torch as _torch
 from torch.utils.data._utils.collate import default_collate as _default_collate
 from functools import partial as _partial
-from easytorch.utils.logger import *
 
 from easytorch.utils.logger import success
 
-_LOG_FREQ = 100
+LOG_FREQ = 100
 
 
 def _job(total, func, i, f):
-    print(f"Working on: [ {i}/{total} ]", end='\n' if i % _LOG_FREQ == 0 else '\r')
+    print(f"Working on: [ {i}/{total} ]", end='\n' if i % LOG_FREQ == 0 else '\r')
     try:
         return func(f)
     except Exception as e:
@@ -69,7 +68,7 @@ def _et_data_job(file, mode, args, dspec, dataset_cls):
 
 def et_data_job(mode, args, dspec, dataset_cls, total, verbose, i, file):
     if verbose:
-        print(f"Working on: [ {i} / {total} ]", end='\n' if i % _LOG_FREQ == 0 else '\r')
+        print(f"Working on: [ {i} / {total} ]", end='\n' if i % LOG_FREQ == 0 else '\r')
     return _et_data_job(file, mode, args, dspec, dataset_cls)
 
 
@@ -93,7 +92,7 @@ def multi_load(mode, files, dataspec, args, dataset_cls) -> list:
     dataset_list, total = [], len(_files)
     for ix, file in _files:
         if args.get('verbose'):
-            print(f"Loading... {ix}/{total}", end='\n' if ix % _LOG_FREQ == 0 else '\r')
+            print(f"Loading... {ix}/{total}", end='\n' if ix % LOG_FREQ == 0 else '\r')
         dataset_list.append(_et_data_job(file, mode, args, dataspec, dataset_cls))
 
     return [d for d in dataset_list if len(d) >= 1]

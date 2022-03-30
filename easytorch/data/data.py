@@ -244,14 +244,21 @@ class ETDataset(_Dataset):
         We load the proper indices/names(whatever is called) of the files in order to prepare minibatches.
         Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
         """
-        dataset_objs = _multi.multi_load(
-            self.mode,
-            files[:self.limit],
-            self.dataspecs[dataspec_name],
-            self.args,
-            self.__class__
-        )
-        self.gather(dataset_objs)
+        _files = files[:self.limit]
+        _files_len = len(_files)
+        if _files_len > 1:
+            dataset_objs = _multi.multi_load(
+                self.mode,
+                _files,
+                self.dataspecs[dataspec_name],
+                self.args,
+                self.__class__
+            )
+            self.gather(dataset_objs)
+        else:
+            for i, file in enumerate(_files):
+                print(f"Loading... {i + 1}/{_files_len}", end='\n' if i % _multi.LOG_FREQ == 0 else '\r')
+                self.load_index(dataspec_name, file)
         success(f'{dataspec_name}, {self.mode}, {len(self)} indices Loaded.', verbose)
 
     def gather(self, dataset_objs):
