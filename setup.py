@@ -29,7 +29,7 @@ except:
 # This call to setup() does all the work
 setup(
     name="easytorch",
-    version="3.2.341",
+    version="3.2.342",
     description="Easy Neural Network Experiments with pytorch",
     long_description=_README,
     long_description_content_type="text/markdown",
