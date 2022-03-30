@@ -85,7 +85,7 @@ class ETDataHandle:
 
         with open(dataspec['split_dir'] + _sep + split_file) as file:
             _files = _json.loads(file.read()).get('test', [])[:self.args['load_limit']]
-            if self.args['load_sparse'] and len(_files) > 1:
+            if self.args['load_sparse']:
                 datasets = _multi.multi_load('test', _files, dataspec, self.args, dataset_cls)
                 success(f'\n{len(datasets)} sparse dataset loaded.', self.args['verbose'])
             else:
@@ -244,21 +244,14 @@ class ETDataset(_Dataset):
         We load the proper indices/names(whatever is called) of the files in order to prepare minibatches.
         Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
         """
-        _files = files[:self.limit]
-        _files_len: int = len(files)
-        if self.args['multi_load'] and _files_len > 1:
-            dataset_objs = _multi.multi_load(
-                self.mode,
-                _files,
-                self.dataspecs[dataspec_name],
-                self.args,
-                self.__class__
-            )
-            self.gather(dataset_objs)
-        else:
-            for file in _files:
-                self.load_index(dataspec_name, file)
-
+        dataset_objs = _multi.multi_load(
+            self.mode,
+            files[:self.limit],
+            self.dataspecs[dataspec_name],
+            self.args,
+            self.__class__
+        )
+        self.gather(dataset_objs)
         success(f'{dataspec_name}, {self.mode}, {len(self)} indices Loaded.', verbose)
 
     def gather(self, dataset_objs):
