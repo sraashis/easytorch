@@ -259,7 +259,7 @@ class ETDataset(_Dataset):
             for file in _files:
                 self.load_index(dataspec_name, file)
 
-        success(f'\n{dataspec_name}, {self.mode}, {len(self)} indices Loaded.', verbose)
+        success(f'{dataspec_name}, {self.mode}, {len(self)} indices Loaded.', verbose)
 
     def gather(self, dataset_objs):
         for d in dataset_objs:
