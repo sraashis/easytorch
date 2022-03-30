@@ -92,7 +92,7 @@ def multi_load(mode, files, dataspec, args, dataset_cls) -> list:
     dataset_list, total = [], len(_files)
     for ix, file in _files:
         if args.get('verbose'):
-            print(f"Loading... {ix}/{total}", end='\n' if ix % LOG_FREQ == 0 else '\r')
+            print(f"Loading... {ix}/{total}", end='\n' if (ix - 1) % LOG_FREQ == 0 else '\r')
         dataset_list.append(_et_data_job(file, mode, args, dataspec, dataset_cls))
 
     return [d for d in dataset_list if len(d) >= 1]
