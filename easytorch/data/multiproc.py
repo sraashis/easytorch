@@ -8,6 +8,7 @@ import numpy as _np
 import torch as _torch
 from torch.utils.data._utils.collate import default_collate as _default_collate
 from functools import partial as _partial
+from easytorch.utils.logger import *
 
 from easytorch.utils.logger import success
 
@@ -78,15 +79,24 @@ def multi_load(mode, files, dataspec, args, dataset_cls) -> list:
     for ix, f in enumerate(files, 1):
         _files.append([ix, f])
 
-    nw = min(num_workers(args, args, args.get('use_ddp')), len(_files))
-    with _mp.Pool(processes=max(1, nw)) as pool:
-        dataset_list = list(
-            pool.starmap(
-                _partial(et_data_job, mode, args, dataspec, dataset_cls, len(_files), args.get('verbose')),
-                _files
+    if args.get("multi_load") and len(files) > 1:
+        nw = min(num_workers(args, args, args.get('use_ddp')), len(_files))
+        with _mp.Pool(processes=max(1, nw)) as pool:
+            dataset_list = list(
+                pool.starmap(
+                    _partial(et_data_job, mode, args, dataspec, dataset_cls, len(_files), args.get('verbose')),
+                    _files
+                )
             )
-        )
-        return [d for d in dataset_list if len(d) >= 1]
+            return [d for d in dataset_list if len(d) >= 1]
+
+    dataset_list, total = [], len(_files)
+    for ix, file in _files:
+        if args.get('verbose'):
+            print(f"Loading... {ix}/{total}", end='\n' if ix % _LOG_FREQ == 0 else '\r')
+        dataset_list.append(_et_data_job(file, mode, args, dataspec, dataset_cls))
+
+    return [d for d in dataset_list if len(d) >= 1]
 
 
 def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False) -> list:
@@ -102,7 +112,7 @@ def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False) -> l
             split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
             files = split.get(split_key, [])[:args['load_limit']]
 
-            if load_sparse and args['multi_load'] and len(files) > 1:
+            if load_sparse:
                 all_d += multi_load(split_key, files, dspec, args, dataset_cls)
             else:
                 if len(all_d) <= 0:
