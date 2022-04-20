@@ -370,7 +370,7 @@ def binarize(arr, thr=50, max=255):
     return _arr
 
 
-def masked_bboxcrop(arr, *apply_to, offset=51, threshold=5):
+def masked_bboxcrop(arr, *apply_to, offset=21, threshold=10):
     """
     Binarize, mask, bbox crop image for largest connected component.
     """
@@ -380,14 +380,14 @@ def masked_bboxcrop(arr, *apply_to, offset=51, threshold=5):
 
     mask[mask < threshold] = 0
     mask[mask >= threshold] = 255
-    nb_components, output, stats, centroids = _cv2.connectedComponentsWithStats(mask, connectivity=4)
-    max_label, _ = max([(i, stats[i, _cv2.CC_STAT_AREA]) for i in range(1, nb_components)], key=lambda x: x[1])
 
-    mask = (output == max_label).astype(_np.uint8) * 255
-    a, b, c, d = _IMG.fromarray(mask).getbbox()
-    a, b, c, d = max(0, b - offset), min(arr.shape[0], d + offset), max(0, a - offset), min(arr.shape[1], c + offset)
+    coords = _cv2.findNonZero(mask)
+    x, y, w, h = _cv2.boundingRect(coords)
+    a, b, c, d = y, y + h, x, x + w
+    a, b, c, d = max(0, a - offset), min(arr.shape[0], b + offset), max(0, c - offset), min(arr.shape[1], d + offset)
 
     res = [arr[a:b, c:d]]
+
     for dat in apply_to:
         res.append(dat[a:b, c:d])
     res.append(mask[a:b, c:d])
