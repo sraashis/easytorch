@@ -98,7 +98,7 @@ def multi_load(mode, files, dataspec, args, dataset_cls) -> list:
     return [d for d in dataset_list if len(d) >= 1]
 
 
-def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False) -> list:
+def pooled_load(split_key, dataspecs, dspec_splits, args, dataset_cls, load_sparse=False) -> list:
     r"""
     Note: Only works with easytorch's default args from easytorch import args
     This method takes multiple dataspecs and pools the first splits of all the datasets.
@@ -106,21 +106,18 @@ def pooled_load(split_key, dataspecs, args, dataset_cls, load_sparse=False) -> l
         no need to move files in single folder.
     """
     all_d = []
-    for dspec in dataspecs:
-        for split in sorted(_os.listdir(dspec['split_dir'])):
-            split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
-            files = split.get(split_key, [])[:args['load_limit']]
+    for dspec, split in zip(dataspecs, dspec_splits):
+        split = _json.loads(open(dspec['split_dir'] + _os.sep + split).read())
+        files = split.get(split_key, [])[:args['load_limit']]
 
-            if load_sparse:
-                all_d += multi_load(split_key, files, dspec, args, dataset_cls)
-            else:
-                if len(all_d) <= 0:
-                    all_d.append(
-                        dataset_cls(mode=split_key, limit=args['load_limit'], **args)
-                    )
-                all_d[0].add(files=files, verbose=args['verbose'], **dspec)
-            """Pooling only works with 1 split at the moment."""
-            break
+        if load_sparse:
+            all_d += multi_load(split_key, files, dspec, args, dataset_cls)
+        else:
+            if len(all_d) <= 0:
+                all_d.append(
+                    dataset_cls(mode=split_key, limit=args['load_limit'], **args)
+                )
+            all_d[0].add(files=files, verbose=args['verbose'], **dspec)
 
     success(f'\nPooled {len(all_d)} dataset loaded.', args['verbose'] and len(all_d) > 1)
     return all_d

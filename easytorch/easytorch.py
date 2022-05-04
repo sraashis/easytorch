@@ -384,48 +384,66 @@ class EasyTorch:
             trainer.data_handle.init_dataspec_(dspec)
             trainer.data_handle.create_splits(dspec, out_dir=trainer.cache['log_dir'] + _sep + dspec['name'])
 
-        warn('Pooling only uses first split from each datasets at the moment.', self.args['verbose'])
-
         trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
         trainer.cache['log_header'] = 'Loss|Accuracy'
         trainer.cache.update(monitor_metric='time', metric_direction='maximize')
 
         """Initialize experiment essentials"""
+        test_accum = []
         trainer.init_experiment_cache()
         _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
 
-        self._init_fold_cache('pooled.dummy', trainer.cache)
+        split_groups = []
+        for dspec in self.dataspecs:
+            split_groups.append(sorted(_os.listdir(dspec['split_dir'])))
+
+        for i, splits in enumerate(zip(*split_groups)):
+            self._init_fold_cache(f'fold_{i}.none', trainer.cache)
+
+            if self.args['is_master']:
+                self.check_previous_logs(trainer.cache)
+
+            trainer.init_nn()
+            if self.args['phase'] == Phase.TRAIN:
+                train_dataset = _mproc.pooled_load(
+                    'train',
+                    self.dataspecs,
+                    splits,
+                    args=self.args,
+                    dataset_cls=dataset_cls,
+                    load_sparse=False
+                )[0]
+
+                val_dataset = _mproc.pooled_load(
+                    'validation',
+                    self.dataspecs,
+                    splits,
+                    args=self.args,
+                    dataset_cls=dataset_cls,
+                    load_sparse=False
+                )[0]
+
+                self._train(trainer, train_dataset, val_dataset, {'dataspecs': self.dataspecs})
+
+            """Only do test in master rank node"""
+            if self.args['is_master']:
+                test_dataset = _mproc.pooled_load(
+                    'test',
+                    self.dataspecs,
+                    splits,
+                    args=self.args,
+                    dataset_cls=dataset_cls,
+                    load_sparse=self.args['load_sparse']
+                )
+                test_accum.append(self._test('Pooled', trainer, test_dataset, {'dataspecs': self.dataspecs}))
+
+            if trainer.args.get('use_ddp'):
+                _dist.barrier()
 
         if self.args['is_master']:
-            self.check_previous_logs(trainer.cache)
+            global_scores = trainer.reduce_scores(test_accum, distributed=False)
+            self._global_experiment_end(trainer, global_scores)
 
-        trainer.init_nn()
-        if self.args['phase'] == Phase.TRAIN:
-            train_dataset = _mproc.pooled_load(
-                'train', self.dataspecs, self.args,
-                dataset_cls=dataset_cls,
-                load_sparse=False
-            )[0]
-
-            val_dataset = _mproc.pooled_load(
-                'validation', self.dataspecs, self.args,
-                dataset_cls=dataset_cls,
-                load_sparse=False
-            )[0]
-
-            self._train(trainer, train_dataset, val_dataset, {'dataspecs': self.dataspecs})
-
-        """Only do test in master rank node"""
-        if self.args['is_master']:
-            test_dataset = _mproc.pooled_load(
-                'test', self.dataspecs, self.args,
-                dataset_cls=dataset_cls,
-                load_sparse=self.args['load_sparse']
-            )
-
-            meter = trainer.reduce_scores(
-                [self._test('Pooled', trainer, test_dataset, {'dataspecs': self.dataspecs})],
-                distributed=False
-            )
-            self._global_experiment_end(trainer, meter)
+        if trainer.args.get('use_ddp'):
+            _dist.barrier()
         _cleanup(trainer)
