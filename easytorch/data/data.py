@@ -46,12 +46,16 @@ class ETDataHandle:
         self.args = _etutils.FrozenDict(args)
         self.dataloader_args = _etutils.FrozenDict(dataloader_args)
         self.datasets = {}
+        self.diskcache = DiskCache(
+            self.args['log_dir'] + _os.sep + "_cache" + _sep + self.args['RUN-ID'],
+            self.args['verbose']
+        )
 
     def get_dataset(self, handle_key, files, dataspec: dict, reuse=True, dataset_cls=None):
         if reuse and self.datasets.get(handle_key):
             return self.datasets[handle_key]
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
-        dataset.add(files=files, verbose=self.args['verbose'], **dataspec)
+        dataset.add(files=files, diskcache=self.diskcache, verbose=self.args['verbose'], **dataspec)
         if reuse:
             self.datasets[handle_key] = dataset
         return dataset
@@ -86,7 +90,7 @@ class ETDataHandle:
         with open(dataspec['split_dir'] + _sep + split_file) as file:
             _files = _json.loads(file.read()).get('test', [])[:self.args['load_limit']]
             if self.args['load_sparse']:
-                datasets = _multi.multi_load('test', _files, dataspec, self.args, dataset_cls)
+                datasets = _multi.multi_load('test', _files, dataspec, self.args, dataset_cls, self.diskcache)
                 success(f'\n{len(datasets)} sparse dataset loaded.', self.args['verbose'])
             else:
                 datasets = self.get_dataset('test', _files, dataspec, dataset_cls=dataset_cls)
@@ -227,13 +231,9 @@ class ETDataset(_Dataset):
         self.limit = limit
         self.indices = []
         self.data = {}
-
+        self.diskcache = None
         self.args = _etutils.FrozenDict(kw)
         self.dataspecs = _etutils.FrozenDict({})
-        self.diskcache = DiskCache(
-            self.args['log_dir'] + _os.sep + "_cache" + _sep + self.args['RUN-ID'],
-            self.args['verbose']
-        )
 
     def load_index(self, dataset_name, file):
         r"""
@@ -255,7 +255,8 @@ class ETDataset(_Dataset):
                 _files,
                 self.dataspecs[dataspec_name],
                 self.args,
-                self.__class__
+                self.__class__,
+                diskcache=self.diskcache
             )
             self.gather(dataset_objs)
         else:
@@ -290,8 +291,9 @@ class ETDataset(_Dataset):
     def __len__(self):
         return len(self.indices)
 
-    def add(self, files, verbose=True, **kw):
+    def add(self, files, diskcache=None, verbose=True, **kw):
         r""" An extra layer for added flexibility."""
+        self.diskcache = diskcache
         self.dataspecs[kw['name']] = kw
         self._load_indices(dataspec_name=kw['name'], files=files, verbose=verbose)
 
