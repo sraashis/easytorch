@@ -150,7 +150,7 @@ class EasyTorch:
         self._ddp_setup()
         self._make_reproducible()
         self.args.update(is_master=self.args.get('is_master', True))
-        self.args['RUN-ID'] = _dtime.now().strftime("ET-%Y%m%d-%H%M%S-") + _uuid.uuid4().hex[:4].upper()
+        self.args['RUN-ID'] = _dtime.now().strftime("ET-%Y%m%d-%H%M%S-") + _uuid.uuid4().hex[:8].upper()
 
     def _device_check(self):
         self.args['gpus'] = self.args['gpus'] if self.args.get('gpus') else []
@@ -414,6 +414,7 @@ class EasyTorch:
                     splits,
                     args=self.args,
                     dataset_cls=dataset_cls,
+                    diskcache=data_handle.diskcache,
                     load_sparse=False
                 )[0]
 
@@ -423,6 +424,7 @@ class EasyTorch:
                     splits,
                     args=self.args,
                     dataset_cls=dataset_cls,
+                    diskcache=data_handle.diskcache,
                     load_sparse=False
                 )[0]
 
@@ -436,6 +438,7 @@ class EasyTorch:
                     splits,
                     args=self.args,
                     dataset_cls=dataset_cls,
+                    diskcache=data_handle.diskcache,
                     load_sparse=self.args['load_sparse']
                 )
                 test_accum.append(self._test('Pooled', trainer, test_dataset, {'dataspecs': self.dataspecs}))

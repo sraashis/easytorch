@@ -56,23 +56,23 @@ def seed_worker(worker_id):
     _np.random.seed(seed)
 
 
-def _et_data_job(file, mode, args, dspec, dataset_cls):
+def _et_data_job(file, mode, args, dspec, dataset_cls, diskcache):
     dataset = dataset_cls(mode=mode, **args)
     try:
-        dataset.add(files=[file], verbose=False, **dspec)
+        dataset.add(files=[file], diskcache=diskcache, verbose=False, **dspec)
     except Exception as e:
         _tb.print_exc()
         print(f"{file} ### {e}")
     return dataset
 
 
-def et_data_job(mode, args, dspec, dataset_cls, total, verbose, i, file):
+def et_data_job(mode, args, dspec, dataset_cls, total, verbose, diskcache, i, file):
     if verbose:
         print(f"Working on: [ {i} / {total} ]", end='\n' if i % LOG_FREQ == 0 else '\r')
-    return _et_data_job(file, mode, args, dspec, dataset_cls)
+    return _et_data_job(file, mode, args, dspec, dataset_cls, diskcache)
 
 
-def multi_load(mode, files, dataspec, args, dataset_cls) -> list:
+def multi_load(mode, files, dataspec, args, dataset_cls, diskcache=None) -> list:
     r"""Note: Only works with easytorch's default args from easytorch import args"""
     _files = []
     for ix, f in enumerate(files, 1):
@@ -83,7 +83,9 @@ def multi_load(mode, files, dataspec, args, dataset_cls) -> list:
         with _mp.Pool(processes=max(1, nw)) as pool:
             dataset_list = list(
                 pool.starmap(
-                    _partial(et_data_job, mode, args, dataspec, dataset_cls, len(_files), args.get('verbose')),
+                    _partial(
+                        et_data_job, mode, args, dataspec, dataset_cls, len(_files), args.get('verbose'), diskcache
+                    ),
                     _files
                 )
             )
@@ -98,7 +100,7 @@ def multi_load(mode, files, dataspec, args, dataset_cls) -> list:
     return [d for d in dataset_list if len(d) >= 1]
 
 
-def pooled_load(split_key, dataspecs, dspec_splits, args, dataset_cls, load_sparse=False) -> list:
+def pooled_load(split_key, dataspecs, dspec_splits, args, dataset_cls, diskcache=None, load_sparse=False) -> list:
     r"""
     Note: Only works with easytorch's default args from easytorch import args
     This method takes multiple dataspecs and pools the first splits of all the datasets.
@@ -117,7 +119,7 @@ def pooled_load(split_key, dataspecs, dspec_splits, args, dataset_cls, load_spar
                 all_d.append(
                     dataset_cls(mode=split_key, limit=args['load_limit'], **args)
                 )
-            all_d[0].add(files=files, verbose=args['verbose'], **dspec)
+            all_d[0].add(files=files, diskcache=diskcache, verbose=args['verbose'], **dspec)
 
     success(f'\nPooled {len(all_d)} dataset loaded.', args['verbose'] and len(all_d) > 1)
     return all_d
