@@ -16,6 +16,8 @@ from easytorch.config.state import *
 from easytorch.data import ETDataset, ETDataHandle, multiproc as _mproc, DiskCache as _DiskCache
 from easytorch.trainer import ETTrainer
 from easytorch.utils.logger import *
+import uuid as _uuid
+from datetime import datetime as _dtime
 
 _sep = _os.sep
 
@@ -148,6 +150,7 @@ class EasyTorch:
         self._ddp_setup()
         self._make_reproducible()
         self.args.update(is_master=self.args.get('is_master', True))
+        self.args['RUN-ID'] = _dtime.now().strftime("ET-%Y%m%d-%H%M%S-") + _uuid.uuid4().hex[:4].upper()
 
     def _device_check(self):
         self.args['gpus'] = self.args['gpus'] if self.args.get('gpus') else []

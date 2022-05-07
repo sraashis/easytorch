@@ -25,7 +25,7 @@ class DiskCache:
         self.verbose = verbose
 
     def add(self, key, value):
-        key = _uuid.uuid4().hex[:8].upper() + '-' + _os.path.basename(key)
+        key = _os.path.basename(key) + '-' + _uuid.uuid4().hex[:8]
         with open(self.path + _os.sep + key + ".pkl", 'wb') as file:
             _pickle.dump(value, file, _pickle.HIGHEST_PROTOCOL)
         return key
@@ -230,7 +230,10 @@ class ETDataset(_Dataset):
 
         self.args = _etutils.FrozenDict(kw)
         self.dataspecs = _etutils.FrozenDict({})
-        self.diskcache = DiskCache(self.args['log_dir'] + _os.sep + "_cache", self.args['verbose'])
+        self.diskcache = DiskCache(
+            self.args['log_dir'] + _os.sep + "_cache" + _sep + self.args['RUN-ID'],
+            self.args['verbose']
+        )
 
     def load_index(self, dataset_name, file):
         r"""
