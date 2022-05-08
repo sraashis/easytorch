@@ -1,4 +1,4 @@
-## A transfer-learning framework for PyTorch.
+## A very lightweight framework on top of PyTorch with full functionality.
 
 ![Logo](assets/easytorchlogo.png)
 
