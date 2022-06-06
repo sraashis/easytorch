@@ -43,9 +43,9 @@ class MyDataset(ETDataset):
 
 
 #### Installation
-
-1. `Install latest pytorch and torchvision from` [Pytorch](https://pytorch.org/)
-2. `pip install easytorch`
+1. `pip install --upgrade pip`
+2. `Install latest pytorch and torchvision from` [Pytorch](https://pytorch.org/)
+3. `pip install easytorch`
 
 * [MNIST](./examples/MNIST_easytorch_CNN.ipynb) [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github//sraashis/easytorch/blob/master/examples/MNIST_easytorch_CNN.ipynb)
 * [Retinal fundus image transfer learning tasks.](https://github.com/sraashis/retinal-fundus-transfer)
