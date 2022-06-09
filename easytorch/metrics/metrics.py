@@ -16,9 +16,6 @@ from easytorch.config.state import *
 
 
 class ETMetrics:
-    def __init__(self, device='cpu', **kw):
-        self.device = device
-
     def __getattribute__(self, attribute):
         if attribute == "__dict__":
             obj = object.__getattribute__(self, attribute)
@@ -107,12 +104,11 @@ class ETMetrics:
 
 
 class ETAverages(ETMetrics):
-    def __init__(self, num_averages=1, device='cpu'):
+    def __init__(self, num_averages=1):
         r"""
         This class can keep track of K averages.
         For example, in GAN we need to keep track of Generators loss
         """
-        super().__init__(device=device)
         self.values = _np.array([0.0] * num_averages, dtype=_np.float)
         self.counts = _np.array([0.0] * num_averages, dtype=_np.float)
         self.num_averages = num_averages
@@ -214,13 +210,12 @@ class Prf1a(ETMetrics):
         Precision, Recall, F1 Score, Accuracy, and Overlap(IOU).
     """
 
-    def __init__(self, device='cpu'):
-        super().__init__(device=device)
+    def __init__(self):
         self.tn, self.fp, self.fn, self.tp = 0, 0, 0, 0
 
     def add(self, pred: _torch.Tensor, true: _torch.Tensor):
-        y_true = true.clone().int().view(1, -1).squeeze()
-        y_pred = pred.clone().int().view(1, -1).squeeze()
+        y_true = true.view(-1).int().squeeze()
+        y_pred = pred.view(-1).int().squeeze()
 
         y_true[y_true == 255] = 1
         y_pred[y_pred == 255] = 1
@@ -286,8 +281,7 @@ class Prf1a(ETMetrics):
 class AUCROCMetrics(ETMetrics):
     __doc__ = "Restricted to binary case"
 
-    def __init__(self, device='cpu'):
-        super().__init__(device=device)
+    def __init__(self):
         self.probabilities = []
         self.labels = []
         self.thresholds = None
@@ -327,8 +321,7 @@ class ConfusionMatrix(ETMetrics):
     F1 score from average precision and recall is calculated
     """
 
-    def __init__(self, num_classes=None, device='cpu'):
-        super().__init__(device=device)
+    def __init__(self, num_classes=None):
         self.num_classes = num_classes
         self.matrix = _torch.zeros(num_classes, num_classes).float()
 
@@ -339,12 +332,8 @@ class ConfusionMatrix(ETMetrics):
         self.matrix += other.matrix
 
     def add(self, pred: _torch.Tensor, true: _torch.Tensor):
-        pred = pred.clone().long().reshape(1, -1).squeeze()
-        true = true.clone().long().reshape(1, -1).squeeze()
-        self.matrix += _torch.sparse.LongTensor(
-            _torch.stack([pred, true]).to(self.device),
-            _torch.ones_like(pred).long().to(self.device),
-            _torch.Size([self.num_classes, self.num_classes])).to_dense().to(self.device)
+        unique_mapping = (true.view(-1) * self.num_classes + pred.view(-1)).to(_torch.long)
+        self.matrix += _torch.bincount(unique_mapping, minlength=self.num_classes ** 2).reshape(5, 5).T
 
     def precision(self, average=True):
         precision = [0] * self.num_classes
