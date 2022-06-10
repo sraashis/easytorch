@@ -12,6 +12,7 @@ import torch
 import torch as _torch
 import torch.distributed as _dist
 from sklearn import metrics as _metrics
+import json as _json
 
 from easytorch.config.state import *
 
@@ -20,27 +21,28 @@ class ETMetrics:
     def __init__(self, device='cpu', **kw):
         self.device = device
 
-    def __getattribute__(self, attribute):
-        if attribute == "__dict__":
-            obj = object.__getattribute__(self, attribute)
-            for k in obj:
-                if isinstance(obj[k], _np.ndarray):
-                    obj[k] = obj[k].tolist()
-                elif isinstance(obj[k], _torch.Tensor):
-                    obj[k] = obj[k].cpu().tolist()
+    def serialize(self, skip_attributes=[]):
+        _self = vars(self)
+        attributes = {}
+        for k in set(_self) - set(skip_attributes):
 
-                if isinstance(obj[k], list) and len(obj[k]) > 1111:
-                    obj[k] = "<Truncated>"
+            if isinstance(_self[k], _np.ndarray):
+                attributes[k] = _self[k].tolist()
 
-                if isinstance(obj[k], _np.ndarray) and obj[k].size > 11111:
-                    obj[k] = "<Truncated>"
+            elif isinstance(_self[k], _torch.Tensor):
+                attributes[k] = _self[k].cpu().tolist()
 
-                if isinstance(obj[k], _torch.Tensor) and obj[k].numel() > 11111:
-                    obj[k] = "<Truncated>"
+            elif isinstance(_self[k], ETMetrics) or isinstance(_self[k], ETAverages):
+                attributes[k] = _self[k].serialize()
 
-            return obj
-        else:
-            return object.__getattribute__(self, attribute)
+            else:
+                try:
+                    _json.dumps(_self[k])
+                    attributes[k] = _self[k]
+                except (TypeError, OverflowError):
+                    attributes[k] = f"{_self[k]}"
+
+        return attributes
 
     @_abc.abstractmethod
     def add(self, *args, **kw):
@@ -275,9 +277,6 @@ class Prf1a(ETMetrics):
         o = self.tp / max(self.tp + self.fp + self.fn, self.eps)
         return round(o, self.num_precision)
 
-    def serialize(self, **kw):
-        return [self.tn, self.fp, self.fn, self.tp]
-
     def dist_gather(self, device='cpu'):
         serial = _torch.from_numpy(_np.array([self.tn, self.fp, self.fn, self.tp])).to(device)
         _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
@@ -320,12 +319,16 @@ class AUCROCMetrics(ETMetrics):
         self.probabilities += pred.flatten().clone().detach().cpu().tolist()
         self.labels += true.clone().flatten().detach().cpu().tolist()
 
+    def serialize(self, skip_attributes=[]):
+        return super(AUCROCMetrics, self).serialize(skip_attributes=['probabilities', 'labels'])
+
 
 class ConfusionMatrix(ETMetrics):
     """
     Confusion matrix  is used in multi class classification case.
-    x-axis is predicted. y-axis is true label.
+    x-axis is predicted. y-axis is true label.(Like sklearn)
     F1 score from average precision and recall is calculated
+    multilabel: N * 2 * C
     """
 
     def __init__(self, num_classes=None, multilabel=False, **kw):
@@ -349,6 +352,18 @@ class ConfusionMatrix(ETMetrics):
         self.matrix += other.matrix
 
     def add(self, pred: _torch.Tensor, true: _torch.Tensor):
+        """
+        :param pred: N * 2 * ...
+        :param true: N * 2 * ...
+        Computes macro F1 by Default.
+        """
+
+        if self.multilabel and len(pred.shape) == 2 and pred.shape[0] != 2:
+            raise ValueError(f'ConfusionMatrix only supports binary multi-label classification as of now.')
+
+        if self.multilabel and len(pred.shape) > 2 and pred.shape[1] != 2:
+            raise ValueError(f'ConfusionMatrix only supports binary multi-label classification as of now.')
+
         if self.multilabel:
             self.prfa.add(pred, true)
             unique_mapping = ((2 * true + pred) + 4 * _torch.arange(self.num_classes, device=self.device)).flatten()
@@ -356,13 +371,13 @@ class ConfusionMatrix(ETMetrics):
                 self.num_classes,
                 2,
                 2
-            ).mT
+            )
         else:
             unique_mapping = (true.view(-1) * self.num_classes + pred.view(-1)).to(_torch.long)
             matrix = _torch.bincount(unique_mapping, minlength=self.num_classes ** 2).reshape(
                 self.num_classes,
                 self.num_classes
-            ).T
+            )
         self.matrix += matrix
 
     def precision(self, average=True):

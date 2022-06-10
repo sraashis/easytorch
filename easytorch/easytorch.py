@@ -266,12 +266,12 @@ class EasyTorch:
 
         with open(trainer.cache['log_dir'] + _sep + LogKey.SERIALIZABLE_GLOBAL_TEST + '.json', 'w') as f:
             log = {
-                'averages': vars(meter.averages),
+                'averages': meter.averages.serialize(),
                 'metrics': {}
             }
 
             for mk in meter.metrics:
-                log['metrics'][mk] = vars(meter.metrics[mk])
+                log['metrics'][mk] = meter.metrics[mk].serialize()
 
             f.write(_json.dumps(log))
 
