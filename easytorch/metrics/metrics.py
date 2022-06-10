@@ -12,6 +12,7 @@ import torch
 import torch as _torch
 import torch.distributed as _dist
 from sklearn import metrics as _metrics
+import json as _json
 
 from easytorch.config.state import *
 
@@ -20,27 +21,30 @@ class ETMetrics:
     def __init__(self, device='cpu', **kw):
         self.device = device
 
-    def __getattribute__(self, attribute):
-        if attribute == "__dict__":
-            obj = object.__getattribute__(self, attribute)
-            for k in obj:
-                if isinstance(obj[k], _np.ndarray):
-                    obj[k] = obj[k].tolist()
-                elif isinstance(obj[k], _torch.Tensor):
-                    obj[k] = obj[k].cpu().tolist()
+    def serialize(self, skip_attributes=[]):
+        attributes = vars(self)
+        for k in set(attributes):
+            if k in skip_attributes:
+                del attributes[k]
+                continue
 
-                if isinstance(obj[k], list) and len(obj[k]) > 1111:
-                    obj[k] = "<Truncated>"
+            if isinstance(attributes[k], _np.ndarray):
+                attributes[k] = attributes[k].tolist()
 
-                if isinstance(obj[k], _np.ndarray) and obj[k].size > 11111:
-                    obj[k] = "<Truncated>"
+            elif isinstance(attributes[k], _torch.Tensor):
+                attributes[k] = attributes[k].cpu().tolist()
 
-                if isinstance(obj[k], _torch.Tensor) and obj[k].numel() > 11111:
-                    obj[k] = "<Truncated>"
+            elif isinstance(attributes[k], ETMetrics) or isinstance(attributes[k], ETAverages):
+                attributes[k] = vars(attributes[k])
 
-            return obj
-        else:
-            return object.__getattribute__(self, attribute)
+            else:
+                try:
+                    _json.dumps(attributes[k])
+                    attributes[k] = attributes[k]
+                except (TypeError, OverflowError):
+                    attributes[k] = f"{vars(attributes[k])}"
+
+        return attributes
 
     @_abc.abstractmethod
     def add(self, *args, **kw):
@@ -275,9 +279,6 @@ class Prf1a(ETMetrics):
         o = self.tp / max(self.tp + self.fp + self.fn, self.eps)
         return round(o, self.num_precision)
 
-    def serialize(self, **kw):
-        return [self.tn, self.fp, self.fn, self.tp]
-
     def dist_gather(self, device='cpu'):
         serial = _torch.from_numpy(_np.array([self.tn, self.fp, self.fn, self.tp])).to(device)
         _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
@@ -319,6 +320,9 @@ class AUCROCMetrics(ETMetrics):
     def add(self, pred: _torch.Tensor, true: _torch.Tensor):
         self.probabilities += pred.flatten().clone().detach().cpu().tolist()
         self.labels += true.clone().flatten().detach().cpu().tolist()
+
+    def serialize(self, skip_attributes=[]):
+        return super(AUCROCMetrics, self).serialize(skip_attributes=['probabilities', 'labels'])
 
 
 class ConfusionMatrix(ETMetrics):
