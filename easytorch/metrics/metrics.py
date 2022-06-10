@@ -22,27 +22,25 @@ class ETMetrics:
         self.device = device
 
     def serialize(self, skip_attributes=[]):
-        attributes = vars(self)
-        for k in set(attributes):
-            if k in skip_attributes:
-                del attributes[k]
-                continue
+        _self = vars(self)
+        attributes = {}
+        for k in set(_self) - set(skip_attributes):
 
-            if isinstance(attributes[k], _np.ndarray):
-                attributes[k] = attributes[k].tolist()
+            if isinstance(_self[k], _np.ndarray):
+                attributes[k] = _self[k].tolist()
 
-            elif isinstance(attributes[k], _torch.Tensor):
-                attributes[k] = attributes[k].cpu().tolist()
+            elif isinstance(_self[k], _torch.Tensor):
+                attributes[k] = _self[k].cpu().tolist()
 
-            elif isinstance(attributes[k], ETMetrics) or isinstance(attributes[k], ETAverages):
-                attributes[k] = vars(attributes[k])
+            elif isinstance(_self[k], ETMetrics) or isinstance(_self[k], ETAverages):
+                attributes[k] = _self[k].serialize()
 
             else:
                 try:
-                    _json.dumps(attributes[k])
-                    attributes[k] = attributes[k]
+                    _json.dumps(_self[k])
+                    attributes[k] = _self[k]
                 except (TypeError, OverflowError):
-                    attributes[k] = f"{vars(attributes[k])}"
+                    attributes[k] = f"{_self[k]}"
 
         return attributes
 
@@ -328,8 +326,9 @@ class AUCROCMetrics(ETMetrics):
 class ConfusionMatrix(ETMetrics):
     """
     Confusion matrix  is used in multi class classification case.
-    x-axis is predicted. y-axis is true label.
+    x-axis is predicted. y-axis is true label.(Like sklearn)
     F1 score from average precision and recall is calculated
+    multilabel: N * 2 * C
     """
 
     def __init__(self, num_classes=None, multilabel=False, **kw):
@@ -353,6 +352,18 @@ class ConfusionMatrix(ETMetrics):
         self.matrix += other.matrix
 
     def add(self, pred: _torch.Tensor, true: _torch.Tensor):
+        """
+        :param pred: N * 2 * ...
+        :param true: N * 2 * ...
+        Computes macro F1 by Default.
+        """
+
+        if self.multilabel and len(pred.shape) == 2 and pred.shape[0] != 2:
+            raise ValueError(f'ConfusionMatrix only supports binary multi-label classification as of now.')
+
+        if self.multilabel and len(pred.shape) > 2 and pred.shape[1] != 2:
+            raise ValueError(f'ConfusionMatrix only supports binary multi-label classification as of now.')
+
         if self.multilabel:
             self.prfa.add(pred, true)
             unique_mapping = ((2 * true + pred) + 4 * _torch.arange(self.num_classes, device=self.device)).flatten()
@@ -360,13 +371,13 @@ class ConfusionMatrix(ETMetrics):
                 self.num_classes,
                 2,
                 2
-            ).mT
+            )
         else:
             unique_mapping = (true.view(-1) * self.num_classes + pred.view(-1)).to(_torch.long)
             matrix = _torch.bincount(unique_mapping, minlength=self.num_classes ** 2).reshape(
                 self.num_classes,
                 self.num_classes
-            ).T
+            )
         self.matrix += matrix
 
     def precision(self, average=True):
