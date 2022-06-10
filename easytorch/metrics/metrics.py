@@ -8,6 +8,7 @@ import time as _time
 from typing import List
 
 import numpy as _np
+import torch
 import torch as _torch
 import torch.distributed as _dist
 from sklearn import metrics as _metrics
@@ -107,12 +108,12 @@ class ETMetrics:
 
 
 class ETAverages(ETMetrics):
-    def __init__(self, num_averages=1, device='cpu'):
+    def __init__(self, num_averages=1, **kw):
         r"""
         This class can keep track of K averages.
         For example, in GAN we need to keep track of Generators loss
         """
-        super().__init__(device=device)
+        super().__init__(**kw)
         self.values = _np.array([0.0] * num_averages, dtype=_np.float)
         self.counts = _np.array([0.0] * num_averages, dtype=_np.float)
         self.num_averages = num_averages
@@ -210,17 +211,17 @@ class ETMeter:
 
 class Prf1a(ETMetrics):
     r"""
-    A class that has GPU based computation of:
+    A class that has GPU based computation for binary classification of:
         Precision, Recall, F1 Score, Accuracy, and Overlap(IOU).
     """
 
-    def __init__(self, device='cpu'):
-        super().__init__(device=device)
+    def __init__(self, **kw):
+        super().__init__(**kw)
         self.tn, self.fp, self.fn, self.tp = 0, 0, 0, 0
 
     def add(self, pred: _torch.Tensor, true: _torch.Tensor):
-        y_true = true.clone().int().view(1, -1).squeeze()
-        y_pred = pred.clone().int().view(1, -1).squeeze()
+        y_true = true.view(-1).int().squeeze()
+        y_pred = pred.view(-1).int().squeeze()
 
         y_true[y_true == 255] = 1
         y_pred[y_pred == 255] = 1
@@ -286,8 +287,8 @@ class Prf1a(ETMetrics):
 class AUCROCMetrics(ETMetrics):
     __doc__ = "Restricted to binary case"
 
-    def __init__(self, device='cpu'):
-        super().__init__(device=device)
+    def __init__(self, **kw):
+        super().__init__(**kw)
         self.probabilities = []
         self.labels = []
         self.thresholds = None
@@ -327,56 +328,84 @@ class ConfusionMatrix(ETMetrics):
     F1 score from average precision and recall is calculated
     """
 
-    def __init__(self, num_classes=None, device='cpu'):
-        super().__init__(device=device)
+    def __init__(self, num_classes=None, multilabel=False, **kw):
+        super().__init__(**kw)
+        self.multilabel = multilabel
         self.num_classes = num_classes
-        self.matrix = _torch.zeros(num_classes, num_classes).float()
+        self.matrix_eps = None
+        self.matrix = None
+        self.prfa = None
+        self.reset()
 
     def reset(self):
-        self.matrix = _torch.zeros(self.num_classes, self.num_classes).float()
+        if self.multilabel:
+            self.matrix = _torch.zeros(self.num_classes, 2, 2, device=self.device).long()
+            self.prfa = Prf1a()
+        else:
+            self.matrix = _torch.zeros(self.num_classes, self.num_classes, device=self.device).long()
+            self.matrix_eps = torch.from_numpy(_np.array([self.eps] * self.num_classes)).to(self.device)
 
     def accumulate(self, other: ETMetrics):
         self.matrix += other.matrix
 
     def add(self, pred: _torch.Tensor, true: _torch.Tensor):
-        pred = pred.clone().long().reshape(1, -1).squeeze()
-        true = true.clone().long().reshape(1, -1).squeeze()
-        self.matrix += _torch.sparse.LongTensor(
-            _torch.stack([pred, true]).to(self.device),
-            _torch.ones_like(pred).long().to(self.device),
-            _torch.Size([self.num_classes, self.num_classes])).to_dense().to(self.device)
+        if self.multilabel:
+            self.prfa.add(pred, true)
+            unique_mapping = ((2 * true + pred) + 4 * _torch.arange(self.num_classes, device=self.device)).flatten()
+            matrix = _torch.bincount(unique_mapping, minlength=4 * self.num_classes).reshape(
+                self.num_classes,
+                2,
+                2
+            ).mT
+        else:
+            unique_mapping = (true.view(-1) * self.num_classes + pred.view(-1)).to(_torch.long)
+            matrix = _torch.bincount(unique_mapping, minlength=self.num_classes ** 2).reshape(
+                self.num_classes,
+                self.num_classes
+            ).T
+        self.matrix += matrix
 
     def precision(self, average=True):
-        precision = [0] * self.num_classes
-        for i in range(self.num_classes):
-            precision[i] = self.matrix[i, i] / max(_torch.sum(self.matrix[:, i]).item(), self.eps)
-        precision = _np.array(precision)
-        return sum(precision) / self.num_classes if average else precision
+        if self.multilabel:
+            return self.prfa.precision
+
+        precision = _torch.diag(self.matrix) / _torch.maximum(self.matrix.sum(axis=0), self.matrix_eps)
+        if average:
+            return (sum(precision) / self.num_classes).item()
+        return precision
 
     def recall(self, average=True):
-        recall = [0] * self.num_classes
-        for i in range(self.num_classes):
-            recall[i] = self.matrix[i, i] / max(_torch.sum(self.matrix[i, :]).item(), self.eps)
-        recall = _np.array(recall)
-        return sum(recall) / self.num_classes if average else recall
+        if self.multilabel:
+            return self.prfa.recall
+
+        recall = _torch.diag(self.matrix) / _torch.maximum(self.matrix.sum(axis=1), self.matrix_eps)
+        if average:
+            return (sum(recall) / self.num_classes).item()
+        return recall
 
     def f1(self, average=True):
-        f_1 = []
-        precision = [self.precision(average)] if average else self.precision(average)
-        recall = [self.recall(average)] if average else self.recall(average)
-        for p, r in zip(precision, recall):
-            f_1.append(2 * p * r / max(p + r, self.eps))
-        f_1 = _np.array(f_1)
-        return f_1[0] if average else f_1
+        if self.multilabel:
+            return self.prfa.f1
+        p = self.precision(average)
+        r = self.recall(average)
+        if average:
+            return 2 * p * r / max(p + r, self.eps)
+        return 2 * p * r / torch.maximum(p + r, self.matrix_eps)
 
     def accuracy(self):
+        if self.multilabel:
+            return self.prfa.accuracy
         return self.matrix.trace().item() / max(self.matrix.sum().item(), self.eps)
 
     def get(self):
+        if self.multilabel:
+            return self.prfa.get()
         return [round(self.accuracy(), self.num_precision), round(self.f1(), self.num_precision),
                 round(self.precision(), self.num_precision), round(self.recall(), self.num_precision)]
 
     def dist_gather(self, device='cpu'):
+        if self.multilabel:
+            self.prfa.dist_gather(device=device)
         serial = self.matrix.clone().detach().to(device)
         _dist.all_reduce(serial, op=_dist.ReduceOp.SUM)
         self.matrix = serial.cpu()
