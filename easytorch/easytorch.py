@@ -18,6 +18,7 @@ from easytorch.trainer import ETTrainer
 from easytorch.utils.logger import *
 import uuid as _uuid
 from datetime import datetime as _dtime
+from pathlib import Path as _Path
 
 _sep = _os.sep
 
@@ -151,6 +152,7 @@ class EasyTorch:
         self._make_reproducible()
         self.args.update(is_master=self.args.get('is_master', True))
         self.args['RUN-ID'] = _dtime.now().strftime("ET-%Y%m%d-%H%M%S-") + _uuid.uuid4().hex[:8].upper()
+        self.args['log_dir'] = self.args['log_dir'] + _sep + self.args['phase'].upper()
 
     def _device_check(self):
         self.args['gpus'] = self.args['gpus'] if self.args.get('gpus') else []
@@ -217,7 +219,7 @@ class EasyTorch:
             if dspec.get('name') is None:
                 raise ValueError('Each dataspecs must have a unique name.')
 
-    def check_previous_logs(self, cache):
+    def _maybe_advance_run(self, cache):
         r"""
         Checks if there already is a previous run and prompt[Y/N] so that
         we avoid accidentally overriding previous runs and lose temper.
@@ -226,21 +228,18 @@ class EasyTorch:
         if self.args['force']:
             warn('Forced overriding previous logs.', self.args['verbose'])
             return
-        i = 'y'
-        if self.args['phase'] == 'train':
-            train_log = f"{cache['log_dir']}{_sep}{cache['experiment_id']}_log.json"
-            if _os.path.exists(train_log):
-                i = input(f"\n### Previous training log '{train_log}' exists. ### Override [y/n]:")
 
-        if self.args['phase'] == 'test':
-            test_log = cache['log_dir'] + _os.sep + f"{cache['experiment_id']}_test_log.json"
-            if _os.path.exists(test_log):
-                if _os.path.exists(test_log):
-                    i = input(f"\n### Previous test log '{test_log}' exists. ### Override [y/n]:")
-
-        if i.lower() == 'n':
-            raise FileExistsError(f"Previous experiment logs path: '{self.args['log_dir']} is not empty."
-                                  f"\n  Hint. Delete/Rename manually or Override(provide 'y' when prompted).")
+        nxt = -1
+        if _os.path.isdir(self.args['log_dir']):
+            for s in _os.listdir(self.args['log_dir']):
+                num = s.split('_')[-1]
+                try:
+                    num = ''.join([d for d in num if d.isdigit()])
+                    if int(num) > nxt:
+                        nxt = int(num)
+                except:
+                    pass
+        cache['log_dir'] += f"_v{nxt + 1}"
 
     @staticmethod
     def _init_fold_cache(split_file, cache):
@@ -252,8 +251,8 @@ class EasyTorch:
         cache[LogKey.TEST_METRICS] = []
 
         cache['experiment_id'] = split_file.split('.')[0]
-        cache['best_checkpoint'] = f"best_{cache['experiment_id']}_chk{CHK_EXT}"
-        cache['latest_checkpoint'] = f"latest_{cache['experiment_id']}_chk{CHK_EXT}"
+        cache['best_checkpoint'] = f"best_{cache['experiment_id']}{CHK_EXT}"
+        cache['latest_checkpoint'] = f"last_{cache['experiment_id']}{CHK_EXT}"
         cache.update(best_val_epoch=0, best_val_score=0.0)
         if cache['metric_direction'] == 'minimize':
             cache['best_val_score'] = MAX_SIZE
@@ -275,14 +274,14 @@ class EasyTorch:
 
             f.write(_json.dumps(log))
 
-    def _train(self, trainer, train_dataset, validation_dataset, dspec):
+    def _train(self, trainer, train_dataset, validation_dataset):
         trainer.train(train_dataset, validation_dataset)
         trainer.save_checkpoint(trainer.cache['log_dir'] + _sep + trainer.cache['latest_checkpoint'])
-        _utils.save_cache({**self.args, **trainer.cache, **dspec},
+        _utils.save_cache({**self.args, **trainer.cache, **trainer.data_handle.dataspec},
                           experiment_id=trainer.cache['experiment_id'])
         trainer.cache['_saved'] = True
 
-    def _test(self, split_file, trainer, test_dataset, dspec) -> dict:
+    def _test(self, split_file, trainer, test_dataset) -> dict:
         best_exists = _os.path.exists(trainer.cache['log_dir'] + _sep + trainer.cache['best_checkpoint'])
         if best_exists and (self.args['phase'] == Phase.TRAIN or self.args['pretrained_path'] is None):
             """ Best model will be split_name.pt in training phase, and if no pretrained path is supplied. """
@@ -297,7 +296,7 @@ class EasyTorch:
                            file_keys=[LogKey.TEST_METRICS])
 
         if not trainer.cache.get('_saved'):
-            _utils.save_cache({**self.args, **trainer.cache, **dspec},
+            _utils.save_cache({**self.args, **trainer.cache, **trainer.data_handle.dataspec},
                               experiment_id=f"{trainer.cache['experiment_id']}_test")
 
         return test_out
@@ -313,18 +312,20 @@ class EasyTorch:
 
     def _run(self, trainer_cls, dataset_cls, data_handle_cls):
         r"""Run for individual datasets"""
-        if self.args['verbose']:
-            self._show_args()
-
         for dspec in self.dataspecs:
 
-            data_handle = data_handle_cls(args=self.args, dataloader_args=self.dataloader_args)
+            data_handle = data_handle_cls(args=self.args, dataloader_args=self.dataloader_args, dataspec=dspec)
             trainer = trainer_cls(args=self.args, data_handle=data_handle)
             trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
 
             trainer.cache['log_dir'] = self.args['log_dir'] + _sep + dspec['name']
-            trainer.data_handle.init_dataspec_(dspec)
-            trainer.data_handle.create_splits(dspec, out_dir=trainer.cache.get('log_dir'))
+            if self.args['is_master']:
+                self._maybe_advance_run(trainer.cache)
+            if self.args['verbose']:
+                self._show_args()
+
+            trainer.data_handle.init_dataspec_()
+            trainer.data_handle.create_splits(out_dir=trainer.cache.get('log_dir'))
 
             trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
             trainer.cache['log_header'] = 'Loss|Accuracy'
@@ -333,24 +334,28 @@ class EasyTorch:
             """ Init and Run for each splits. """
             test_accum = []
             trainer.init_experiment_cache()
+
             _os.makedirs(trainer.cache['log_dir'], exist_ok=True)
+            if dspec['split_dir'].endswith('.json') or dspec['split_dir'].endswith('.txt'):
+                split = _Path(dspec['split_dir'])
+                splits = [str(split.name)]
+                data_handle.dataspec['split_dir'] = str(split.parent)
+            else:
+                splits = sorted(_os.listdir(dspec['split_dir']))
 
-            for split_file in sorted(_os.listdir(dspec['split_dir'])):
+            for split_file in splits:
                 self._init_fold_cache(split_file, trainer.cache)
-                if self.args['is_master']:
-                    self.check_previous_logs(trainer.cache)
-
                 trainer.init_nn()
                 if self.args['phase'] == Phase.TRAIN:
-                    train_dataset = trainer.data_handle.get_train_dataset(split_file, dspec, dataset_cls=dataset_cls)
+                    train_dataset = trainer.data_handle.get_train_dataset(split_file, dataset_cls=dataset_cls)
                     validation_dataset = trainer.data_handle.get_validation_dataset(
-                        split_file, dspec, dataset_cls=dataset_cls)
-                    self._train(trainer, train_dataset, validation_dataset, dspec)
+                        split_file, dataset_cls=dataset_cls)
+                    self._train(trainer, train_dataset, validation_dataset)
 
                 if self.args['is_master']:
-                    test_dataset = trainer.data_handle.get_test_dataset(split_file, dspec, dataset_cls=dataset_cls)
+                    test_dataset = trainer.data_handle.get_test_dataset(split_file, dataset_cls=dataset_cls)
                     if test_dataset is not None:
-                        test_accum.append(self._test(split_file, trainer, test_dataset, dspec))
+                        test_accum.append(self._test(split_file, trainer, test_dataset))
 
                 if trainer.args.get('use_ddp'):
                     _dist.barrier()
@@ -375,17 +380,24 @@ class EasyTorch:
 
     def _run_pooled(self, trainer_cls, dataset_cls, data_handle_cls):
         r"""  Run in pooled fashion. """
-        if self.args['verbose']:
-            self._show_args()
-
         data_handle = data_handle_cls(args=self.args, dataloader_args=self.dataloader_args)
         trainer = trainer_cls(args=self.args, data_handle=data_handle)
         trainer.init_nn(init_models=False, init_weights=False, init_optimizer=False)
 
         trainer.cache['log_dir'] = self.args['log_dir'] + _sep + f'Pooled_{len(self.dataspecs)}'
+        if self.args['is_master']:
+            self._maybe_advance_run(trainer.cache)
+        if self.args['verbose']:
+            self._show_args()
+
         for dspec in self.dataspecs:
-            trainer.data_handle.init_dataspec_(dspec)
-            trainer.data_handle.create_splits(dspec, out_dir=trainer.cache['log_dir'] + _sep + dspec['name'])
+            trainer.data_handle.dataspec = dspec
+            trainer.data_handle.init_dataspec_()
+            trainer.data_handle.create_splits(out_dir=trainer.cache['log_dir'] + _sep + dspec['name'])
+
+        trainer.data_handle.dataspec = {}
+        for dspec in self.dataspecs:
+            trainer.data_handle.dataspec[dspec['name']] = dspec
 
         trainer.cache[LogKey.GLOBAL_TEST_METRICS] = []
         trainer.cache['log_header'] = 'Loss|Accuracy'
@@ -402,9 +414,6 @@ class EasyTorch:
 
         for i, splits in enumerate(zip(*split_groups)):
             self._init_fold_cache(f'fold_{i}.none', trainer.cache)
-
-            if self.args['is_master']:
-                self.check_previous_logs(trainer.cache)
 
             trainer.init_nn()
             if self.args['phase'] == Phase.TRAIN:
@@ -428,7 +437,7 @@ class EasyTorch:
                     load_sparse=False
                 )[0]
 
-                self._train(trainer, train_dataset, val_dataset, {'dataspecs': self.dataspecs})
+                self._train(trainer, train_dataset, val_dataset)
 
             """Only do test in master rank node"""
             if self.args['is_master']:
@@ -441,7 +450,7 @@ class EasyTorch:
                     diskcache=data_handle.diskcache,
                     load_sparse=self.args['load_sparse']
                 )
-                test_accum.append(self._test('Pooled', trainer, test_dataset, {'dataspecs': self.dataspecs}))
+                test_accum.append(self._test('Pooled', trainer, test_dataset))
 
             if trainer.args.get('use_ddp'):
                 _dist.barrier()

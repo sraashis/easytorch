@@ -1,5 +1,4 @@
 import pathlib
-import pkg_resources
 import subprocess
 
 from setuptools import setup
@@ -20,16 +19,17 @@ _requires = ['numpy',
              'pandas',
              'seaborn']
 
+subprocess.call(["pip", "install", "--upgrade", "pip"])
+
 try:
-    pkg_resources.get_distribution('opencv-contrib-python')
-    subprocess.call(["pip", "uninstall", "opencv-contrib-python", "-y"])
+    import cv2
 except:
-    _requires.append('opencv-python-headless')
+    _requires.append('opencv-contrib-python-headless')
 
 # This call to setup() does all the work
 setup(
     name="easytorch",
-    version="3.4.3",
+    version="3.4.5",
     description="Easy Neural Network Experiments with pytorch",
     long_description=_README,
     long_description_content_type="text/markdown",
