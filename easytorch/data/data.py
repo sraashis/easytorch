@@ -20,12 +20,15 @@ import uuid as _uuid
 
 class DiskCache:
     def __init__(self, path, verbose=True):
-        _os.makedirs(path, exist_ok=True)
         self.path = path
         self.verbose = verbose
 
-    def add(self, key, value):
-        key = _os.path.basename(key) + '-' + _uuid.uuid4().hex[:8]
+    def _gen_key(self, name):
+        return _os.path.basename(name) + '-' + _uuid.uuid5(_uuid.NAMESPACE_X500, f"{name}").hex[:8]
+
+    def add(self, name, value):
+        _os.makedirs(self.path, exist_ok=True)
+        key = self._gen_key(name)
         with open(self.path + _os.sep + key + ".pkl", 'wb') as file:
             _pickle.dump(value, file, _pickle.HIGHEST_PROTOCOL)
         return key
@@ -42,58 +45,62 @@ class DiskCache:
 
 class ETDataHandle:
 
-    def __init__(self, args=None, dataloader_args=None, **kw):
+    def __init__(self, args=None, dataloader_args=None, dataspec=None, **kw):
         self.args = _etutils.FrozenDict(args)
         self.dataloader_args = _etutils.FrozenDict(dataloader_args)
         self.datasets = {}
+        self.dataspec = dataspec
         self.diskcache = DiskCache(
             self.args['log_dir'] + _os.sep + "_cache" + _sep + self.args['RUN-ID'],
             self.args['verbose']
         )
 
-    def get_dataset(self, handle_key, files, dataspec: dict, reuse=True, dataset_cls=None):
+    def get_dataset(self, handle_key, files, reuse=True, dataset_cls=None):
         if reuse and self.datasets.get(handle_key):
             return self.datasets[handle_key]
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
-        dataset.add(files=files, diskcache=self.diskcache, verbose=self.args['verbose'], **dataspec)
+        dataset.add(files=files, diskcache=self.diskcache, verbose=self.args['verbose'], **self.dataspec)
         if reuse:
             self.datasets[handle_key] = dataset
         return dataset
 
-    def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None):
+    def get_train_dataset(self, split_file, dataset_cls=None):
         if dataset_cls is None or self.dataloader_args.get('train', {}).get('dataset'):
             return self.dataloader_args.get('train', {}).get('dataset')
 
         r"""Load the train data from current fold/split."""
-        with open(dataspec['split_dir'] + _sep + split_file) as file:
+        with open(self.dataspec['split_dir'] + _sep + split_file) as file:
             split = _json.loads(file.read())
-            train_dataset = self.get_dataset('train', split.get('train', []),
-                                             dataspec, dataset_cls=dataset_cls)
+            train_dataset = self.get_dataset('train', split.get('train', []), dataset_cls=dataset_cls)
             return train_dataset
 
-    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None):
+    def get_validation_dataset(self, split_file, dataset_cls=None):
         if dataset_cls is None or self.dataloader_args.get('validation', {}).get('dataset'):
             return self.dataloader_args.get('validation', {}).get('dataset')
 
         r""" Load the validation data from current fold/split."""
-        with open(dataspec['split_dir'] + _sep + split_file) as file:
+        with open(self.dataspec['split_dir'] + _sep + split_file) as file:
             split = _json.loads(file.read())
-            val_dataset = self.get_dataset('validation', split.get('validation', []),
-                                           dataspec, dataset_cls=dataset_cls)
+            val_dataset = self.get_dataset('validation', split.get('validation', []), dataset_cls=dataset_cls)
             if val_dataset and len(val_dataset) > 0:
                 return val_dataset
 
-    def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None):
+    def get_test_dataset(self, split_file, dataset_cls=None):
         if dataset_cls is None or self.dataloader_args.get('test', {}).get('dataset'):
             return self.dataloader_args.get('test', {}).get('dataset')
 
-        with open(dataspec['split_dir'] + _sep + split_file) as file:
-            _files = _json.loads(file.read()).get('test', [])[:self.args['load_limit']]
+        with open(self.dataspec['split_dir'] + _sep + split_file) as file:
+            if split_file.endswith('.json'):
+                _files = _json.loads(file.read()).get('test', [])
+
+            elif split_file.endswith('.txt'):
+                _files = file.read().splitlines()
+
             if self.args['load_sparse']:
-                datasets = _multi.multi_load('test', _files, dataspec, self.args, dataset_cls, self.diskcache)
+                datasets = _multi.multi_load('test', _files, self.dataspec, self.args, dataset_cls, self.diskcache)
                 success(f'\n{len(datasets)} sparse dataset loaded.', self.args['verbose'])
             else:
-                datasets = self.get_dataset('test', _files, dataspec, dataset_cls=dataset_cls)
+                datasets = self.get_dataset('test', _files, self.dataspec, dataset_cls=dataset_cls)
 
             if len(datasets) > 0 and sum([len(t) for t in datasets if t]) > 0:
                 return datasets
@@ -149,78 +156,78 @@ class ETDataHandle:
 
         return _DataLoader(collate_fn=_multi.safe_collate, **loader_args)
 
-    def create_splits(self, dataspec, out_dir):
-        if _du.should_create_splits_(out_dir, dataspec, self.args):
-            _du.default_data_splitter_(files=self._list_files(dataspec), dspec=dataspec, args=self.args)
-            info(f"{len(_os.listdir(dataspec['split_dir']))} split(s) created in '{dataspec['split_dir']}' directory.",
-                 self.args['verbose'])
+    def create_splits(self, out_dir):
+        if _du.should_create_splits_(out_dir, self.dataspec, self.args):
+            _du.default_data_splitter_(files=self._list_files(), dspec=self.dataspec, args=self.args)
+            info(f"{len(_os.listdir(self.dataspec['split_dir']))} split(s) created in "
+                 f"'{self.dataspec['split_dir']}' directory.", self.args['verbose'])
         else:
-            splits_len = len(_os.listdir(dataspec['split_dir']))
-            info(f"{splits_len} split(s) loaded from '{dataspec['split_dir']}' directory.",
+            splits_len = len(_os.listdir(self.dataspec['split_dir']))
+            info(f"{splits_len} split(s) loaded from '{self.dataspec['split_dir']}' directory.",
                  self.args['verbose'] and splits_len > 0)
 
-    def _list_files(self, dspec) -> list:
-        ext = dspec.get('extension', '*').replace('.', '')
-        rec = dspec.get('recursive', False)
+    def _list_files(self) -> list:
+        ext = self.dataspec.get('extension', '*').replace('.', '')
+        rec = self.dataspec.get('recursive', False)
         rec_pattern = '**/' if rec else ''
-        if dspec.get('sub_folders') is None:
-            _path = dspec['data_dir']
+        if self.dataspec.get('sub_folders') is None:
+            _path = self.dataspec['data_dir']
             _pattern = f"{_path}/{rec_pattern}*.{ext}"
             _files = _glob.glob(_pattern, recursive=rec)
             return [f.replace(_path + _sep, '') for f in _files]
 
         files = []
-        for sub in dspec['sub_folders']:
-            path = dspec['data_dir'] + _sep + sub
-            files += [f.replace(dspec['data_dir'] + _sep, '') for f in
+        for sub in self.dataspec['sub_folders']:
+            path = self.dataspec['data_dir'] + _sep + sub
+            files += [f.replace(self.dataspec['data_dir'] + _sep, '') for f in
                       _glob.glob(f"{path}/{rec_pattern}*.{ext}", recursive=rec)]
         return files
 
-    def init_dataspec_(self, dataspec: dict):
-        for k in dataspec:
+    def init_dataspec_(self):
+        for k in self.dataspec:
             if '_dir' in k:
-                path = _os.path.join(self.args['dataset_dir'], dataspec[k])
+                path = _os.path.join(self.args['dataset_dir'], self.dataspec[k])
                 path = path.replace(f"{_sep}{_sep}", _sep)
                 if path.endswith(_sep):
                     path = path[:-1]
-                dataspec[k] = path
+                self.dataspec[k] = path
 
 
 class KFoldDataHandle(ETDataHandle):
     """Use this when needed to run k-fold(train,test one each fold) on directly passed Dataset from dataloader_args"""
 
-    def create_splits(self, dataspec, out_dir):
+    def create_splits(self, out_dir):
         if self.args.get('num_folds') is None:
-            super(KFoldDataHandle, self).create_splits(dataspec, out_dir)
+            super(KFoldDataHandle, self).create_splits(out_dir)
         else:
-            dataspec['split_dir'] = out_dir + _os.sep + 'splits'
-            _os.makedirs(dataspec['split_dir'], exist_ok=True)
+            self.dataspec['split_dir'] = out_dir + _os.sep + 'splits'
+            _os.makedirs(self.dataspec['split_dir'], exist_ok=True)
             _du.create_k_fold_splits(
                 list(range(len(self.dataloader_args['train']['dataset']))), self.args['num_folds'],
-                save_to_dir=dataspec['split_dir']
+                save_to_dir=self.dataspec['split_dir']
             )
 
-    def get_test_dataset(self, split_file, dataspec: dict, dataset_cls=None):
+    def get_test_dataset(self, split_file, dataset_cls=None):
         if self.args.get('num_folds') is None:
-            return super(KFoldDataHandle, self).get_test_dataset(split_file, dataspec, dataset_cls)
+            return super(KFoldDataHandle, self).get_test_dataset(split_file, dataset_cls)
         else:
-            with open(dataspec['split_dir'] + _os.sep + split_file) as file:
+            with open(self.dataspec['split_dir'] + _os.sep + split_file) as file:
                 test_ix = _json.loads(file.read()).get('test', [])
                 return _data.Subset(self.dataloader_args['train']['dataset'], test_ix)
 
-    def get_train_dataset(self, split_file, dataspec: dict, dataset_cls=None):
+    def get_train_dataset(self, split_file, dataset_cls=None):
         if self.args.get('num_folds') is None:
-            return super(KFoldDataHandle, self).get_train_dataset(split_file, dataspec, dataset_cls)
+            return super(KFoldDataHandle, self).get_train_dataset(split_file, dataset_cls)
         else:
-            with open(dataspec['split_dir'] + _os.sep + split_file) as file:
+            with open(self.dataspec['split_dir'] + _os.sep + split_file) as file:
                 train_ix = _json.loads(file.read()).get('train', [])
                 return _data.Subset(self.dataloader_args['train']['dataset'], train_ix)
 
-    def get_validation_dataset(self, split_file, dataspec: dict, dataset_cls=None):
+    def get_validation_dataset(self, split_file, dataset_cls=None):
         if self.args.get('num_folds') is None:
-            return super(KFoldDataHandle, self).get_validation_dataset(split_file, dataspec, dataset_cls)
+            return super(KFoldDataHandle, self).get_validation_dataset(split_file, dataset_cls)
         else:
-            with open(dataspec['split_dir'] + _os.sep + split_file) as file:
+            with open(self.dataspec['split_dir'] + _os.sep + split_file) as file:
                 val_ix = _json.loads(file.read()).get('validation', [])
                 return _data.Subset(self.dataloader_args['train']['dataset'], val_ix)
 
