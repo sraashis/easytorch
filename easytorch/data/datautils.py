@@ -96,6 +96,9 @@ def make_weights_for_balanced_classes(images, nclasses):
 
 
 def should_create_splits_(log_dir, dspec, args):
+    if dspec['split_dir'].endswith('.json') or dspec['split_dir'].endswith('.txt'):
+        return False
+
     if dspec.get('split_dir') and _os.path.exists(dspec.get('split_dir')) and len(list(
             _os.listdir(dspec.get('split_dir')))) > 0:
         return False
