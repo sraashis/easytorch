@@ -176,6 +176,7 @@ MyOTHERDATA = {
   EasyTorch Module as below).
 * One can also provide custom splits(json files with train, validation, test data list) in the directory specified by
   split_dir in dataspec.
+* One can give a path to a .txt file with path list of images for test(inference) phase in split_dir field of dataspec.
 * Additional options in dataspecs:
     * Load from sub-folders, "sub_folders": ["class0", "class1", ... "class_K"]
     * Load recursively, "recursive": True
