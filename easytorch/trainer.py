@@ -113,7 +113,7 @@ class ETTrainer:
 
     def _set_device(self):
         r"""
-        Initialize GPUs based on whats provided in args(Default [0])
+        Initialize GPUs based on what's provided in args(Default [0])
         Expects list of GPUS as [0, 1, 2, 3]., list of GPUS will make it use DataParallel.
         If no GPU is present, CPU is used.
         """
@@ -136,12 +136,22 @@ class ETTrainer:
                 self.nn[model_key] = self.nn[model_key].to(self.device['gpu'])
 
     def _init_optimizer(self):
-        r"""
+        """
         Initialize required optimizers here. Default is Adam,
         """
         first_model = list(self.nn.keys())[0]
         self.optimizer['adam'] = _torch.optim.Adam(self.nn[first_model].parameters(),
                                                    lr=self.args['learning_rate'])
+
+        self.lr_scheduler = _torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer['adam'],
+            mode=self.cache['metric_direction'][:3].lower(),
+            factor=self.cache.setdefault('lr_decay_factor', 0.2),
+            patience=self.cache.setdefault('lr_decay_patience', 15),
+            threshold=self.cache.setdefault('lr_decay_threshold', 1e-6),
+            min_lr=self.cache.setdefault('lr_min', 1e-6),
+            verbose=self.cache.setdefault('lr_decay_verbose', True)
+        )
 
     def new_meter(self):
         r"""
@@ -489,4 +499,8 @@ class ETTrainer:
 
     def _on_epoch_end(self, epoch, training_meter=None, validation_meter=None):
         """Local epoch end"""
-        pass
+        if validation_meter:
+            self.lr_scheduler.step(validation_meter.extract(self.cache['monitor_metric'])[1])
+
+        elif training_meter:
+            self.lr_scheduler.step(training_meter.extract(self.cache['monitor_metric'])[1])
