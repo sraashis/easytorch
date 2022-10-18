@@ -2,6 +2,7 @@ import glob as _glob
 import json as _json
 import math as _math
 import os as _os
+import os.path
 from os import sep as _sep
 
 import torch as _torch
@@ -161,10 +162,14 @@ class ETDataHandle:
             _du.default_data_splitter_(files=self._list_files(), dspec=self.dataspec, args=self.args)
             info(f"{len(_os.listdir(self.dataspec['split_dir']))} split(s) created in "
                  f"'{self.dataspec['split_dir']}' directory.", self.args['verbose'])
-        else:
+
+        elif os.path.isdir(self.dataspec['split_dir']):
             splits_len = len(_os.listdir(self.dataspec['split_dir']))
             info(f"{splits_len} split(s) loaded from '{self.dataspec['split_dir']}' directory.",
                  self.args['verbose'] and splits_len > 0)
+        else:
+            info(f"Split loaded from file {self.dataspec['split_dir']}.",
+                 self.args['verbose'])
 
     def _list_files(self) -> list:
         ext = self.dataspec.get('extension', '*').replace('.', '')
