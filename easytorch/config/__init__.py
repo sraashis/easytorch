@@ -27,7 +27,7 @@ default_ap.add_argument("-b", "--batch_size", default=4, type=int, help="Mini-ba
 default_ap.add_argument('-ep', '--epochs', default=11, type=int, help='Number of epochs.')
 default_ap.add_argument('-gi', '--grad_accum_iters', default=1, type=int,
                         help='Number of iterations for gradient accumulation.')
-default_ap.add_argument('-lr', '--learning_rate', default=0.001, type=float, help='Learning rate.')
+default_ap.add_argument('-lr', '--learning_rate', default=0.01, type=float, help='Learning rate.')
 default_ap.add_argument('-gpus', '--gpus', default=list(range(NUM_GPUS)), nargs='*', type=int,
                         help='How many gpus to use?')
 default_ap.add_argument('-pin', '--pin_memory', default=False, type=boolean_string, help='Pin Memory.')

@@ -146,11 +146,11 @@ class ETTrainer:
         self.lr_scheduler = _torch.optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer['adam'],
             mode=self.cache['metric_direction'][:3].lower(),
-            factor=self.cache.setdefault('lr_decay_factor', 0.2),
-            patience=self.cache.setdefault('lr_decay_patience', 15),
-            threshold=self.cache.setdefault('lr_decay_threshold', 1e-6),
-            min_lr=self.cache.setdefault('lr_min', 1e-6),
-            verbose=self.cache.setdefault('lr_decay_verbose', True)
+            factor=self.args.get('lr_decay_factor', 0.2),
+            patience=self.args.get('lr_decay_patience', 15),
+            threshold=self.args.get('lr_decay_threshold', 1e-6),
+            min_lr=self.args.get('lr_min', 1e-6),
+            verbose=self.args.get('lr_decay_verbose', True)
         )
 
     def new_meter(self):
