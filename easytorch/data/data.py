@@ -184,8 +184,7 @@ class ETDataHandle:
         files = []
         for sub in self.dataspec['sub_folders']:
             path = self.dataspec['data_dir'] + _sep + sub
-            files += [f.replace(self.dataspec['data_dir'] + _sep, '') for f in
-                      _glob.glob(f"{path}/{rec_pattern}*.{ext}", recursive=rec)]
+            files += _glob.glob(f"{path}/{rec_pattern}*.{ext}", recursive=rec)
         return files
 
     def init_dataspec_(self):
@@ -247,12 +246,12 @@ class ETDataset(_Dataset):
         self.args = _etutils.FrozenDict(kw)
         self.dataspecs = _etutils.FrozenDict({})
 
-    def load_index(self, dataset_name, file):
+    def load_index(self, dataspec_name, file):
         r"""
         Logic to load indices of a single file.
         -Sometimes one image can have multiple indices like U-net where we have to get multiple patches of images.
         """
-        self.indices.append([dataset_name, file])
+        self.indices.append([dataspec_name, file])
 
     def _load_indices(self, dataspec_name, files, verbose=True):
         r"""

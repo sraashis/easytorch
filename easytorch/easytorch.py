@@ -30,6 +30,7 @@ def _ddp_worker(rank, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled
     if not world_size:
         world_size = self.args['num_gpus'] * self.args['num_nodes']
     world_rank = self.args['node_rank'] * self.args['num_gpus'] + rank
+    self.args['world_rank'] = world_rank
 
     self.args['is_master'] = world_rank == MASTER_RANK
     _dist.init_process_group(backend=self.args['dist_backend'],
@@ -151,7 +152,7 @@ class EasyTorch:
         self._ddp_setup()
         self._make_reproducible()
         self.args.update(is_master=self.args.get('is_master', True))
-        self.args['RUN-ID'] = _dtime.now().strftime("ET-%Y%m%d-%H%M%S-") + _uuid.uuid4().hex[:8].upper()
+        self.args['RUN-ID'] = _dtime.now().strftime("ET-%Y%m%d-%H%M%S-") + _uuid.uuid4().hex[:4].upper()
         self.args['log_dir'] = self.args['log_dir'] + _sep + self.args['phase'].upper()
 
     def _device_check(self):
