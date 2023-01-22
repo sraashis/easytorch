@@ -55,18 +55,18 @@ class BaseImageDataset(_ETDataset, _ABC):
 class PatchedImgDataset(BaseImageDataset, _ABC):
     """dataspec must have patch_shape, patch_offset, """
 
-    def load_index(self, dataset_name, file):
+    def load_index(self, dataspec_name, file):
         r"""
-        :param dataset_name: name of teh dataset as provided in train_dataspecs
+        :param dataspec_name: name of teh dataset as provided in train_dataspecs
         :param file: Name of an image
         :return:
         Logic split an image to patches and feed to U-Net. Meanwhile we need to store the four-corners
             of each patch so that we can rejoin the full image from the patches' corresponding predictions.
         """
-        dt = self.dataspecs[dataset_name]
+        dt = self.dataspecs[dataspec_name]
         obj = self.load_img(dt, file)
 
-        cache_key = self.diskcache.add(f"{dataset_name}_{file}", obj)
+        cache_key = self.diskcache.add(f"{dataspec_name}_{file}", obj)
         for corners in _imgutils.get_chunk_indexes(
                 obj.array.shape[:2],
                 dt['patch_shape'],
@@ -76,7 +76,7 @@ class PatchedImgDataset(BaseImageDataset, _ABC):
             get_chunk_indexes will return the list of four corners of all patches of the images  
             by using window size of self.patch_shape, and offset  of elf.patch_offset
             """
-            self.indices.append([dataset_name, file] + corners + [cache_key])
+            self.indices.append([dataspec_name, file] + corners + [cache_key])
 
 
 class BinaryPatchDataset(PatchedImgDataset):
@@ -252,14 +252,14 @@ class FullImgDataset(BaseImageDataset):
 
         return self._validate_image_data(dspec, img_obj)
 
-    def load_index(self, dataset_name, file):
-        dspec = self.dataspecs[dataset_name]
+    def load_index(self, dataspec_name, file):
+        dspec = self.dataspecs[dataspec_name]
         if self.labels is None:
             self.labels = self._load_labels(dspec)
 
         img_obj = self.load_img(dspec, file)
-        cache_key = self.diskcache.add(f"{dataset_name}_{file}", img_obj)
-        self.indices.append([dataset_name, file, self._get_label(file), cache_key])
+        cache_key = self.diskcache.add(f"{dataspec_name}_{file}", img_obj)
+        self.indices.append([dataspec_name, file, self._get_label(file), cache_key])
 
     def __getitem__(self, index):
         _dname, file, label, cache_key = self.indices[index]
