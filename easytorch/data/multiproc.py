@@ -56,23 +56,23 @@ def seed_worker(worker_id):
     _np.random.seed(seed)
 
 
-def _et_data_job(file, mode, args, dspec, dataset_cls, diskcache):
+def _et_data_job(file, mode, args, dataset_cls, diskcache):
     dataset = dataset_cls(mode=mode, **args)
     try:
-        dataset.add(files=[file], diskcache=diskcache, verbose=False, **dspec)
+        dataset.add(files=[file], diskcache=diskcache, verbose=False)
     except Exception as e:
         _tb.print_exc()
         print(f"{file} ### {e}")
     return dataset
 
 
-def et_data_job(mode, args, dspec, dataset_cls, total, verbose, diskcache, i, file):
+def et_data_job(mode, args, dataset_cls, total, verbose, diskcache, i, file):
     if verbose:
         print(f"Working on: [ {i} / {total} ]", end='\n' if i % LOG_FREQ == 0 else '\r')
-    return _et_data_job(file, mode, args, dspec, dataset_cls, diskcache)
+    return _et_data_job(file, mode, args, dataset_cls, diskcache)
 
 
-def multi_load(mode, files, dataspec, args, dataset_cls, diskcache=None) -> list:
+def multi_load(mode, files, args, dataset_cls, diskcache=None) -> list:
     r"""Note: Only works with easytorch's default args from easytorch import args"""
     _files = []
     for ix, f in enumerate(files, 1):
@@ -84,7 +84,7 @@ def multi_load(mode, files, dataspec, args, dataset_cls, diskcache=None) -> list
             dataset_list = list(
                 pool.starmap(
                     _partial(
-                        et_data_job, mode, args, dataspec, dataset_cls, len(_files), args.get('verbose'), diskcache
+                        et_data_job, mode, args, dataset_cls, len(_files), args.get('verbose'), diskcache
                     ),
                     _files
                 )

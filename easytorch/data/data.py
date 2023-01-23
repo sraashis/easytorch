@@ -1,3 +1,4 @@
+import glob
 import glob as _glob
 import json as _json
 import math as _math
@@ -17,6 +18,8 @@ from easytorch.utils.logger import *
 import pickle as _pickle
 import shutil as _shu
 import uuid as _uuid
+from pathlib import Path as _Path
+from easytorch.config.state import *
 
 
 class DiskCache:
@@ -46,67 +49,22 @@ class DiskCache:
 
 class ETDataHandle:
 
-    def __init__(self, args=None, dataloader_args=None, dataspec=None, **kw):
+    def __init__(self, args=None, dataloader_args=None, **kw):
         self.args = _etutils.FrozenDict(args)
         self.dataloader_args = _etutils.FrozenDict(dataloader_args)
         self.datasets = {}
-        self.dataspec = dataspec
         self.diskcache = DiskCache(
-            self.args['log_dir'] + _os.sep + "_cache" + _sep + self.args['RUN-ID'],
+            self.args['save_dir'] + _os.sep + "_cache" + _sep + self.args['RUN-ID'],
             self.args['verbose']
         )
+        self.data_source = args['data_source']
 
-    def get_dataset(self, handle_key, files, reuse=True, dataset_cls=None):
-        if reuse and self.datasets.get(handle_key):
-            return self.datasets[handle_key]
+    def get_dataset(self, handle_key, files, dataset_cls=None):
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
-        dataset.add(files=files, diskcache=self.diskcache, verbose=self.args['verbose'], **self.dataspec)
-        if reuse:
-            self.datasets[handle_key] = dataset
-        return dataset
+        dataset.add(files=files, diskcache=self.diskcache, verbose=self.args['verbose'])
+        return self.datasets.setdefault(handle_key, dataset)
 
-    def get_train_dataset(self, split_file, dataset_cls=None):
-        if dataset_cls is None or self.dataloader_args.get('train', {}).get('dataset'):
-            return self.dataloader_args.get('train', {}).get('dataset')
-
-        r"""Load the train data from current fold/split."""
-        with open(self.dataspec['split_dir'] + _sep + split_file) as file:
-            split = _json.loads(file.read())
-            train_dataset = self.get_dataset('train', split.get('train', []), dataset_cls=dataset_cls)
-            return train_dataset
-
-    def get_validation_dataset(self, split_file, dataset_cls=None):
-        if dataset_cls is None or self.dataloader_args.get('validation', {}).get('dataset'):
-            return self.dataloader_args.get('validation', {}).get('dataset')
-
-        r""" Load the validation data from current fold/split."""
-        with open(self.dataspec['split_dir'] + _sep + split_file) as file:
-            split = _json.loads(file.read())
-            val_dataset = self.get_dataset('validation', split.get('validation', []), dataset_cls=dataset_cls)
-            if val_dataset and len(val_dataset) > 0:
-                return val_dataset
-
-    def get_test_dataset(self, split_file, dataset_cls=None):
-        if dataset_cls is None or self.dataloader_args.get('test', {}).get('dataset'):
-            return self.dataloader_args.get('test', {}).get('dataset')
-
-        with open(self.dataspec['split_dir'] + _sep + split_file) as file:
-            if split_file.endswith('.json'):
-                _files = _json.loads(file.read()).get('test', [])
-
-            elif split_file.endswith('.txt'):
-                _files = file.read().splitlines()
-
-            if self.args['load_sparse']:
-                datasets = _multi.multi_load('test', _files, self.dataspec, self.args, dataset_cls, self.diskcache)
-                success(f'\n{len(datasets)} sparse dataset loaded.', self.args['verbose'])
-            else:
-                datasets = self.get_dataset('test', _files, self.dataspec, dataset_cls=dataset_cls)
-
-            if len(datasets) > 0 and sum([len(t) for t in datasets if t]) > 0:
-                return datasets
-
-    def get_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw):
+    def get_data_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw):
         args = {**self.args}
         args['distributed'] = distributed
         args['use_unpadded_sampler'] = use_unpadded_sampler
@@ -157,83 +115,27 @@ class ETDataHandle:
 
         return _DataLoader(collate_fn=_multi.safe_collate, **loader_args)
 
-    def create_splits(self, out_dir):
-        if _du.should_create_splits_(out_dir, self.dataspec, self.args):
-            _du.default_data_splitter_(files=self._list_files(), dspec=self.dataspec, args=self.args)
-            info(f"{len(_os.listdir(self.dataspec['split_dir']))} split(s) created in "
-                 f"'{self.dataspec['split_dir']}' directory.", self.args['verbose'])
+    def get_data_split(self):
 
-        elif os.path.isdir(self.dataspec['split_dir']):
-            splits_len = len(_os.listdir(self.dataspec['split_dir']))
-            info(f"{splits_len} split(s) loaded from '{self.dataspec['split_dir']}' directory.",
-                 self.args['verbose'] and splits_len > 0)
+        split = {"test": []}
+        if self.args['phase'] == Phase.TRAIN:
+            split['train'] = []
+            split['validation'] = []
+
+        if self.data_source.endswith('*.txt'):
+            for txt in glob.glob(self.data_source + os.sep + "*.txt"):
+                split[_Path(txt).stem] = open(txt).read().splitlines()
+
+        elif self.data_source.endswith('.json'):
+            split = _json.load(open(self.data_source))
+
         else:
-            info(f"Split loaded from file {self.dataspec['split_dir']}.",
-                 self.args['verbose'])
-
-    def _list_files(self) -> list:
-        ext = self.dataspec.get('extension', '*').replace('.', '')
-        rec = self.dataspec.get('recursive', False)
-        rec_pattern = '**/' if rec else ''
-        if self.dataspec.get('sub_folders') is None:
-            _path = self.dataspec['data_dir']
-            _pattern = f"{_path}/{rec_pattern}*.{ext}"
-            _files = _glob.glob(_pattern, recursive=rec)
-            return [f.replace(_path + _sep, '') for f in _files]
-
-        files = []
-        for sub in self.dataspec['sub_folders']:
-            path = self.dataspec['data_dir'] + _sep + sub
-            files += _glob.glob(f"{path}/{rec_pattern}*.{ext}", recursive=rec)
-        return files
-
-    def init_dataspec_(self):
-        for k in self.dataspec:
-            if '_dir' in k:
-                path = _os.path.join(self.args['dataset_dir'], self.dataspec[k])
-                path = path.replace(f"{_sep}{_sep}", _sep)
-                if path.endswith(_sep):
-                    path = path[:-1]
-                self.dataspec[k] = path
-
-
-class KFoldDataHandle(ETDataHandle):
-    """Use this when needed to run k-fold(train,test one each fold) on directly passed Dataset from dataloader_args"""
-
-    def create_splits(self, out_dir):
-        if self.args.get('num_folds') is None:
-            super(KFoldDataHandle, self).create_splits(out_dir)
-        else:
-            self.dataspec['split_dir'] = out_dir + _os.sep + 'splits'
-            _os.makedirs(self.dataspec['split_dir'], exist_ok=True)
-            _du.create_k_fold_splits(
-                list(range(len(self.dataloader_args['train']['dataset']))), self.args['num_folds'],
-                save_to_dir=self.dataspec['split_dir']
-            )
-
-    def get_test_dataset(self, split_file, dataset_cls=None):
-        if self.args.get('num_folds') is None:
-            return super(KFoldDataHandle, self).get_test_dataset(split_file, dataset_cls)
-        else:
-            with open(self.dataspec['split_dir'] + _os.sep + split_file) as file:
-                test_ix = _json.loads(file.read()).get('test', [])
-                return _data.Subset(self.dataloader_args['train']['dataset'], test_ix)
-
-    def get_train_dataset(self, split_file, dataset_cls=None):
-        if self.args.get('num_folds') is None:
-            return super(KFoldDataHandle, self).get_train_dataset(split_file, dataset_cls)
-        else:
-            with open(self.dataspec['split_dir'] + _os.sep + split_file) as file:
-                train_ix = _json.loads(file.read()).get('train', [])
-                return _data.Subset(self.dataloader_args['train']['dataset'], train_ix)
-
-    def get_validation_dataset(self, split_file, dataset_cls=None):
-        if self.args.get('num_folds') is None:
-            return super(KFoldDataHandle, self).get_validation_dataset(split_file, dataset_cls)
-        else:
-            with open(self.dataspec['split_dir'] + _os.sep + split_file) as file:
-                val_ix = _json.loads(file.read()).get('validation', [])
-                return _data.Subset(self.dataloader_args['train']['dataset'], val_ix)
+            files = _glob.glob(self.data_source)
+            split = _du.create_ratio_split(files, self.args['split_ratio'])
+            with open(self.args['save_dir'] + _sep + f"{_Path(self.args['save_dir']).name}_{self.args['name']}.json",
+                      'w') as fw:
+                _json.dump(split, fw)
+        return split
 
 
 class ETDataset(_Dataset):
@@ -244,16 +146,15 @@ class ETDataset(_Dataset):
         self.data = {}
         self.diskcache = None
         self.args = _etutils.FrozenDict(kw)
-        self.dataspecs = _etutils.FrozenDict({})
 
-    def load_index(self, dataspec_name, file):
+    def load_index(self, file):
         r"""
         Logic to load indices of a single file.
         -Sometimes one image can have multiple indices like U-net where we have to get multiple patches of images.
         """
-        self.indices.append([dataspec_name, file])
+        self.indices.append([file])
 
-    def _load_indices(self, dataspec_name, files, verbose=True):
+    def _load_indices(self, files, verbose=True):
         r"""
         We load the proper indices/names(whatever is called) of the files in order to prepare minibatches.
         Only load lim numbr of files so that it is easer to debug(Default is infinite, -lim/--load-lim argument).
@@ -264,7 +165,6 @@ class ETDataset(_Dataset):
             dataset_objs = _multi.multi_load(
                 self.mode,
                 _files,
-                self.dataspecs[dataspec_name],
                 self.args,
                 self.__class__,
                 diskcache=self.diskcache
@@ -273,8 +173,8 @@ class ETDataset(_Dataset):
         else:
             for i, file in enumerate(_files, 1):
                 info(f"Loading... {i}/{_files_len}", i % _multi.LOG_FREQ == 0)
-                self.load_index(dataspec_name, file)
-        success(f'{dataspec_name}, {self.mode}, {len(self)} indices Loaded.', verbose)
+                self.load_index(file)
+        success(f'{self.mode}, {len(self)} indices Loaded.', verbose)
 
     def gather(self, dataset_objs):
         for d in dataset_objs:
@@ -305,8 +205,7 @@ class ETDataset(_Dataset):
     def add(self, files, diskcache=None, verbose=True, **kw):
         r""" An extra layer for added flexibility."""
         self.diskcache = diskcache
-        self.dataspecs[kw['name']] = kw
-        self._load_indices(dataspec_name=kw['name'], files=files, verbose=verbose)
+        self._load_indices(files=files, verbose=verbose)
 
 
 class UnPaddedDDPSampler(_data.Sampler):

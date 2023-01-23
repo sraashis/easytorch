@@ -151,24 +151,17 @@ class MyTrainer(ETTrainer):
 
 ```python
 
-import os
-
-def get_label(x):
-    return x.split('_')[0] + '_label.png'
-
-sep = os.sep
-MYDATA = {
+DATA_A = {
     'name': 'mydata',
-    'data_dir': 'MYDATA' + sep + 'images',
-    'label_dir': 'MYDATA' + sep + 'labels',
-    'label_getter': get_label
+    'data_dir': 'MYDATA/images',
+    "extension":  ".png", # Optional
+    "recursive": True # optional
 }
 
-MyOTHERDATA = {
+DATA_B = {
     'name': 'otherdata',
-    'data_dir': 'OTHERDATA' + sep + 'images',
-    'label_dir': 'OTHERDATA' + sep + 'labels',
-    'label_getter': get_label
+    'split_dir': 'some/path/somedata.json' # A json file with train, test, validation as keys OR
+#   'split_dir': "some/path/somedata.txt" # List of files, text files works only in _test_ phase
 }
 ```
 

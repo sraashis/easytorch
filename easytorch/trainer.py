@@ -19,7 +19,7 @@ _sep = _os.sep
 
 
 class ETTrainer:
-    def __init__(self, args=None, data_handle=None, **kw):
+    def __init__(self, args=None, **kw):
         r"""
         args: receives the arguments passed by the ArgsParser.
         cache: Initialize all immediate things here. Like scores, loss, accuracies...
@@ -28,7 +28,6 @@ class ETTrainer:
         """
         self.cache = {}
         self.args = _etutils.FrozenDict(args)
-        self.data_handle = data_handle
 
         self.nn = {}
         self.optimizer = {}
@@ -184,9 +183,9 @@ class ETTrainer:
                     checkpoint['optimizers'][k] = self.optimizer[k].state_dict()
         _torch.save(checkpoint, full_path)
 
-    def init_experiment_cache(self):
+    def init_cache(self):
         r"""What scores you want to plot."""
-        self.cache['log_header'] = 'Loss,Accuracy'
+        self.cache['log_header'] = 'Loss|Accuracy'
 
         r"""This is for best model selection: """
         r"""It tells which metrics to monitor and either to maximize(F1 score), minimize(MSE)"""
@@ -211,16 +210,12 @@ class ETTrainer:
     def evaluation(self,
                    epoch=1,
                    mode='eval',
-                   dataloaders: list = None,
+                   dataloader=None,
                    save_pred=False) -> _metrics.ETMeter:
         for k in self.nn:
             self.nn[k].eval()
 
         eval_meter = self.new_meter()
-
-        if not dataloaders:
-            return eval_meter
-
         info(f'{mode} ...', self.args['verbose'])
 
         def _update_scores(_out, _it, _meter):
@@ -230,35 +225,34 @@ class ETTrainer:
                 _meter.accumulate(_it['meter'])
 
         with _torch.no_grad():
-            for loader in dataloaders:
-                try:
-                    its = []
-                    meter = self.new_meter()
+            try:
+                its = []
+                meter = self.new_meter()
 
-                    for i, batch in enumerate(loader, 1):
-                        it = self.iteration(batch)
+                for i, batch in enumerate(dataloader, 1):
+                    it = self.iteration(batch)
 
-                        if save_pred:
-                            if self.args['load_sparse']:
-                                its.append(it)
-                            else:
-                                _update_scores(self.save_predictions(loader.dataset, it), it, meter)
+                    if save_pred:
+                        if self.args['load_sparse']:
+                            its.append(it)
                         else:
-                            _update_scores(None, it, meter)
+                            _update_scores(self.save_predictions(dataloader.dataset, it), it, meter)
+                    else:
+                        _update_scores(None, it, meter)
 
-                        if self.args['verbose'] and len(dataloaders) <= 1 and lazy_debug(i, add=epoch):
-                            info(f"  Itr:{i}/{len(loader)}, {it['meter']}")
+                    if self.args['verbose'] and lazy_debug(i, add=epoch):
+                        info(f"  Itr:{i}/{len(dataloader)}, {it['meter']}")
 
-                    if save_pred and self.args['load_sparse']:
-                        its = self._reduce_iteration(its)
-                        _update_scores(self.save_predictions(loader.dataset, its), its, meter)
+                if save_pred and self.args['load_sparse']:
+                    its = self._reduce_iteration(its)
+                    _update_scores(self.save_predictions(dataloader.dataset, its), its, meter)
 
-                    if self.args['verbose'] and len(dataloaders) > 1:
-                        info(f" {mode}, {meter}")
+                if self.args['verbose']:
+                    info(f" {mode}, {meter}")
 
-                    eval_meter.accumulate(meter)
-                except:
-                    _tb.print_exc()
+                eval_meter.accumulate(meter)
+            except:
+                _tb.print_exc()
 
         info(f"{self.cache['experiment_id']} {mode} {eval_meter.get()}", self.args['verbose'])
         return eval_meter
@@ -384,14 +378,14 @@ class ETTrainer:
 
             running_meter.reset()
 
-    def inference(self, mode='test', save_predictions=True, datasets: list = None, distributed=False):
+    def inference(self, save_predictions=True, datasets: list = None, distributed=False):
         if not isinstance(datasets, list):
             datasets = [datasets]
 
         loaders = []
         for d in [_d for _d in datasets if _d]:
             loaders.append(
-                self.data_handle.get_loader(
+                self.data_handle.get_data_loader(
                     handle_key=mode, shuffle=False, dataset=d, distributed=distributed
                 )
             )
@@ -402,27 +396,10 @@ class ETTrainer:
             save_pred=save_predictions
         )
 
-    def train(self, train_dataset, validation_dataset) -> None:
+    def train(self, train_loader, validation_loader) -> None:
         info('Training ...', self.args['verbose'])
 
-        train_loader = self.data_handle.get_loader(
-            handle_key='train',
-            shuffle=True,
-            dataset=train_dataset,
-            distributed=self.args['use_ddp']
-        )
-
-        val_loader = self.data_handle.get_loader(
-            handle_key='validation',
-            shuffle=False,
-            dataset=validation_dataset,
-            distributed=self.args['use_ddp'] and self.args.get('distributed_validation'),
-            use_unpadded_sampler=True
-        )
-
-        if val_loader is not None and not isinstance(val_loader, list):
-            val_loader = [val_loader]
-
+        ep = 0
         for ep in range(1, self.args['epochs'] + 1):
             for k in self.nn:
                 self.nn[k].train()
@@ -468,8 +445,8 @@ class ETTrainer:
             }
 
             """Validation step"""
-            if val_loader is not None:
-                val_out = self.evaluation(ep, mode='validation', dataloaders=val_loader, save_pred=False)
+            if validation_loader is not None:
+                val_out = self.evaluation(ep, mode='validation', dataloader=validation_loader, save_pred=False)
                 epoch_details['validation_meter'] = self.reduce_scores(
                     [val_out],
                     distributed=self.args['use_ddp'] and self.args.get('distributed_validation')

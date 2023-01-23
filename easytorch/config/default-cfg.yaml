@@ -1,0 +1,22 @@
+phase: train
+batch_size: 16
+epochs: 10
+grad_accum_iters: 1
+learning_rate: 0.001
+pin_memort: False
+
+num-workers: 4
+load_limit:
+log_dir: net_logs
+pretrained_path:
+verbose: True
+seed-all: False
+seed:
+force: False
+patience: 10
+
+data_source: /some/path/to/data
+split_ratio: [0.7, 0.15, 0.15]
+
+
+
