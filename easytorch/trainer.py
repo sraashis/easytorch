@@ -207,9 +207,10 @@ class ETTrainer:
         """
         return None
 
+    @_torch.no_grad()
     def evaluation(self,
                    epoch=1,
-                   mode='eval',
+                   mode='validation',
                    dataloader=None,
                    save_pred=False) -> _metrics.ETMeter:
         for k in self.nn:
@@ -254,7 +255,7 @@ class ETTrainer:
             except:
                 _tb.print_exc()
 
-        info(f"{self.cache['experiment_id']} {mode} {eval_meter.get()}", self.args['verbose'])
+        info(f"{self.args['name']} {mode} {eval_meter.get()}", self.args['verbose'])
         return eval_meter
 
     def _reduce_iteration(self, its) -> dict:
@@ -316,7 +317,7 @@ class ETTrainer:
         return False
 
     def _save_progress(self, epoch):
-        _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
+        _log_utils.plot_progress(self.args['save_dir'], self.cache, name=self.args['name'],
                                  plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
                                  epoch=epoch)
 
@@ -351,7 +352,7 @@ class ETTrainer:
     def save_if_better(self, epoch, training_meter=None, validation_meter=None):
         val_check = self._check_validation_score(epoch, training_meter, validation_meter)
         if val_check['improved']:
-            self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['best_checkpoint'])
+            self.save_checkpoint(self.args['save_dir'] + _sep + self.cache['best_checkpoint'])
             self.cache['best_val_score'] = val_check['score']
             self.cache['best_val_epoch'] = epoch
             success(f" *** Best Model Saved!!! *** : {self.cache['best_val_score']}", self.args['verbose'])
@@ -378,23 +379,22 @@ class ETTrainer:
 
             running_meter.reset()
 
-    def inference(self, save_predictions=True, datasets: list = None, distributed=False):
-        if not isinstance(datasets, list):
-            datasets = [datasets]
+    @_torch.no_grad()
+    def inference(self, dataloader):
 
-        loaders = []
-        for d in [_d for _d in datasets if _d]:
-            loaders.append(
-                self.data_handle.get_data_loader(
-                    handle_key=mode, shuffle=False, dataset=d, distributed=distributed
-                )
-            )
+        first_model = list(self.nn.keys())[0]
+        self.nn[first_model].eval()
 
-        return self.evaluation(
-            mode=mode,
-            dataloaders=[_l for _l in loaders if _l],
-            save_pred=save_predictions
-        )
+        with open(f"{self.cache['save_dir']}{_sep}WR{self.cache['world_rank']}.{self.args['name']}.csv" 'w') as fw:
+            for i, batch in enumerate(dataloader):
+                inputs = batch[0].to(self.device['gpu']).float()
+                index = batch[1].to(self.device['gpu']).long()
+                out = self.nn[first_model](inputs)
+                its = {"index": index, "out": out}
+                result = self.save_predictions(dataloader.dataset, its)
+                if result:
+                    fw.write("\n".join(result))
+                    fw.flush()
 
     def train(self, train_loader, validation_loader) -> None:
         info('Training ...', self.args['verbose'])

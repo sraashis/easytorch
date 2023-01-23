@@ -22,7 +22,9 @@ class StoreDictKeyPairSS(_ap.Action):
 def agrgs_parser():
     default_ap = _ap.ArgumentParser()
 
-    default_ap.add_argument('-name', '--name', default='easy-exp', type=str, help='Name')
+    default_ap.add_argument('-name', '--name', default='easy_exp', type=str, help='Name')
+    default_ap.add_argument('-data', '--data-source', default=None, type=str, help='data source')
+    default_ap.add_argument('-imsize', '--image_size', default=None, nargs='*', type=int, help='image size in tuple')
     default_ap.add_argument('-ph', '--phase', default=None, choices=['train', 'test'], type=str,
                             help='Can be train/test.')
     default_ap.add_argument("-b", "--batch_size", default=4, type=int, help="Mini-batch size.")
@@ -36,7 +38,7 @@ def agrgs_parser():
     default_ap.add_argument('-nw', '--num_workers', default=0, type=int,
                             help='Number of workers to work on data loading.')
     default_ap.add_argument('-lim', '--load_limit', default=None, type=int, help='Data load limit')
-    default_ap.add_argument('-log', '--log_dir', default='net_logs', type=str, help='Logging directory.')
+    default_ap.add_argument('-out', '--output_base', default='net_output', type=str, help='Base output directory')
     default_ap.add_argument('-pt', '--pretrained_path', default=None, type=str,
                             help='Full path to pretrained weights(It will be loaded before training.)')
     default_ap.add_argument('-v', '--verbose', default=True, type=boolean_string,
@@ -51,7 +53,7 @@ def agrgs_parser():
     default_ap.add_argument('-ddp', '--use_ddp', default=False, type=boolean_string, help='Use DDP?')
     default_ap.add_argument('--multi-load', default=True, type=boolean_string, help='Multi loading data.')
 
-    _im = default_ap.parse_known_args()
+    _im, _ = default_ap.parse_known_args()
     _args = vars(_im)
     if _args.get('use_ddp'):
         default_ap.add_argument('--node-rank', default=0, type=int,

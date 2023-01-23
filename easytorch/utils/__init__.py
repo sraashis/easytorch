@@ -24,9 +24,9 @@ class FrozenDict(dict):
             self[k] = v
 
 
-def save_scores(cache, experiment_id='', file_keys=[]):
+def save_scores(cache, name='', file_keys=[]):
     for fk in file_keys:
-        with open(cache['save_dir'] + _os.sep + f'{experiment_id}_{fk}.csv', 'w') as file:
+        with open(cache['save_dir'] + _os.sep + f'{name}_{fk}.csv', 'w') as file:
             header = cache.get('log_header', '')
             header = header.replace('|', ',')
             if isinstance(header, list):
@@ -63,13 +63,13 @@ def clean_recursive(obj):
             obj[k] = f'{v}'
 
 
-def save_cache(cache, experiment_id=''):
-    with open(cache['save_dir'] + _os.sep + f"{experiment_id}_log.json", 'w') as fp:
+def save_cache(cache, name=''):
+    with open(cache['save_dir'] + _os.sep + f"{name}_log.json", 'w') as fp:
         try:
             log = _copy.deepcopy(cache)
             clean_recursive(log)
             _json.dump(log, fp)
         except Exception as e:
-            with open(cache['save_dir'] + _os.sep + f"{experiment_id}_log.txt", 'w') as raw:
+            with open(cache['save_dir'] + _os.sep + f"{name}_log.txt", 'w') as raw:
                 raw.write(f"{e}\n")
                 raw.write(f"{cache}")

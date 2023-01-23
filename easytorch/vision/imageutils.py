@@ -9,90 +9,13 @@ from easytorch.data.multiproc import multiRun
 from PIL import Image as _IMG
 import json as _json
 import traceback as _tb
+from pathlib import Path as _Path
 
 """
 ##################################################################################################
 Very useful image related utilities
 ##################################################################################################
 """
-
-
-def _same_file(x):
-    return x
-
-
-class Image:
-    def __init__(self, dtype=_np.uint8):
-        self.dir = None
-        self.file = None
-        self.array = None
-        self.mask = None
-        self.ground_truth = None
-        self.extras = {}
-        self.dtype = dtype
-
-    def load(self, dir, file):
-        try:
-            self.dir = dir
-            self.file = file
-            self.array = _np.array(_IMG.open(self.path), dtype=self.dtype)
-        except Exception as e:
-            error('Fail to load file: ' + self.file + ': ' + str(e))
-
-    def load_mask(self, mask_dir=None, fget_mask=_same_file):
-        if fget_mask is None:
-            fget_mask = _same_file
-        try:
-            mask_file = fget_mask(self.file)
-            self.mask = _np.array(_IMG.open(_os.path.join(mask_dir, mask_file)), dtype=self.dtype)
-        except Exception as e:
-            error('Fail to load mask: ' + str(e))
-
-    def load_ground_truth(self, gt_dir=None, fget_ground_truth=_same_file):
-        if fget_ground_truth is None:
-            fget_ground_truth = _same_file
-        try:
-            gt_file = fget_ground_truth(self.file)
-            self.ground_truth = _np.array(_IMG.open(_os.path.join(gt_dir, gt_file)), dtype=self.dtype)
-        except Exception as e:
-            error('Fail to load ground truth: ' + str(e))
-
-    def get_array(self, dir='', getter=_same_file, file=None):
-        if getter is None:
-            getter = _same_file
-        if not file:
-            file = self.file
-        arr = _np.array(_IMG.open(_os.path.join(dir, getter(file))), dtype=self.dtype)
-        return arr
-
-    def apply_mask(self):
-        if self.mask is not None:
-            self.array[self.mask == 0] = 0
-
-    def apply_clahe(self, clip_limit=2.0, tile_shape=(8, 8)):
-        enhancer = _cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_shape)
-        if len(self.array.shape) == 2:
-            self.array = enhancer.apply(self.array)
-        elif len(self.array.shape) == 3:
-            self.array[:, :, 0] = enhancer.apply(self.array[:, :, 0])
-            self.array[:, :, 1] = enhancer.apply(self.array[:, :, 1])
-            self.array[:, :, 2] = enhancer.apply(self.array[:, :, 2])
-        else:
-            error('More than three channels')
-
-    def copy(self):
-        copy_obj = Image()
-        copy_obj.file = _copy.copy(self.file)
-        copy_obj.array = _copy.copy(self.array)
-        copy_obj.mask = _copy.copy(self.mask)
-        copy_obj.ground_truth = _copy.copy(self.ground_truth)
-        copy_obj.dtype = _copy.copy(self.dtype)
-        copy_obj.extras = _copy.deepcopy(self.extras)
-        return copy_obj
-
-    @property
-    def path(self):
-        return _os.path.join(self.dir, self.file)
 
 
 def get_rgb_scores(arr_2d=None, truth=None):
@@ -115,50 +38,6 @@ def get_rgb_scores(arr_2d=None, truth=None):
     arr_rgb[xy == 2] = [255, 0, 0]
     arr_rgb[xy == 0] = [0, 0, 0]
     return arr_rgb
-
-
-def get_praf1(arr_2d=None, truth=None):
-    """
-    Returns precision, recall, f1 and accuracy score between two binary arrays upto five precision.
-    :param arr_2d:
-    :param truth:
-    :return:
-    """
-    x = arr_2d.copy()
-    y = truth.copy()
-    x[x == 255] = 1
-    y[y == 255] = 1
-    xy = x + (y * 2)
-    tp = xy[xy == 3].shape[0]
-    fp = xy[xy == 1].shape[0]
-    tn = xy[xy == 0].shape[0]
-    fn = xy[xy == 2].shape[0]
-    try:
-        p = tp / (tp + fp)
-    except ZeroDivisionError:
-        p = 0
-
-    try:
-        r = tp / (tp + fn)
-    except ZeroDivisionError:
-        r = 0
-
-    try:
-        a = (tp + tn) / (tp + fp + fn + tn)
-    except ZeroDivisionError:
-        a = 0
-
-    try:
-        f1 = 2 * p * r / (p + r)
-    except ZeroDivisionError:
-        f1 = 0
-
-    return {
-        'Precision': round(p, 5),
-        'Recall': round(r, 5),
-        'Accuracy': round(a, 5),
-        'F1': round(f1, 5)
-    }
 
 
 def rescale2d(arr):
@@ -405,30 +284,3 @@ def resize(array, size):
     else:
         array = array.resize((int(size[0]), int(img.size[1] / img.size[0] * size[0])))
     return _np.array(array)
-
-
-def _mean_std(file_path):
-    arr = _np.array(_IMG.open(file_path))
-
-    result = []
-
-    try:
-        if len(arr.shape) == 2:
-            result.append([arr.mean(), arr.std()])
-        elif len(arr.shape) > 2:
-            mean = [arr[:, :, i].mean() for i in range(arr.shape[2])]
-            std = [arr[:, :, i].std() for i in range(arr.shape[2])]
-            result.append([mean, std])
-    except:
-        _tb.print_exc()
-    return _np.array(result)
-
-
-def mean_std(images_path=".", json_path=None, json_key='train', nw=4):
-    if not json_path:
-        files = [_os.path.join(images_path, f) for f in _os.listdir(images_path)]
-
-    else:
-        files = [_os.path.join(images_path, f) for f in _json.load(open(json_path))[json_key]]
-
-    return _np.array(multiRun(nproc=nw, data_list=files, func=_mean_std)).mean(0) / 255.0

@@ -15,7 +15,7 @@ COLORS = ['blue', 'maroon', 'magenta', 'teal', 'red', 'blueviolet', 'brown', 'ca
           'chartreuse', 'coral', 'darkslateblue', 'cornflowerblue', 'indigo', 'black', 'cyan', 'navy']
 
 
-def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31, epoch=None):
+def plot_progress(save_dir, cache, name='', plot_keys=[], num_points=31, epoch=None):
     r"""
     Custom plot to plot data from the cache by keys.
     """
@@ -57,6 +57,6 @@ def plot_progress(cache, experiment_id='', plot_keys=[], num_points=31, epoch=No
                 ax.set_xticklabels(xticks_range)
 
             _plt.xlabel('Epochs')
-            _plt.savefig(cache['log_dir'] + _os.sep + f"{experiment_id}_{k}_{plot_id}.png", bbox_inches='tight')
+            _plt.savefig(save_dir + _os.sep + f"{name}_{k}_{plot_id}.png", bbox_inches='tight')
             _plt.close('all')
             i = j

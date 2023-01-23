@@ -5,11 +5,13 @@ import math as _math
 import os as _os
 import os.path
 from os import sep as _sep
+import cv2 as _cv2
 
 import torch as _torch
 import torch.distributed as _dist
 import torch.utils.data as _data
 from torch.utils.data import DataLoader as _DataLoader, Dataset as _Dataset
+from torchvision import transforms as _tmf
 
 import easytorch.data.datautils as _du
 import easytorch.utils as _etutils
@@ -49,20 +51,26 @@ class DiskCache:
 
 class ETDataHandle:
 
-    def __init__(self, args=None, dataloader_args=None, **kw):
+    def __init__(self, args: dict = None, dataloader_args: dict = None, **kw):
         self.args = _etutils.FrozenDict(args)
-        self.dataloader_args = _etutils.FrozenDict(dataloader_args)
-        self.datasets = {}
+        self.dataloader_args = {'train': {}, 'validation': {}, 'test': {}, 'inference': {}}
+
+        if dataloader_args:
+            self.dataloader_args.update(**dataloader_args)
+
         self.diskcache = DiskCache(
             self.args['save_dir'] + _os.sep + "_cache" + _sep + self.args['RUN-ID'],
             self.args['verbose']
         )
         self.data_source = args['data_source']
 
-    def get_dataset(self, handle_key, files, dataset_cls=None):
+    def get_dataset(self, handle_key, data_split, dataset_cls=None):
+        if self.dataloader_args[handle_key].get('dataset'):
+            return self.dataloader_args[handle_key]['dataset']
+
         dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
-        dataset.add(files=files, diskcache=self.diskcache, verbose=self.args['verbose'])
-        return self.datasets.setdefault(handle_key, dataset)
+        dataset.add(files=data_split[handle_key], diskcache=self.diskcache, verbose=self.args['verbose'])
+        return self.dataloader_args[handle_key].setdefault('dataset', dataset)
 
     def get_data_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw):
         args = {**self.args}
@@ -147,6 +155,11 @@ class ETDataset(_Dataset):
         self.diskcache = None
         self.args = _etutils.FrozenDict(kw)
 
+        tmfs = [_tmf.ToTensor()]
+        if kw.get('image_size'):
+            tmfs.append(_tmf.Resize(kw['image_size']))
+        self.transforms = _tmf.Compose(tmfs)
+
     def load_index(self, file):
         r"""
         Logic to load indices of a single file.
@@ -193,11 +206,10 @@ class ETDataset(_Dataset):
                     self.__getattribute__(f"{k}").union(v)
 
     def __getitem__(self, index):
-        r"""
-        Logic to load one file and send to model. The mini-batch generation will be handled by Dataloader.
-        Here we just need to write logic to deal with single file.
-        """
-        raise NotImplementedError('Must be implemented by child class.')
+        file = self.indices[index]
+        arr = _cv2.imread(file)
+        arr = self.transforms(arr)
+        return arr, index
 
     def __len__(self):
         return len(self.indices)
