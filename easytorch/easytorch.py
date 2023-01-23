@@ -150,12 +150,11 @@ class EasyTorch:
             return
 
         i = -1
-        for i in range(1, 501):
-            if _os.path.isdir(self.args['save_dir'] + f"_V{i}"):
+        for i in range(501):
+            current = self.args['save_dir'] + f"_V{i}"
+            if not _os.path.isdir(current):
                 break
-        if i == 500:
-            i = -1
-        self.args['save_dir'] += f"_V{i + 1}"
+        self.args['save_dir'] += f"_V{i}"
         self.args['name'] = _Path(self.args['save_dir']).name
 
     def _prepare_nn_engine(self, engine):

@@ -57,3 +57,4 @@ runner = EasyTorch(phase='train', distributed_validation=True,
 
 if __name__ == "__main__":
     runner.run(MNISTTrainer)
+

@@ -226,7 +226,7 @@ Note: directly given(EasyTorch constructor) args precedes command line arguments
 
 * Minimal configuration to setup any simple/complex experiment (Single GPU, DP, and [DDP usage](assets/DefaultArgs.md)).
 * DataHandle that is always available, and decoupled from other modules enabling easy
-  customization ([ETDataHandle](easytorch/data/data.py)).
+  customization ([ETDataHandle](easytorch/data/loader.py)).
     * Use custom & complex data handling mechanism.
     * Load folder datasets.
     * Load recursively large datasets with multiple threads.
