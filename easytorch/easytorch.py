@@ -23,7 +23,7 @@ from pathlib import Path as _Path
 _sep = _os.sep
 
 
-def _ddp_worker(rank, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled):
+def _ddp_worker(rank, self, trainer_cls, dataset_cls, data_handle_cls):
     self.args['gpu'] = self.args['gpus'][rank]
     self.args['verbose'] = rank == MASTER_RANK
     world_size = self.args['world_size']
@@ -35,23 +35,22 @@ def _ddp_worker(rank, self, trainer_cls, dataset_cls, data_handle_cls, is_pooled
     _dist.init_process_group(backend=self.args['dist_backend'],
                              init_method=self.args['init_method'],
                              world_size=world_size, rank=self.args['world_rank'])
-    if is_pooled:
-        self._run_pooled(trainer_cls, dataset_cls, data_handle_cls)
-    else:
-        self._run(trainer_cls, dataset_cls, data_handle_cls)
+    self._run(trainer_cls, dataset_cls, data_handle_cls)
 
 
-def _cleanup(trainer):
-    for data_handle_key in trainer.data_handle.datasets:
-        if hasattr(trainer.data_handle.datasets[data_handle_key], 'diskcache') and isinstance(
-                trainer.data_handle.datasets[data_handle_key].diskcache, _DiskCache):
-            trainer.data_handle.datasets[data_handle_key].diskcache.clear()
+def _cleanup(engine, data_handle):
+    for data_handle_key in data_handle.dataloader_args:
+        if data_handle.dataloader_args[data_handle_key].get('dataset') and \
+                hasattr(data_handle.dataloader_args[data_handle_key]['dataset'], 'diskcache') \
+                and isinstance(data_handle.dataloader_args[data_handle_key]['dataset'].diskcache, _DiskCache):
+            data_handle.dataloader_args[data_handle_key]['dataset'].diskcache.clear()
 
-    _dist.destroy_process_group()
+    if _dist.is_initialized():
+        _dist.destroy_process_group()
 
 
 class EasyTorch:
-    _MODES_ = [Phase.TRAIN, Phase.TEST]
+    _MODES_ = [Phase.TRAIN, Phase.TEST, Phase.INFERENCE]
     _MODE_ERR_ = \
         "####  [ERROR]  ### argument 'phase' is required and must be passed to either" \
         '\n\t1). EasyTorch(..,phase=<value>,..)' \
@@ -72,6 +71,7 @@ class EasyTorch:
         self._make_reproducible()
         self.args.update(is_master=self.args.get('is_master', True), world_rank=0)
         self.args['RUN-ID'] = _dtime.now().strftime("ET-%Y%m%d-%H%M%S-") + _uuid.uuid4().hex[:4].upper()
+
         self.args['save_dir'] = self.args['output_base'] + _sep + self.args['phase'].upper() + _sep + self.args["name"]
 
     def _device_check(self):
@@ -101,6 +101,7 @@ class EasyTorch:
         info('Starting with the following parameters:', self.args['verbose'])
         if self.args['verbose']:
             _pp.pprint(self.args)
+        print()
 
     def _init_config(self, args):
         if isinstance(args, _AP):
@@ -154,7 +155,7 @@ class EasyTorch:
             current = self.args['save_dir'] + f"_V{i}"
             if not _os.path.isdir(current):
                 break
-        self.args['save_dir'] += f"_V{i}"
+        self.args['save_dir'] = self.args['save_dir'] + f"_V{i}"
         self.args['name'] = _Path(self.args['save_dir']).name
 
     def _prepare_nn_engine(self, engine):
@@ -181,17 +182,19 @@ class EasyTorch:
             datset=data_handle.get_dataset(Phase.TRAIN, data_split, dataset_cls),
             distributed=self.args['use_ddp'])
 
-        val_loader = None
-        if data_split.get('validation') or data_handle.dataloader_args['validation'].get('dataset'):
+        val_dataset = data_handle.get_dataset(Phase.VALIDATION, data_split, dataset_cls)
+        if val_dataset:
             val_loader = data_handle.get_data_loader(
                 handle_key='validation',
                 shuffle=False,
-                dataset=data_handle.get_dataset(Phase.VALIDATION, data_split, dataset_cls),
+                dataset=val_dataset,
                 distributed=self.args['use_ddp'] and self.args.get('distributed_validation'),
                 use_unpadded_sampler=True
             )
+            engine.train(train_loader, val_loader)
+        else:
+            engine.train(train_loader, None)
 
-        engine.train(train_loader, val_loader)
         engine.save_checkpoint(engine.args['save_dir'] + _sep + engine.cache['latest_checkpoint'])
 
         train_log = engine.args['save_dir'] + _sep + ".train_log.npy"
@@ -230,47 +233,48 @@ class EasyTorch:
         return test_out
 
     def _inference(self, data_split, data_handle, engine, dataset_cls, distributed=False):
-        test_dataset = engine.data_handle.get_dataset(Phase.TEST, data_split[Phase.TEST], dataset_cls)
+        test_dataset = data_handle.get_dataset(Phase.INFERENCE, data_split, dataset_cls)
         dataloader = data_handle.get_data_loader(
-            handle_key=Phase.TEST, shuffle=False, dataset=test_dataset, distributed=distributed
+            handle_key=Phase.TEST, shuffle=False, dataset=test_dataset, distributed=distributed,
+            use_unpadded_sampler=True,
         )
         engine.inference(dataloader=dataloader)
-        _utils.save_cache({**self.args, **engine.cache, **engine.data_handle.dataspec},
-                          name=f"{engine.args['name']}_inference")
+        _utils.save_cache({**self.args, **engine.cache}, name=f"{engine.args['name']}_inference")
 
     def run(self, trainer_cls: typing.Type[ETTrainer],
             dataset_cls: typing.Type[ETDataset] = ETDataset,
             data_handle_cls: typing.Type[ETDataHandle] = ETDataHandle):
-        if self.args.get('use_ddp'):
-            _mp.spawn(_ddp_worker, nprocs=self.args['num_gpus'],
-                      args=(self, trainer_cls, dataset_cls, data_handle_cls, False))
-        else:
-            self._run(trainer_cls, dataset_cls, data_handle_cls)
-
-    def _run(self, trainer_cls, dataset_cls, data_handle_cls):
-        data_handle = data_handle_cls(args=self.args, dataloader_args=self.dataloader_args)
-
-        data_split = {}
-        if self.args['data_source']:
-            data_split = data_handle.dataloader_args.get('train')
 
         if self.args['is_master']:
             self._maybe_advance_run()
             _os.makedirs(self.args['save_dir'], exist_ok=self.args['force'])
 
+        if self.args['verbose']:
+            self._show_args()
+
+        if self.args.get('use_ddp'):
+            _mp.spawn(_ddp_worker, nprocs=self.args['num_gpus'],
+                      args=(self, trainer_cls, dataset_cls, data_handle_cls))
+        else:
+            self._run(trainer_cls, dataset_cls, data_handle_cls)
+
+    def _run(self, trainer_cls, dataset_cls, data_handle_cls):
+
         engine = trainer_cls(args=self.args)
         self._prepare_nn_engine(engine)
 
-        if self.args['verbose']:
-            self._show_args()
+        data_split = {}
+        data_handle = data_handle_cls(args=self.args, dataloader_args=self.dataloader_args)
+        if data_handle.data_source:
+            data_split = data_handle.get_data_split()
 
         if self.args['phase'] == Phase.TRAIN:
             self._run_training(data_split, data_handle, engine, dataset_cls)
 
-            if self.args['is_master'] and data_split['test']:
+            if self.args['is_master'] and data_split.get('test'):
                 self._run_eval(data_split, data_handle, engine, dataset_cls)
 
         if self.args['phase'] == Phase.INFERENCE:
             self._inference(data_split, data_handle, engine, dataset_cls,
-                            self.args.get('distributed_inference', False))
-        _cleanup(engine)
+                            self.args.setdefault('distributed_inference', True))
+        _cleanup(engine, data_handle)

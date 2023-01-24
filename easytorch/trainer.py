@@ -321,7 +321,7 @@ class ETTrainer:
                                  plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
                                  epoch=epoch)
 
-    def training_iteration(self, i, batch) -> dict:
+    def _training_iteration(self, i, batch) -> dict:
         r"""
         Learning step for one batch.
         We decoupled it so that user could implement any complex/multi/alternate training strategies.
@@ -385,15 +385,19 @@ class ETTrainer:
         first_model = list(self.nn.keys())[0]
         self.nn[first_model].eval()
 
-        with open(f"{self.cache['save_dir']}{_sep}WR{self.cache['world_rank']}.{self.args['name']}.csv" 'w') as fw:
+        with open(f"{self.args['save_dir']}{_sep}WR{self.args['world_rank']}.{self.args['name']}.csv", 'w') as fw:
             for i, batch in enumerate(dataloader):
                 inputs = batch[0].to(self.device['gpu']).float()
                 index = batch[1].to(self.device['gpu']).long()
                 out = self.nn[first_model](inputs)
                 its = {"index": index, "out": out}
                 result = self.save_predictions(dataloader.dataset, its)
+                info(f"{self.args['name']} inference, batch {i}/{len(dataloader)}", self.args['is_master'])
                 if result:
-                    fw.write("\n".join(result))
+                    data = "\n".join(result)
+                    if i > 0:
+                        data = "\n" + data
+                    fw.write(data)
                     fw.flush()
 
     def train(self, train_loader, validation_loader) -> None:
@@ -418,7 +422,7 @@ class ETTrainer:
 
             num_iters = len(train_loader) // self.args['grad_accum_iters']
             for i, batch in enumerate(train_loader, 1):
-                its.append(self.training_iteration(i, batch))
+                its.append(self._training_iteration(i, batch))
                 """When end of iteration"""
                 if i % self.args['grad_accum_iters'] == 0:
                     it = self._reduce_iteration(its)

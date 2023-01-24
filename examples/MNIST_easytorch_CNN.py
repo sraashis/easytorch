@@ -22,23 +22,26 @@ class MNISTTrainer(ETTrainer):
         out = self.nn['model'](inputs)
         loss = F.nll_loss(out, labels)
 
-        _, pred = torch.max(out, 1)
+        max_prob, pred = torch.max(out, 1)
 
         meter = self.new_meter()
         meter.averages.add(loss.item(), len(inputs))
-        meter.averages.add(loss.item() * 0.3, len(inputs), 1)
+
+        # Add extra loss if needed as:
+        meter.averages.add(loss.item() * 0.3, len(inputs), index=1)
+
         meter.metrics['cmf'].add(pred, labels.float())
-        meter.metrics['auc'].add(pred, labels.float())
+        meter.metrics['auc'].add(max_prob, labels.float())
 
         return {'loss': loss, 'meter': meter, 'predictions': pred}
 
-    def init_experiment_cache(self):
-        self.cache['log_header'] = 'Loss|Accuracy,F1,Precision,Recall'
+    def init_cache(self):
+        self.cache['log_header'] = 'Loss1,Loss2|Accuracy,F1,Precision,Recall'
         self.cache.update(monitor_metric='f1', metric_direction='maximize')
 
     def new_meter(self):
         return ETMeter(
-            num_averages=2,
+            num_averages=2,  # Since we are tracing two losses
             cmf=ConfusionMatrix(num_classes=10),
             auc=AUCROCMetrics()
         )
@@ -52,9 +55,9 @@ val_dataset = datasets.MNIST('../data', train=False,
 dataloader_args = {'train': {'dataset': train_dataset},
                    'validation': {'dataset': val_dataset}}
 runner = EasyTorch(phase='train', distributed_validation=True,
-                   batch_size=512, epochs=2,
-                   dataloader_args=dataloader_args)
+                   batch_size=512, epochs=21,
+                   dataloader_args=dataloader_args,
+                   image_size=(28, 28))
 
 if __name__ == "__main__":
     runner.run(MNISTTrainer)
-

@@ -17,7 +17,7 @@ def info(msg, debug=True):
 
 def success(msg, debug=True):
     if debug:
-        print(f"[SUCCESS]! {msg}")
+        print(f"\n[SUCCESS]! {msg}")
 
 
 def lazy_debug(x, add=0):

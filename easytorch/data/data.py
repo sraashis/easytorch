@@ -62,15 +62,16 @@ class ETDataHandle:
             self.args['save_dir'] + _os.sep + "_cache" + _sep + self.args['RUN-ID'],
             self.args['verbose']
         )
-        self.data_source = args['data_source']
+        self.data_source = args.get('data_source')
 
     def get_dataset(self, handle_key, data_split, dataset_cls=None):
         if self.dataloader_args[handle_key].get('dataset'):
             return self.dataloader_args[handle_key]['dataset']
 
-        dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
-        dataset.add(files=data_split[handle_key], diskcache=self.diskcache, verbose=self.args['verbose'])
-        return self.dataloader_args[handle_key].setdefault('dataset', dataset)
+        if data_split.get(handle_key):
+            dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
+            dataset.add(files=data_split[handle_key], diskcache=self.diskcache, verbose=self.args['verbose'])
+            return self.dataloader_args[handle_key].setdefault('dataset', dataset)
 
     def get_data_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw):
         args = {**self.args}
@@ -138,10 +139,18 @@ class ETDataHandle:
             split = _json.load(open(self.data_source))
 
         else:
-            files = _glob.glob(self.data_source)
-            split = _du.create_ratio_split(files, self.args['split_ratio'])
-            with open(self.args['save_dir'] + _sep + f"{_Path(self.args['save_dir']).name}_{self.args['name']}.json",
-                      'w') as fw:
+            files = _glob.glob(self.data_source, recursive='**' in self.data_source)
+
+            if self.args['phase'] == Phase.INFERENCE:
+                split = _du.create_ratio_split(files, [1.0], first_key=Phase.INFERENCE)
+            else:
+                split = _du.create_ratio_split(files, self.args['split_ratio'])
+
+            with open(
+                    self.args['save_dir']
+                    + _sep +
+                    f"SPLIT_{_Path(self.args['save_dir']).name}_{self.args['name']}.json", 'w'
+            ) as fw:
                 _json.dump(split, fw)
         return split
 
@@ -157,7 +166,7 @@ class ETDataset(_Dataset):
 
         tmfs = [_tmf.ToTensor()]
         if kw.get('image_size'):
-            tmfs.append(_tmf.Resize(kw['image_size']))
+            tmfs.append(_tmf.Resize(tuple(kw['image_size'])))
         self.transforms = _tmf.Compose(tmfs)
 
     def load_index(self, file):
@@ -165,7 +174,7 @@ class ETDataset(_Dataset):
         Logic to load indices of a single file.
         -Sometimes one image can have multiple indices like U-net where we have to get multiple patches of images.
         """
-        self.indices.append([file])
+        self.indices.append(file)
 
     def _load_indices(self, files, verbose=True):
         r"""

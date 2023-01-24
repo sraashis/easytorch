@@ -44,10 +44,10 @@ def agrgs_parser():
     default_ap.add_argument('-v', '--verbose', default=True, type=boolean_string,
                             help='Prints information on different steps.')
     default_ap.add_argument('-seed-all', '--seed_all', default=False, type=boolean_string, help='Seed everything.')
-    default_ap.add_argument('-seed', '--seed', default=None, type=int, help='Seed everything.')
+    default_ap.add_argument('-seed', '--seed', default=CURRENT_SEED, type=int, help='Seed everything.')
     default_ap.add_argument('-f', '--force', default=False, type=boolean_string, help='Force')
     default_ap.add_argument('-pat', '--patience', default=None, type=int, help='Early Stopping patience epochs.')
-    default_ap.add_argument('-spl', '--split_ratio', default=None, nargs='*', type=float,
+    default_ap.add_argument('-spl', '--split_ratio', default=[0.7, 0.15, 0.15], nargs='*', type=float,
                             help='Split ratio. Eg: 0.6 0.2 0.2 or 0.8 0.2. Exclusive to num_fold.')
 
     default_ap.add_argument('-ddp', '--use_ddp', default=False, type=boolean_string, help='Use DDP?')
