@@ -19,7 +19,7 @@ _sep = _os.sep
 
 
 class ETTrainer:
-    def __init__(self, args=None, data_handle=None, **kw):
+    def __init__(self, args=None, **kw):
         r"""
         args: receives the arguments passed by the ArgsParser.
         cache: Initialize all immediate things here. Like scores, loss, accuracies...
@@ -28,7 +28,6 @@ class ETTrainer:
         """
         self.cache = {}
         self.args = _etutils.FrozenDict(args)
-        self.data_handle = data_handle
 
         self.nn = {}
         self.optimizer = {}
@@ -184,9 +183,9 @@ class ETTrainer:
                     checkpoint['optimizers'][k] = self.optimizer[k].state_dict()
         _torch.save(checkpoint, full_path)
 
-    def init_experiment_cache(self):
+    def init_cache(self):
         r"""What scores you want to plot."""
-        self.cache['log_header'] = 'Loss,Accuracy'
+        self.cache['log_header'] = 'Loss|Accuracy'
 
         r"""This is for best model selection: """
         r"""It tells which metrics to monitor and either to maximize(F1 score), minimize(MSE)"""
@@ -208,19 +207,16 @@ class ETTrainer:
         """
         return None
 
+    @_torch.no_grad()
     def evaluation(self,
                    epoch=1,
-                   mode='eval',
-                   dataloaders: list = None,
+                   mode='validation',
+                   dataloader=None,
                    save_pred=False) -> _metrics.ETMeter:
         for k in self.nn:
             self.nn[k].eval()
 
         eval_meter = self.new_meter()
-
-        if not dataloaders:
-            return eval_meter
-
         info(f'{mode} ...', self.args['verbose'])
 
         def _update_scores(_out, _it, _meter):
@@ -230,37 +226,36 @@ class ETTrainer:
                 _meter.accumulate(_it['meter'])
 
         with _torch.no_grad():
-            for loader in dataloaders:
-                try:
-                    its = []
-                    meter = self.new_meter()
+            try:
+                its = []
+                meter = self.new_meter()
 
-                    for i, batch in enumerate(loader, 1):
-                        it = self.iteration(batch)
+                for i, batch in enumerate(dataloader, 1):
+                    it = self.iteration(batch)
 
-                        if save_pred:
-                            if self.args['load_sparse']:
-                                its.append(it)
-                            else:
-                                _update_scores(self.save_predictions(loader.dataset, it), it, meter)
+                    if save_pred:
+                        if self.args['load_sparse']:
+                            its.append(it)
                         else:
-                            _update_scores(None, it, meter)
+                            _update_scores(self.save_predictions(dataloader.dataset, it), it, meter)
+                    else:
+                        _update_scores(None, it, meter)
 
-                        if self.args['verbose'] and len(dataloaders) <= 1 and lazy_debug(i, add=epoch):
-                            info(f"  Itr:{i}/{len(loader)}, {it['meter']}")
+                    if self.args['verbose'] and lazy_debug(i, add=epoch):
+                        info(f"  Itr:{i}/{len(dataloader)}, {it['meter']}")
 
-                    if save_pred and self.args['load_sparse']:
-                        its = self._reduce_iteration(its)
-                        _update_scores(self.save_predictions(loader.dataset, its), its, meter)
+                if save_pred and self.args['load_sparse']:
+                    its = self._reduce_iteration(its)
+                    _update_scores(self.save_predictions(dataloader.dataset, its), its, meter)
 
-                    if self.args['verbose'] and len(dataloaders) > 1:
-                        info(f" {mode}, {meter}")
+                if self.args['verbose']:
+                    info(f" {mode}, {meter}")
 
-                    eval_meter.accumulate(meter)
-                except:
-                    _tb.print_exc()
+                eval_meter.accumulate(meter)
+            except:
+                _tb.print_exc()
 
-        info(f"{self.cache['experiment_id']} {mode} {eval_meter.get()}", self.args['verbose'])
+        info(f"{self.args['name']} {mode} {eval_meter.get()}", self.args['verbose'])
         return eval_meter
 
     def _reduce_iteration(self, its) -> dict:
@@ -322,11 +317,11 @@ class ETTrainer:
         return False
 
     def _save_progress(self, epoch):
-        _log_utils.plot_progress(self.cache, experiment_id=self.cache['experiment_id'],
+        _log_utils.plot_progress(self.args['save_dir'], self.cache, name=self.args['name'],
                                  plot_keys=[LogKey.TRAIN_LOG, LogKey.VALIDATION_LOG],
                                  epoch=epoch)
 
-    def training_iteration(self, i, batch) -> dict:
+    def _training_iteration(self, i, batch) -> dict:
         r"""
         Learning step for one batch.
         We decoupled it so that user could implement any complex/multi/alternate training strategies.
@@ -357,7 +352,7 @@ class ETTrainer:
     def save_if_better(self, epoch, training_meter=None, validation_meter=None):
         val_check = self._check_validation_score(epoch, training_meter, validation_meter)
         if val_check['improved']:
-            self.save_checkpoint(self.cache['log_dir'] + _sep + self.cache['best_checkpoint'])
+            self.save_checkpoint(self.args['save_dir'] + _sep + self.cache['best_checkpoint'])
             self.cache['best_val_score'] = val_check['score']
             self.cache['best_val_epoch'] = epoch
             success(f" *** Best Model Saved!!! *** : {self.cache['best_val_score']}", self.args['verbose'])
@@ -384,45 +379,31 @@ class ETTrainer:
 
             running_meter.reset()
 
-    def inference(self, mode='test', save_predictions=True, datasets: list = None, distributed=False):
-        if not isinstance(datasets, list):
-            datasets = [datasets]
+    @_torch.no_grad()
+    def inference(self, dataloader):
 
-        loaders = []
-        for d in [_d for _d in datasets if _d]:
-            loaders.append(
-                self.data_handle.get_loader(
-                    handle_key=mode, shuffle=False, dataset=d, distributed=distributed
-                )
-            )
+        first_model = list(self.nn.keys())[0]
+        self.nn[first_model].eval()
 
-        return self.evaluation(
-            mode=mode,
-            dataloaders=[_l for _l in loaders if _l],
-            save_pred=save_predictions
-        )
+        with open(f"{self.args['save_dir']}{_sep}WR{self.args['world_rank']}.{self.args['name']}.csv", 'w') as fw:
+            for i, batch in enumerate(dataloader):
+                inputs = batch[0].to(self.device['gpu']).float()
+                index = batch[1].to(self.device['gpu']).long()
+                out = self.nn[first_model](inputs)
+                its = {"index": index, "out": out}
+                result = self.save_predictions(dataloader.dataset, its)
+                info(f"{self.args['name']} inference, batch {i}/{len(dataloader)}", self.args['is_master'])
+                if result:
+                    data = "\n".join(result)
+                    if i > 0:
+                        data = "\n" + data
+                    fw.write(data)
+                    fw.flush()
 
-    def train(self, train_dataset, validation_dataset) -> None:
+    def train(self, train_loader, validation_loader) -> None:
         info('Training ...', self.args['verbose'])
 
-        train_loader = self.data_handle.get_loader(
-            handle_key='train',
-            shuffle=True,
-            dataset=train_dataset,
-            distributed=self.args['use_ddp']
-        )
-
-        val_loader = self.data_handle.get_loader(
-            handle_key='validation',
-            shuffle=False,
-            dataset=validation_dataset,
-            distributed=self.args['use_ddp'] and self.args.get('distributed_validation'),
-            use_unpadded_sampler=True
-        )
-
-        if val_loader is not None and not isinstance(val_loader, list):
-            val_loader = [val_loader]
-
+        ep = 0
         for ep in range(1, self.args['epochs'] + 1):
             for k in self.nn:
                 self.nn[k].train()
@@ -441,7 +422,7 @@ class ETTrainer:
 
             num_iters = len(train_loader) // self.args['grad_accum_iters']
             for i, batch in enumerate(train_loader, 1):
-                its.append(self.training_iteration(i, batch))
+                its.append(self._training_iteration(i, batch))
                 """When end of iteration"""
                 if i % self.args['grad_accum_iters'] == 0:
                     it = self._reduce_iteration(its)
@@ -468,8 +449,8 @@ class ETTrainer:
             }
 
             """Validation step"""
-            if val_loader is not None:
-                val_out = self.evaluation(ep, mode='validation', dataloaders=val_loader, save_pred=False)
+            if validation_loader is not None:
+                val_out = self.evaluation(ep, mode='validation', dataloader=validation_loader, save_pred=False)
                 epoch_details['validation_meter'] = self.reduce_scores(
                     [val_out],
                     distributed=self.args['use_ddp'] and self.args.get('distributed_validation')

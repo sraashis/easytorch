@@ -116,8 +116,8 @@ class ETAverages(ETMetrics):
         For example, in GAN we need to keep track of Generators loss
         """
         super().__init__(**kw)
-        self.values = _np.array([0.0] * num_averages, dtype=_np.float)
-        self.counts = _np.array([0.0] * num_averages, dtype=_np.float)
+        self.values = _np.array([0.0] * num_averages)
+        self.counts = _np.array([0.0] * num_averages)
         self.num_averages = num_averages
 
     def add(self, val=0, n=1, index=0):
