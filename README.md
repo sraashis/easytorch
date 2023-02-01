@@ -163,12 +163,12 @@ runner = EasyTorch(phase="train", batch_size=4, epochs=21,
                    num_channel=1, num_class=2,
                    split_ratio=[0.6, 0.2, 0.2])
 ```
-#OR
+#### **OR
 ```
 python main.py -ph train -b 4 -e 50 -nc 3 -spl 0.8 0.1 0.1
 ```
-Note: See easytorch.config.__init__.py for full list of args
-# OR
+Note: See easytorch.config.__ init __.py for full list of args
+#### OR
 ```python
 
 runner = EasyTorch(yaml_config="path/toyaml/file/with/args/as/in/easytorch.confi/default_confi.yaml")
