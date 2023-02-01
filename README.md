@@ -8,10 +8,6 @@
 
 <hr />
 
-* #### Introduces two extra data augmentation handles in addition to PyTorch's data transforms.
-  * Pooled run that allows to combine multiple datasets without moving from there original locations 
-  * Data specifications specifying data(and its augmentations) specifications.
-
 * #### Introduces two extra multi-processing handles for blazing fast training by extending the easytorch.ETDataset class:
   * Multi-threaded data pre-loading. 
   * Disk caching for faster access.
@@ -20,16 +16,15 @@
 from easytorch import ETDataset
 
 class MyDataset(ETDataset):
-    def load_index(self, dataset_name, file):
+    def load_index(self, file):
         """(Optional) Load/Process something and add to diskcache as:
                 self.diskcahe.add(file, value)"""
         """This method runs in multiple processes by default"""
     
-        self.indices.append([dataset_name, file])
+        self.indices.append([file, 'something_extra'])
 
     def __getitem__(self, index):
-        dataset_name, file = self.indices[index]
-        dataspec = self.dataspecs[dataset_name]
+        file = self.indices[index]
         """(Optional) Retrieve from diskcache as self.diskcache.get(file)"""
 
         image =  # Todo # Load file/Image. 
@@ -123,6 +118,8 @@ class MyTrainer(ETTrainer):
     def iteration(self, batch):
         """Handle a single batch"""
         """Must have loss and meter"""
+        meter = self.new_meter()
+        ...
         return {'loss': ..., 'meter': ..., 'predictions': ...}
 
     def new_meter(self):
@@ -132,7 +129,7 @@ class MyTrainer(ETTrainer):
             auc=AUCROCMetrics()
         )
 
-    def init_experiment_cache(self):
+    def init_cache(self):
         """Will plot Loss in one plot, and Accuracy,F1_score in another."""
         self.cache['log_header'] = 'Loss|Accuracy,F1_score'
         
@@ -149,46 +146,35 @@ class MyTrainer(ETTrainer):
     
 #### 2. Define specification for your datasets:
 
-```python
-
-DATA_A = {
-    'name': 'mydata',
-    'data_dir': 'MYDATA/images',
-    "extension":  ".png", # Optional
-    "recursive": True # optional
-}
-
-DATA_B = {
-    'name': 'otherdata',
-    'split_dir': 'some/path/somedata.json' # A json file with train, test, validation as keys OR
-#   'split_dir': "some/path/somedata.txt" # List of files, text files works only in _test_ phase
-}
-```
-
-* EasyTorch automatically splits the training data in 'data_dir' as specified (split_ratio, or num_folds in
-  EasyTorch Module as below).
-* One can also provide custom splits(json files with train, validation, test data list) in the directory specified by
-  split_dir in dataspec.
-* One can give a path to a .txt file with path list of images for test(inference) phase in split_dir field of dataspec.
-* Additional options in dataspecs:
-    * Load from sub-folders, "sub_folders": ["class0", "class1", ... "class_K"]
-    * Load recursively, "recursive": True
-    * Filter by an extension, "extension": "png"
+* EasyTorch automatically splits the training data in _**data_source**_ as specified by _**split_ratio**_
+  * train, validation, and test as data_source=[0.7, 0.15, 0.15], or just train, validation [0.8, 0.2] OR
+  * Custom splits in txt files:
+    * data_source = "/some/path/*.txt", where it tries to load 'train.txt', 'validation.txt', and 'test.txt' if phase is _train_ only 'test.txt' if phase is _test_
+  * data_source = "some/path/split.json", where each split key has list of files as:
+    * {'train': [], 'validation' :[], 'test':[]}
+  * just glob as data_source = "some/path/**/*.txt", must also provide split_ratio if phase = _train_
 
 #### 3. Entry point (say main.py)
 
 ```python
 from easytorch import EasyTorch
 
-data_spcifications = [DATA_A, DATA_B]
-runner = EasyTorch(data_spcifications,
-                   phase="train", batch_size=4, epochs=21,
+runner = EasyTorch(phase="train", batch_size=4, epochs=21,
                    num_channel=1, num_class=2,
-                   split_ratio=[0.6, 0.2, 0.2])  # or num_folds=5 (exclusive with split_ratio)
+                   split_ratio=[0.6, 0.2, 0.2])
+```
+#OR
+```
+python main.py -ph train -b 4 -e 50 -nc 3 -spl 0.8 0.1 0.1
+```
+Note: See easytorch.config.__init__.py for full list of args
+# OR
+```python
+
+runner = EasyTorch(yaml_config="path/toyaml/file/with/args/as/in/easytorch.confi/default_confi.yaml")
 
 if __name__ == "__main__":
     runner.run(MyTrainer, MyDataset) # To train an individual models for each datasets. 
-    runner.run_pooled(MyTrainer, MyDataset) # To train a single model combining both datasets.
 ```
 #### Run from the command line:
 
@@ -224,19 +210,9 @@ Note: directly given(EasyTorch constructor) args precedes command line arguments
 
 ### Feature Higlights:
 
-* Minimal configuration to setup any simple/complex experiment (Single GPU, DP, and [DDP usage](assets/DefaultArgs.md)).
 * DataHandle that is always available, and decoupled from other modules enabling easy
-  customization ([ETDataHandle](easytorch/data/loader.py)).
+  customization ([ETDataHandle](easytorch/data/data.py)).
     * Use custom & complex data handling mechanism.
-    * Load folder datasets.
-    * Load recursively large datasets with multiple threads.
-* Full support to split images into patches and rejoin/merge them to get back the complete prediction image like in
-  U-Net(Usually needed when input images are large, and of different shapes) (Thanks to sparse data loaders).
-* Limit data loading- Limit data to debug the pipeline without moving data from the original place (Thanks to
-  load_limit)
-* Heterogeneous datasets handling-One can use many folders of dataset by just defining dataspecs and use in single
-  experiment(Thanks to pooled run).
-* Automatic k-fold cross validation/Auto dataset split (Example: num_folds=10, or split_ratio=[0.6, 0.2, 0.2])
 * Simple lightweight logger/plotter.
     * **Plot:** set log_header = 'Loss,F1,Accuracy' to plot in same plot or set log_header = 'Loss|F1,Accuracy' to plot
       Loss in one plot, and F1,Accuracy in another plot.
@@ -248,26 +224,4 @@ Note: directly given(EasyTorch constructor) args precedes command line arguments
 * **For advanced training with multiple networks, and complex training steps,
   click [here](assets/AdvancedTraining.md):**
 * **Implement custom metrics as [here](assets/CustomMetrics.md).**
-
-<hr />
-
-**Default arguments[default-value]. [Easily add custom arguments.](assets/DefaultArgs.md)**
-
-* **-ph/--phase** [Required]
-    * Which phase to run? 'train' (runs all train, validation, test steps) OR 'test' (runs only test step).
-* **-b/--batch_size** [4]
-* **-ep/--epochs** [11]
-* **-lr/--learning_rate** [0.001]
-* -**gpus/--gpus** [0]
-    * List of gpus to be used. Eg. [0], [1], [0, 1]
-* **-nw/--num_workers** [0]
-    * Number of workers for data loading so that cpu can keep-up with GPU speed when loading mini-batches.
-* **-lim/--load-limit**[None]
-    * Specifies a limit on images/files to load for debug purpose for pipeline debugging.
-* **-nf/--num_folds** [None]
-    * Number of folds in k-fold cross validation(Integer value like 5, 10).
-* **-spl/--split_ratio** [None]
-    * Split ratio for train, validation, test set if two items given| train, test if three items given| train only if
-      one item given.
-* [...see more (ddp args)](assets/DefaultArgs.md)
 

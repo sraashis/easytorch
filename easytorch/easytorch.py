@@ -9,6 +9,8 @@ import torch as _torch
 import torch.distributed as _dist
 import torch.multiprocessing as _mp
 
+from pathlib import Path as _Path
+
 import easytorch.config as _conf
 import easytorch.utils as _utils
 from easytorch.config.state import *
@@ -18,9 +20,9 @@ from easytorch.utils.logger import *
 import uuid as _uuid
 from datetime import datetime as _dtime
 import yaml as _yaml
-from pathlib import Path as _Path
 
 _sep = _os.sep
+_DEFAULT_YAML = str(_Path(__file__).resolve().parent) + _sep + "config" + _sep + "default-cfg.yaml"
 
 
 def _ddp_worker(rank, self, trainer_cls, dataset_cls, data_handle_cls):
@@ -57,11 +59,14 @@ class EasyTorch:
         '\n\t2). runtime arguments 2). python main.py -ph <value> ...' \
         f'\nPossible values are:{_MODES_}'
 
-    def __init__(self, yaml_conf=None, dataloader_args=None, **kw):
+    def __init__(self, dataloader_args=None, **kw):
         self.args = _conf.agrgs_parser()
-        if yaml_conf:
-            self.args.update(**_yaml.safe_load(yaml_conf))
         self.args.update(**kw)
+
+        if self.args.get('yaml_config'):
+            """Sample in config/default-cfg.yaml"""
+            warn(f"{self.args['yaml_confi']} file will take the highest precedence.", self.args['verbose'])
+            self.args.update(**_yaml.safe_load(self.args['yaml_config']))
 
         self.dataloader_args = dataloader_args
         assert (self.args.get('phase') in self._MODES_), self._MODE_ERR_
@@ -72,7 +77,7 @@ class EasyTorch:
         self.args.update(is_master=self.args.get('is_master', True), world_rank=0)
         self.args['RUN-ID'] = _dtime.now().strftime("ET-%Y%m%d-%H%M%S-") + _uuid.uuid4().hex[:4].upper()
 
-        self.args['save_dir'] = self.args['output_base'] + _sep + self.args['phase'].upper() + _sep + self.args["name"]
+        self.args['save_dir'] = self.args['output_base_dir'] + _sep + self.args['phase'].upper() + _sep + self.args["name"]
 
     def _device_check(self):
         self.args['gpus'] = self.args['gpus'] if self.args.get('gpus') else []
@@ -276,5 +281,5 @@ class EasyTorch:
 
         if self.args['phase'] == Phase.INFERENCE:
             self._inference(data_split, data_handle, engine, dataset_cls,
-                            self.args.setdefault('distributed_inference', True))
+                            self.args.setdefault('distributed_inference', False))
         _cleanup(engine, data_handle)

@@ -133,7 +133,9 @@ class ETDataHandle:
 
         if self.data_source.endswith('*.txt'):
             for txt in glob.glob(self.data_source + os.sep + "*.txt"):
-                split[_Path(txt).stem] = open(txt).read().splitlines()
+                pth = _Path(txt)
+                if pth.stem in split:
+                    split[_Path(txt).stem] = open(txt).read().splitlines()
 
         elif self.data_source.endswith('.json'):
             split = _json.load(open(self.data_source))
@@ -152,6 +154,10 @@ class ETDataHandle:
                     f"SPLIT_{_Path(self.args['save_dir']).name}_{self.args['name']}.json", 'w'
             ) as fw:
                 _json.dump(split, fw)
+
+        for k in split:
+            info(f"Data loaded for {k}, {len(split[k])} files", self.args['verbose'])
+
         return split
 
 
