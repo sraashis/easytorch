@@ -1,4 +1,6 @@
-## A very lightweight framework on top of PyTorch with full functionality.
+_## A very lightweight framework on top of PyTorch with full functionality.
+
+#### **Just one way of doing things means no learning curve.**  ✅
 
 ![Logo](assets/easytorchlogo.png)
 
@@ -8,36 +10,8 @@
 
 <hr />
 
-* #### Introduces two extra multi-processing handles for blazing fast training by extending the easytorch.ETDataset class:
-  * Multi-threaded data pre-loading. 
-  * Disk caching for faster access.
-  
-```python
-from easytorch import ETDataset
-
-class MyDataset(ETDataset):
-    def load_index(self, file):
-        """(Optional) Load/Process something and add to diskcache as:
-                self.diskcahe.add(file, value)"""
-        """This method runs in multiple processes by default"""
-    
-        self.indices.append([file, 'something_extra'])
-
-    def __getitem__(self, index):
-        file = self.indices[index]
-        """(Optional) Retrieve from diskcache as self.diskcache.get(file)"""
-
-        image =  # Todo # Load file/Image. 
-        label =  # Todo # Load corresponding label.
-        
-        # Extra preprocessing, if needed.
-        # Apply transforms, if needed.
-
-        return image, label
-```
-
-
 #### Installation
+
 1. `pip install --upgrade pip`
 2. `Install latest pytorch and torchvision from` [Pytorch](https://pytorch.org/)
 3. `pip install easytorch`
@@ -47,7 +21,7 @@ class MyDataset(ETDataset):
 * [Covid-19 chest x-ray classification.](https://github.com/sraashis/covidxfactory)
 * [DCGAN.](https://github.com/sraashis/gan-easytorch-celeb-faces)
 
-#### Lets start something simple like MNIST digit classification:
+#### Let's start something simple like MNIST digit classification:
 
 ```python
 from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
@@ -72,7 +46,7 @@ class MNISTTrainer(ETTrainer):
         out = self.nn['model'](inputs)
         loss = F.nll_loss(out, labels)
         _, pred = torch.max(out, 1)
-        
+
         meter = self.new_meter()
         meter.averages.add(loss.item(), len(inputs))
         meter.metrics['cfm'].add(pred, labels.float())
@@ -99,6 +73,11 @@ if __name__ == "__main__":
     runner.run(MNISTTrainer)
 ```
 
+### Run as:
+
+`python script.py -ph train -b 512 -e 10 -gpus 0`
+
+### ... with **20+** useful options. Check [here](./easytorch/config/) for full list.
 
 <hr />
 
@@ -123,7 +102,7 @@ class MyTrainer(ETTrainer):
         return {'loss': ..., 'meter': ..., 'predictions': ...}
 
     def new_meter(self):
-       return ETMeter(
+        return ETMeter(
             num_averages=1,
             prf1a=Prf1a(),
             auc=AUCROCMetrics()
@@ -132,7 +111,7 @@ class MyTrainer(ETTrainer):
     def init_cache(self):
         """Will plot Loss in one plot, and Accuracy,F1_score in another."""
         self.cache['log_header'] = 'Loss|Accuracy,F1_score'
-        
+
         """Model selection using validation set if present"""
         self.cache.update(monitor_metric='f1', metric_direction='maximize')
 
@@ -143,16 +122,43 @@ class MyTrainer(ETTrainer):
     * easytorch.metrics.ConfusionMatrix(num_classes=...) for multiclass classification that also computes global
       accuracy,f1,precision,recall.
     * easytorch.metrics.AUCROCMetrics for binary ROC-AUC score.
-    
+
 #### 2. Define specification for your datasets:
 
-* EasyTorch automatically splits the training data in _**data_source**_ as specified by _**split_ratio**_
-  * train, validation, and test as data_source=[0.7, 0.15, 0.15], or just train, validation [0.8, 0.2] OR
-  * Custom splits in txt files:
-    * data_source = "/some/path/*.txt", where it tries to load 'train.txt', 'validation.txt', and 'test.txt' if phase is _train_ only 'test.txt' if phase is _test_
-  * data_source = "some/path/split.json", where each split key has list of files as:
-    * {'train': [], 'validation' :[], 'test':[]}
-  * just glob as data_source = "some/path/**/*.txt", must also provide split_ratio if phase = _train_
+* EasyTorch automatically splits the training data in _**data_source**_ as specified by
+  _**split_ratio(-spl or --split-ratio 0.7, 0.15, 0.15, for train validation and test portion)**_ OR Custom splits in
+    1. Text files:
+        * data_source = "/some/path/*.txt", where it looks for 'train.txt', 'validation.txt', and 'test.txt' if phase is
+          _train_, and only 'test.txt' if phase is _test_
+    2. Json files:
+        * data_source = "some/path/split.json", where each split key has list of files as {'train': [], '
+          validation' :[], 'test':[]}
+    3. Just glob as data_source = "some/path/**/*.txt", must also provide split_ratio if phase = _train_
+
+```python
+from easytorch import ETDataset
+
+
+class MyDataset(ETDataset):
+    def load_index(self, file):
+        """(Optional) Load/Process something and add to diskcache as:
+                self.diskcahe.add(file, value)"""
+        """This method runs in multiple processes by default"""
+
+        self.indices.append([file, 'something_extra'])
+
+    def __getitem__(self, index):
+        file = self.indices[index]
+        """(Optional) Retrieve from diskcache as self.diskcache.get(file)"""
+
+        image =  # Todo # Load file/Image. 
+        label =  # Todo # Load corresponding label.
+
+        # Extra preprocessing, if needed.
+        # Apply transforms, if needed.
+
+        return image, label
+```
 
 #### 3. Entry point (say main.py)
 
@@ -163,25 +169,6 @@ runner = EasyTorch(phase="train", batch_size=4, epochs=21,
                    num_channel=1, num_class=2,
                    split_ratio=[0.6, 0.2, 0.2])
 ```
-#### **OR
-```
-python main.py -ph train -b 4 -e 50 -nc 3 -spl 0.8 0.1 0.1
-```
-Note: See easytorch.config.__ init __.py for full list of args
-#### OR
-```python
-
-runner = EasyTorch(yaml_config="path/toyaml/file/with/args/as/in/easytorch.confi/default_confi.yaml")
-
-if __name__ == "__main__":
-    runner.run(MyTrainer, MyDataset) # To train an individual models for each datasets. 
-```
-#### Run from the command line:
-
-```python main.py -ph train -b 4 -e 21 -spl 0.6 0.2 0.2```
-
-Note: directly given(EasyTorch constructor) args precedes command line arguments. See below for  a list of default arguments.
-<hr />
 
 ### All the best! Cheers! 🎉
 
@@ -207,7 +194,6 @@ Note: directly given(EasyTorch constructor) args precedes command line arguments
 }
 ```
 
-
 ### Feature Higlights:
 
 * DataHandle that is always available, and decoupled from other modules enabling easy
@@ -217,11 +203,10 @@ Note: directly given(EasyTorch constructor) args precedes command line arguments
     * **Plot:** set log_header = 'Loss,F1,Accuracy' to plot in same plot or set log_header = 'Loss|F1,Accuracy' to plot
       Loss in one plot, and F1,Accuracy in another plot.
     * **Logs:** all arguments/generated data will be saved in logs.json file after the experiment finishes.
-* Gradient accumulation, automatic logging/plotting, model checkpointing
+* Gradient accumulation, automatic logging/plotting, model checkpointing, save everything.
 * Multiple metrics implementation at easytorch.metrics: Precision, Recall, Accuracy, Overlap, F1, ROC-AUC, Confusion
   matrix
-  [..more features](assets/Features.md)
 * **For advanced training with multiple networks, and complex training steps,
   click [here](assets/AdvancedTraining.md):**
-* **Implement custom metrics as [here](assets/CustomMetrics.md).**
+* **Implement custom metrics as [here](assets/CustomMetrics.md).**_
 
