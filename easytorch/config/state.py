@@ -29,7 +29,7 @@ class Phase(str, _Enum):
     TRAIN = 'train'
     VALIDATION = 'validation'
     TEST = 'test'
-    INFERENCE = 'inference'
+    INFERENCE = "inference"
 
 
 class LogKey(str, _Enum):

@@ -24,7 +24,7 @@
 #### Let's start with something simple like MNIST digit classification:
 
 ```python
-from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
+from easytorch import EasyTorch, ETRunner, ConfusionMatrix, ETMeter
 from torchvision import datasets, transforms
 import torch.nn.functional as F
 import torch
@@ -36,7 +36,7 @@ transform = transforms.Compose([
 ])
 
 
-class MNISTTrainer(ETTrainer):
+class MNISTTrainer(ETRunner):
     def _init_nn_model(self):
         self.nn['model'] = MNISTNet()
 
@@ -86,13 +86,13 @@ if __name__ == "__main__":
 #### 1. Define your trainer
 
 ```python
-from easytorch import ETTrainer, Prf1a, ETMeter, AUCROCMetrics
+from easytorch import ETRunner, Prf1a, ETMeter, AUCROCMetrics
 
 
-class MyTrainer(ETTrainer):
+class MyTrainer(ETRunner):
 
     def _init_nn_model(self):
-        self.nn['model'] = NeuralNetModel(out_size=self.args['num_class'])
+        self.nn['model'] = NeuralNetModel(out_size=self.conf['num_class'])
 
     def iteration(self, batch):
         """Handle a single batch"""

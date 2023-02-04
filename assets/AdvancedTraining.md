@@ -4,12 +4,14 @@
 * #### Easily save predictions for any prediction task(Like segmentation results).
 
 ### Override the following by extending easytorch.trainer.ETTrainer:
+
 ```python
 def _init_optimizer(self):
     r"""
     Initialize optimizers.
     """
-    self.optimizer['adam'] = torch.optim.Adam(self.nn['model'].parameters(), lr=self.args['learning_rate'])
+    self.optimizer['adam'] = torch.optim.Adam(self.nn['model'].parameters(), lr=self.conf['learning_rate'])
+
 
 def training_iteration(self, i, batch):
     '''
@@ -30,9 +32,11 @@ def save_predictions(self, dataset, its):
     '''
     pass
 
+
 def new_meter(self):
     """Track two averages like GAN losses(Generator and Fiscriminator)"""
     return ETMeter(num_averages=2)
+
 
 def init_experiment_cache(self):
     r"""
