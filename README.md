@@ -1,4 +1,4 @@
-_## A very lightweight framework on top of PyTorch with full functionality.
+## A very lightweight framework on top of PyTorch with full functionality.
 
 #### **Just one way of doing things means no learning curve.**  ✅
 
@@ -21,7 +21,7 @@ _## A very lightweight framework on top of PyTorch with full functionality.
 * [Covid-19 chest x-ray classification.](https://github.com/sraashis/covidxfactory)
 * [DCGAN.](https://github.com/sraashis/gan-easytorch-celeb-faces)
 
-#### Let's start something simple like MNIST digit classification:
+#### Let's start with something simple like MNIST digit classification:
 
 ```python
 from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter
@@ -208,5 +208,5 @@ runner = EasyTorch(phase="train", batch_size=4, epochs=21,
   matrix
 * **For advanced training with multiple networks, and complex training steps,
   click [here](assets/AdvancedTraining.md):**
-* **Implement custom metrics as [here](assets/CustomMetrics.md).**_
+* **Implement custom metrics as [here](assets/CustomMetrics.md).**
 
