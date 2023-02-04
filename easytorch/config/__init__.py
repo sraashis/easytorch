@@ -19,10 +19,9 @@ class StoreDictKeyPairSS(_ap.Action):
         setattr(namespace, self.dest, my_dict)
 
 
-def agrgs_parser():
+def args_parser():
     default_ap = _ap.ArgumentParser()
 
-    default_ap.add_argument('-yaml', '--yaml-config', default=None, type=str, help='Path to yaml file.')
     default_ap.add_argument('-name', '--name', default='easy_exp', type=str, help='Name')
     default_ap.add_argument('-data', '--data-source', default=None, type=str, help='data source')
     default_ap.add_argument('-imsize', '--image_size', default=None, nargs='*', type=int, help='image size in tuple')
@@ -41,7 +40,7 @@ def agrgs_parser():
     default_ap.add_argument('-nw', '--num_workers', default=0, type=int,
                             help='Number of workers to work on data loading.')
     default_ap.add_argument('-lim', '--load_limit', default=None, type=int, help='Data load limit')
-    default_ap.add_argument('-out', '--output_base_dir', default='net_output', type=str, help='Base output directory')
+    default_ap.add_argument('-out', '--output_base_dir', default='_output', type=str, help='Base output directory')
     default_ap.add_argument('-pt', '--pretrained_path', default=None, type=str,
                             help='Full path to pretrained weights(It will be loaded before training.)')
     default_ap.add_argument('-v', '--verbose', default=True, type=boolean_string,
@@ -74,6 +73,4 @@ def agrgs_parser():
         default_ap.add_argument('--master-port', default='8998', type=str,
                                 help='Master node address.')
 
-    _known, _unknown = default_ap.parse_known_args()
-    default_args = vars(_known)
-    return default_args
+    return default_ap

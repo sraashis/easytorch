@@ -51,30 +51,30 @@ class DiskCache:
 
 class ETDataHandle:
 
-    def __init__(self, args: dict = None, dataloader_args: dict = None, **kw):
-        self.args = _etutils.FrozenDict(args)
+    def __init__(self, conf: dict = None, dataloader_args: dict = None, **kw):
+        self.conf = _etutils.FrozenDict(conf)
         self.dataloader_args = {'train': {}, 'validation': {}, 'test': {}, 'inference': {}}
 
         if dataloader_args:
             self.dataloader_args.update(**dataloader_args)
 
         self.diskcache = DiskCache(
-            self.args['save_dir'] + _os.sep + "_cache" + _sep + self.args['RUN-ID'],
-            self.args['verbose']
+            self.conf['save_dir'] + _os.sep + "_cache" + _sep + self.conf['RUN-ID'],
+            self.conf['verbose']
         )
-        self.data_source = args.get('data_source')
+        self.data_source = conf.get('data_source')
 
     def get_dataset(self, handle_key, data_split, dataset_cls=None):
         if self.dataloader_args[handle_key].get('dataset'):
             return self.dataloader_args[handle_key]['dataset']
 
         if data_split.get(handle_key):
-            dataset = dataset_cls(mode=handle_key, limit=self.args['load_limit'], **self.args)
-            dataset.add(files=data_split[handle_key], diskcache=self.diskcache, verbose=self.args['verbose'])
+            dataset = dataset_cls(mode=handle_key, limit=self.conf['load_limit'], **self.conf)
+            dataset.add(files=data_split[handle_key], diskcache=self.diskcache, verbose=self.conf['verbose'])
             return self.dataloader_args[handle_key].setdefault('dataset', dataset)
 
     def get_data_loader(self, handle_key='', distributed=False, use_unpadded_sampler=False, **kw):
-        args = {**self.args}
+        args = {**self.conf}
         args['distributed'] = distributed
         args['use_unpadded_sampler'] = use_unpadded_sampler
         args.update(self.dataloader_args.get(handle_key, {}))
@@ -127,7 +127,7 @@ class ETDataHandle:
     def get_data_split(self):
 
         split = {"test": []}
-        if self.args['phase'] == Phase.TRAIN:
+        if self.conf['phase'] == Phase.TRAIN:
             split['train'] = []
             split['validation'] = []
 
@@ -142,21 +142,17 @@ class ETDataHandle:
 
         else:
             files = _glob.glob(self.data_source, recursive='**' in self.data_source)
-
-            if self.args['phase'] == Phase.INFERENCE:
-                split = _du.create_ratio_split(files, [1.0], first_key=Phase.INFERENCE)
-            else:
-                split = _du.create_ratio_split(files, self.args['split_ratio'])
+            split = _du.create_ratio_split(files, self.conf['split_ratio'])
 
             with open(
-                    self.args['save_dir']
+                    self.conf['save_dir']
                     + _sep +
-                    f"SPLIT_{_Path(self.args['save_dir']).name}_{self.args['name']}.json", 'w'
+                    f"SPLIT_{_Path(self.conf['save_dir']).name}_{self.conf['name']}.json", 'w'
             ) as fw:
                 _json.dump(split, fw)
 
         for k in split:
-            info(f"Data loaded for {k}, {len(split[k])} files", self.args['verbose'])
+            info(f"Data loaded for {k}, {len(split[k])} files", self.conf['verbose'])
 
         return split
 
@@ -168,7 +164,7 @@ class ETDataset(_Dataset):
         self.indices = []
         self.data = {}
         self.diskcache = None
-        self.args = _etutils.FrozenDict(kw)
+        self.conf = _etutils.FrozenDict(kw)
 
         tmfs = [_tmf.ToTensor()]
         if kw.get('image_size'):
@@ -189,11 +185,11 @@ class ETDataset(_Dataset):
         """
         _files = files[:self.limit]
         _files_len = len(_files)
-        if self.args["multi_load"] and _files_len > 1:
+        if self.conf["multi_load"] and _files_len > 1:
             dataset_objs = _multi.multi_load(
                 self.mode,
                 _files,
-                self.args,
+                self.conf,
                 self.__class__,
                 diskcache=self.diskcache
             )

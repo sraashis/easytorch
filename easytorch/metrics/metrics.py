@@ -1,5 +1,5 @@
 r"""
-ETTrainer calls .averages(), .metrics() internally to get whatever you have
+ETRunner calls .averages(), .metrics() internally to get whatever you have
 added in the ETAverages, ETMetrics respectively.
 """
 

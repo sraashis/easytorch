@@ -5,23 +5,23 @@ import torch.distributed as _dist
 import torch.multiprocessing as _mp
 import torch.nn as _nn
 import torch.optim as _optim
-from easytorch import default_args as _args
+from easytorch.config import args_parser as _args_parser
 
 
-def _setup(rank, args):
-    if not args.get('world_size'):
-        args['world_size'] = args['num_gpus'] * args['num_nodes']
+def _setup(rank, conf):
+    if not conf.get('world_size'):
+        conf['world_size'] = conf['num_gpus'] * conf['num_nodes']
 
-    world_rank = args['node_rank'] * args['num_gpus'] + rank
-    _dist.init_process_group(backend=args['dist_backend'],
-                             init_method=args['init_method'],
-                             rank=world_rank, world_size=args['world_size'])
+    world_rank = conf['node_rank'] * conf['num_gpus'] + rank
+    _dist.init_process_group(backend=conf['dist_backend'],
+                             init_method=conf['init_method'],
+                             rank=world_rank, world_size=conf['world_size'])
 
-    total_ranks = _torch.Tensor([1]).to(args['gpus'][rank])
+    total_ranks = _torch.Tensor([1]).to(conf['gpus'][rank])
     _dist.all_reduce(total_ranks, _dist.ReduceOp.SUM)
     if rank == 0:
         print("\n\t***** DDP injection successful!!! *****")
-        print(f"\tTotal nodes: {args['num_nodes']}")
+        print(f"\tTotal nodes: {conf['num_nodes']}")
         print(f'\tTotal participating processes: {int(total_ranks.item())}')
         print("\t***************************************")
 
@@ -80,6 +80,7 @@ world_size = None, since automatically determined by number of GPUs.
 """
 
 if __name__ == "__main__":
+    _args = _args_parser()
     _args['num_gpus'] = len(_args['gpus'])
     data_loaders = {
         'train': [],

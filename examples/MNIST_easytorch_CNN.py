@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torchvision import datasets, transforms
 from examples.models import MNISTNet
 
-from easytorch import EasyTorch, ETTrainer, ConfusionMatrix, ETMeter, AUCROCMetrics
+from easytorch import EasyTorch, ETRunner, ConfusionMatrix, ETMeter, AUCROCMetrics
 
 transform = transforms.Compose([
     transforms.ToTensor(),
@@ -11,7 +11,7 @@ transform = transforms.Compose([
 ])
 
 
-class MNISTTrainer(ETTrainer):
+class MNISTTrainer(ETRunner):
     def _init_nn_model(self):
         self.nn['model'] = MNISTNet()
 

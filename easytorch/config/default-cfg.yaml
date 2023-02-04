@@ -15,7 +15,7 @@ pin_memory: False
 num-workers: 4
 load_limit:
 
-output_base_dir: net_output
+output_base_dir: _output
 pretrained_path:
 verbose: True
 seed-all: False
