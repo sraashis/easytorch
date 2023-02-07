@@ -241,7 +241,7 @@ class EasyTorch:
     def _inference(self, data_split, data_handle, engine, dataset_cls, distributed=False):
         infer_dataset = data_handle.get_dataset(Phase.INFERENCE, data_split, dataset_cls)
         dataloader = data_handle.get_data_loader(
-            handle_key=Phase.TEST, shuffle=False, dataset=infer_dataset, distributed=distributed,
+            handle_key=Phase.INFERENCE, shuffle=False, dataset=infer_dataset, distributed=distributed,
             use_unpadded_sampler=True,
         )
         engine.inference(dataloader=dataloader)
