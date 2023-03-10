@@ -1,15 +1,11 @@
-import json as _json
 import multiprocessing as _mp
-import os as _os
 import traceback as _tb
+from functools import partial as _partial
 from typing import Callable
 
 import numpy as _np
 import torch as _torch
 from torch.utils.data._utils.collate import default_collate as _default_collate
-from functools import partial as _partial
-
-from easytorch.utils.logger import success
 
 LOG_FREQ = 100
 
