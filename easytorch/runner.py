@@ -112,7 +112,7 @@ class ETRunner:
 
     def _set_device(self):
         r"""
-        Initialize GPUs based on what's provided in args(Default [0])
+        Initialize GPUs based on what's provided in conf(Default [0])
         Expects list of GPUS as [0, 1, 2, 3]., list of GPUS will make it use DataParallel.
         If no GPU is present, CPU is used.
         """
