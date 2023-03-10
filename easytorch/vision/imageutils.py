@@ -24,6 +24,7 @@ def clahe(array, clip_limit=2.0, tile_grid_sz=(8, 8)):
     _arr = array.copy()
     if len(array.shape) == 2:
         _arr = clahe.apply()
+
     elif len(array.shape) > 2:
         for i in range(array.shape[2]):
             _arr[:, :, i] = clahe.apply(_arr[:, :, i].copy())
