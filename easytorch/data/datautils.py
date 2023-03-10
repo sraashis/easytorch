@@ -46,9 +46,9 @@ def create_k_fold_splits(files, k=0, save_to_dir=None, shuffle_files=True, name=
                   "test": [files[ix] for ix in test_ix]}
 
         if save_to_dir:
-            f = open(save_to_dir + _sep + f"{name}_{i}.json", "w")
-            f.write(_json.dumps(splits))
-            f.close()
+            with open(save_to_dir + _sep + f"{name}_{i}.json", "w") as fw:
+                fw.write(_json.dumps(splits))
+                fw.close()
         else:
             return splits
 
