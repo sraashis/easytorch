@@ -266,11 +266,11 @@ class EasyTorch:
 
     def _run(self, runner_cls, dataset_cls, data_handle_cls):
 
-        engine = runner_cls(args=self.conf)
+        engine = runner_cls(conf=self.conf)
         self._prepare_nn_engine(engine)
 
         data_split = {}
-        data_handle = data_handle_cls(args=self.conf, dataloader_args=self.dataloader_args)
+        data_handle = data_handle_cls(conf=self.conf, dataloader_args=self.dataloader_args)
         if data_handle.data_source:
             data_split = data_handle.get_data_split()
 
