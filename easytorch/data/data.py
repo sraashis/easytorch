@@ -125,31 +125,35 @@ class ETDataHandle:
         return _DataLoader(collate_fn=_multi.safe_collate, **loader_args)
 
     def get_data_split(self):
-
+        p = _Path(self.data_source)
         split = {"test": []}
         if self.conf['phase'] == Phase.TRAIN:
             split['train'] = []
             split['validation'] = []
 
-        if self.data_source.endswith('*.txt'):
-            for txt in glob.glob(self.data_source + os.sep + "*.txt"):
+        if str(p).endswith('*.txt'):
+            for txt in glob.glob(self.data_source):
                 pth = _Path(txt)
                 if pth.stem in split:
-                    split[_Path(txt).stem] = open(txt).read().splitlines()
+                    with open(txt) as fw:
+                        split[_Path(txt).stem] = fw.read().splitlines()
 
-        elif self.data_source.endswith('.json'):
-            split = _json.load(open(self.data_source))
+        elif str(p).endswith('.json'):
+            with open(self.data_source) as fw:
+                split = _json.load(fw)
 
         else:
-            files = _glob.glob(self.data_source, recursive='**' in self.data_source)
+            files = []
+            if '*' in str(p):
+                files = _glob.glob(self.data_source, recursive='**' in self.data_source)
+            elif p.suffix == '.txt':
+                with open(str(p)) as fw:
+                    files = fw.read().splitlines()
             split = _du.create_ratio_split(files, self.conf['split_ratio'])
 
-            with open(
-                    self.conf['save_dir']
-                    + _sep +
-                    f"SPLIT_{_Path(self.conf['save_dir']).name}_{self.conf['name']}.json", 'w'
-            ) as fw:
-                _json.dump(split, fw)
+        _spl = self.conf['save_dir'] + _sep + f"SPLIT_{_Path(self.conf['save_dir']).name}_{self.conf['name']}.json"
+        with open(_spl, 'w') as fw:
+            _json.dump(split, fw)
 
         for k in split:
             info(f"Data loaded for {k}, {len(split[k])} files", self.conf['verbose'])
