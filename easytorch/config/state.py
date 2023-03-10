@@ -13,7 +13,6 @@ METRICS_EPS = 1e-5
 METRICS_NUM_PRECISION = 5
 
 MAX_SIZE = _sys.maxsize
-DATA_SPLIT_RATIO = [0.6, 0.2, 0.2]
 CURRENT_SEED = _random.randint(0, 2 ** 24)
 SCORE_DELTA = 0.0
 

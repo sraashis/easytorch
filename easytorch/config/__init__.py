@@ -48,7 +48,7 @@ def args_parser():
     default_ap.add_argument('-seed-all', '--seed_all', default=False, type=boolean_string, help='Seed everything.')
     default_ap.add_argument('-seed', '--seed', default=CURRENT_SEED, type=int, help='Seed everything.')
     default_ap.add_argument('-f', '--force', default=False, type=boolean_string, help='Force')
-    default_ap.add_argument('-spl', '--split_ratio', default=[0.7, 0.15, 0.15], nargs='*', type=float,
+    default_ap.add_argument('-spl', '--split_ratio', default=None, nargs='*', type=float,
                             help='Split ratio. Eg: 0.6 0.2 0.2 or 0.8 0.2. Exclusive to num_fold.')
 
     default_ap.add_argument('-ddp', '--use_ddp', default=False, type=boolean_string, help='Use DDP?')

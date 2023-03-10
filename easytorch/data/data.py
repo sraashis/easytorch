@@ -156,7 +156,7 @@ class ETDataHandle:
             _json.dump(split, fw)
 
         for k in split:
-            info(f"Data loaded for {k}, {len(split[k])} files", self.conf['verbose'])
+            info(f"Data count: {len(split[k])}, phase:{k}", self.conf['verbose'])
 
         return split
 

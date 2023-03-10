@@ -120,7 +120,6 @@ class EasyTorch:
     def _show_args(self):
         info(f" *** Starting phase:{self.conf['phase']}, Name:{self.conf['name']} ***", self.conf['verbose'])
         if self.conf['verbose'] and self.conf['phase'] == Phase.TRAIN:
-            warn("CONFIG:")
             _pp.pprint(self.conf)
 
     def _init_config(self, args):
