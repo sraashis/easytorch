@@ -18,26 +18,17 @@ Very useful image related utilities
 """
 
 
-def get_rgb_scores(arr_2d=None, truth=None):
-    """
-    Returns a rgb image of pixelwise separation between ground truth and arr_2d
-    (predicted image) with different color codes
-    Easy when needed to inspect segmentation result against ground truth.
-    :param arr_2d:
-    :param truth:
-    :return:
-    """
-    arr_rgb = _np.zeros([arr_2d.shape[0], arr_2d.shape[1], 3], dtype=_np.uint8)
-    x = arr_2d.copy()
-    y = truth.copy()
-    x[x == 255] = 1
-    y[y == 255] = 1
-    xy = x + (y * 2)
-    arr_rgb[xy == 3] = [255, 255, 255]
-    arr_rgb[xy == 1] = [0, 255, 0]
-    arr_rgb[xy == 2] = [255, 0, 0]
-    arr_rgb[xy == 0] = [0, 0, 0]
-    return arr_rgb
+def clahe(array, clip_limit=2.0, tile_grid_sz=(8, 8)):
+    clahe = _cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_sz)
+
+    _arr = array.copy()
+    if len(array.shape) == 2:
+        _arr = clahe.apply()
+
+    elif len(array.shape) > 2:
+        for i in range(array.shape[2]):
+            _arr[:, :, i] = clahe.apply(_arr[:, :, i].copy())
+    return _arr
 
 
 def rescale2d(arr):
@@ -284,3 +275,24 @@ def resize(array, size):
     else:
         array = array.resize((int(size[0]), int(img.size[1] / img.size[0] * size[0])))
     return _np.array(array)
+
+
+def top_k_larges_cc(arr, k=1, min_comp_size=None, index_only=False):
+    from scipy import ndimage
+    labeled, nr_objects = ndimage.label(arr)
+    comps = [list(zip(*_np.where(labeled == i))) for i in range(1, nr_objects + 1)]
+
+    if min_comp_size:
+        comps = sorted([c for c in comps if len(c) > min_comp_size], key=len, reverse=True)[:k]
+    else:
+        comps = sorted(comps, key=len, reverse=True)[:k]
+
+    if index_only:
+        return comps
+
+    res = _np.zeros_like(arr)
+    for c in comps:
+        c = _np.array(c)
+        res[c[:, 0], c[:, 1]] = 255
+
+    return res
