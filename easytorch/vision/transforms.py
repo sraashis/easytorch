@@ -6,7 +6,7 @@ from PIL import Image as _IMG
 from skimage.util import random_noise as _noise
 
 
-class RandomNoise():
+class RandomNoise:
     def __init__(self, p=0.5, random_crop=False, **kw):
         self.p = p
         self.noises = ['gaussian', 'localvar', 'poisson', 'salt', 'pepper', 's&p', 'speckle']
