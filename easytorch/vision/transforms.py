@@ -6,13 +6,13 @@ from PIL import Image as _IMG
 from skimage.util import random_noise as _noise
 
 
-class RandomNoise():
+class RandomNoise:
     def __init__(self, p=0.5, random_crop=False, **kw):
         self.p = p
         self.noises = ['gaussian', 'localvar', 'poisson', 'salt', 'pepper', 's&p', 'speckle']
-        self.amount = _np.arange(0.01, 0.06, 0.001)
-        self.vars = _np.arange(0.01, 0.02, 0.001)
-        self.means = _np.arange(0.0, 0.02, 0.001)
+        self.amount = _np.arange(0.01, 0.08, 0.001)
+        self.vars = _np.arange(0.01, 0.03, 0.001)
+        self.means = _np.arange(0.0, 0.03, 0.001)
         self.random_crop = random_crop
 
     def _random_crop_ix(self, arr):
@@ -62,4 +62,5 @@ class RandomNoise():
 
         gray = _cv2.cvtColor(_arr, _cv2.COLOR_BGR2GRAY)
         gray = _cv2.merge([gray, gray, gray])
+        gray = _cv2.GaussianBlur(gray, (3, 3), 0)
         return _IMG.fromarray(gray)
