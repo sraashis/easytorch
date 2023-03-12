@@ -40,7 +40,7 @@ def args_parser():
     default_ap.add_argument('-nw', '--num_workers', default=0, type=int,
                             help='Number of workers to work on data loading.')
     default_ap.add_argument('-lim', '--load_limit', default=None, type=int, help='Data load limit')
-    default_ap.add_argument('-out', '--output_base_dir', default='_output', type=str, help='Base output directory')
+    default_ap.add_argument('-out', '--output_base_dir', default='OUTPUT', type=str, help='Base output directory')
     default_ap.add_argument('-pt', '--pretrained_path', default=None, type=str,
                             help='Full path to pretrained weights(It will be loaded before training.)')
     default_ap.add_argument('-v', '--verbose', default=True, type=boolean_string,
