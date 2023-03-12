@@ -440,7 +440,7 @@ class ETRunner:
                     distributed=self.conf['use_ddp'] and self.conf.get('distributed_validation')
                 )
 
-            info('--', self.conf['is_master'])
+            info('--', self.conf['is_master'] and self.conf['verbose'])
             self._on_epoch_end(**epoch_details)
             if self.conf['is_master']:
                 self._global_epoch_end(**epoch_details)
