@@ -143,13 +143,24 @@ class ETDataHandle:
                 split = _json.load(fw)
 
         else:
-            files = []
-            if '*' in str(p):
+            if p.is_dir():
+                files = _glob.glob(self.data_source + _sep + "*.*")
+
+            elif '*' in str(p):
                 files = _glob.glob(self.data_source, recursive='**' in self.data_source)
+
             elif p.suffix == '.txt':
                 with open(str(p)) as fw:
                     files = fw.read().splitlines()
-            split = _du.create_ratio_split(files, self.conf['split_ratio'])
+            else:
+                raise ValueError(f"Unknown data source: {self.data_source}")
+
+            files = sorted(files)
+            if self.conf['phase'] == Phase.INFERENCE:
+                split = {Phase.INFERENCE: files}
+
+            else:
+                split = _du.create_ratio_split(files, self.conf['split_ratio'])
 
         _spl = self.conf['save_dir'] + _sep + f"SPLIT_{_Path(self.conf['save_dir']).name}_{self.conf['name']}.json"
         with open(_spl, 'w') as fw:

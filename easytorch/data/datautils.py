@@ -8,7 +8,7 @@ import numpy as _np
 _sep = _os.sep
 
 
-def create_ratio_split(files, ratio: list = None, first_key='train', shuffle_files=True):
+def create_ratio_split(files, ratio: list = None, first_key='train', shuffle_files=False):
     if shuffle_files:
         _rd.seed(len(files))
         _rd.shuffle(files)
