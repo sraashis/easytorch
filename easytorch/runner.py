@@ -33,8 +33,8 @@ class ETRunner:
         self.optimizer = {}
         self.device = {'gpu': conf.get('gpu', 'cpu')}
 
-        self.epoch = None
-        self.batch_index = None
+        self.epoch = 0
+        self.batch_index = 0
         self.data_handle = data_handle
 
     def init_nn(self,
