@@ -19,7 +19,7 @@ _sep = _os.sep
 
 
 class ETRunner:
-    def __init__(self, conf=None, **kw):
+    def __init__(self, conf=None, data_handle=None, **kw):
         r"""
         conf: receives the arguments passed by the ArgsParser.
         cache: Initialize all immediate things here. Like scores, loss, accuracies...
@@ -32,6 +32,10 @@ class ETRunner:
         self.nn = {}
         self.optimizer = {}
         self.device = {'gpu': conf.get('gpu', 'cpu')}
+
+        self.epoch = None
+        self.batch_index = None
+        self.data_handle = data_handle
 
     def init_nn(self,
                 init_models=True,
@@ -80,7 +84,7 @@ class ETRunner:
         r"""
         Load checkpoint from the given path:
             If it is an easytorch checkpoint, try loading all the models.
-            If it is not, assume it's weights to a single model and laod to first model.
+            If it is not, assume its weights to a single model and laod to first model.
         """
         chk = _torch.load(full_path, map_location=map_location)
         if chk.get('_its_origin_', 'Unknown').lower() == src:
@@ -389,6 +393,8 @@ class ETRunner:
     def train(self, train_loader, validation_loader) -> None:
         ep = 0
         for ep in range(1, self.conf['epochs'] + 1):
+            self.epoch = ep
+
             for k in self.nn:
                 self.nn[k].train()
 
@@ -415,6 +421,8 @@ class ETRunner:
                     its = []
                     it['num_iters'] = num_iters
                     it['i'] = i // self.conf['grad_accum_iters']
+                    self.batch_index = it['i']
+
                     epoch_meter.accumulate(it['meter'])
 
                     if self.conf['is_master']:

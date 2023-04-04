@@ -180,17 +180,17 @@ class EasyTorch:
         engine.init_cache()
         engine.init_nn()
 
-    def _run_training_and_eval(self, data_split, data_handle, engine, dataset_cls):
+    def _run_training_and_eval(self, data_split, engine, dataset_cls):
 
-        train_loader = data_handle.get_data_loader(
+        train_loader = engine.data_handle.get_data_loader(
             handle_key='train',
             shuffle=True,
-            datset=data_handle.get_dataset(Phase.TRAIN, data_split, dataset_cls),
+            datset=engine.data_handle.get_dataset(Phase.TRAIN, data_split, dataset_cls),
             distributed=self.conf['use_ddp'])
 
-        val_dataset = data_handle.get_dataset(Phase.VALIDATION, data_split, dataset_cls)
+        val_dataset = engine.data_handle.get_dataset(Phase.VALIDATION, data_split, dataset_cls)
         if val_dataset:
-            val_loader = data_handle.get_data_loader(
+            val_loader = engine.data_handle.get_data_loader(
                 handle_key='validation',
                 shuffle=False,
                 dataset=val_dataset,
@@ -214,10 +214,10 @@ class EasyTorch:
         _utils.save_cache(self.conf, engine.cache, name=engine.conf['name'] + "_train")
         engine.cache['_saved'] = True
 
-    def _run_test(self, data_split, data_handle, engine, dataset_cls, distributed=False) -> dict:
-        test_dataset = data_handle.get_dataset(Phase.TEST, data_split, dataset_cls)
+    def _run_test(self, data_split, engine, dataset_cls, distributed=False) -> dict:
+        test_dataset = engine.data_handle.get_dataset(Phase.TEST, data_split, dataset_cls)
 
-        dataloader = data_handle.get_data_loader(
+        dataloader = engine.data_handle.get_data_loader(
             handle_key=Phase.TEST, shuffle=False, dataset=test_dataset, distributed=distributed
         )
 
@@ -237,9 +237,9 @@ class EasyTorch:
             _utils.save_cache(self.conf, engine.cache, name=f"{engine.conf['name']}_test")
         return test_out
 
-    def _inference(self, data_split, data_handle, engine, dataset_cls, distributed=False):
-        infer_dataset = data_handle.get_dataset(Phase.INFERENCE, data_split, dataset_cls)
-        dataloader = data_handle.get_data_loader(
+    def _inference(self, data_split, engine, dataset_cls, distributed=False):
+        infer_dataset = engine.data_handle.get_dataset(Phase.INFERENCE, data_split, dataset_cls)
+        dataloader = engine.data_handle.get_data_loader(
             handle_key=Phase.INFERENCE, shuffle=False, dataset=infer_dataset, distributed=distributed,
             use_unpadded_sampler=True,
         )
@@ -265,21 +265,26 @@ class EasyTorch:
 
     def _run(self, runner_cls, dataset_cls, data_handle_cls):
 
-        engine = runner_cls(conf=self.conf)
+        engine = runner_cls(
+            conf=self.conf,
+            data_handle=data_handle_cls(
+                conf=self.conf,
+                dataloader_args=self.dataloader_args
+            )
+        )
+
         self._prepare_nn_engine(engine)
 
         data_split = {}
-        data_handle = data_handle_cls(conf=self.conf, dataloader_args=self.dataloader_args)
-        if data_handle.data_source:
-            data_split = data_handle.get_data_split()
+        if engine.data_handle.data_source:
+            data_split = engine.data_handle.get_data_split()
 
         if self.conf['phase'] == Phase.TRAIN:
-            self._run_training_and_eval(data_split, data_handle, engine, dataset_cls)
+            self._run_training_and_eval(data_split, engine, dataset_cls)
 
             if self.conf['is_master'] and (data_split.get('test') or self.dataloader_args.get('test')):
-                self._run_test(data_split, data_handle, engine, dataset_cls)
+                self._run_test(data_split, engine.data_handle, engine, dataset_cls)
 
         if self.conf['phase'] == Phase.INFERENCE:
-            self._inference(data_split, data_handle, engine, dataset_cls,
-                            self.conf.setdefault('distributed_inference', False))
-        _cleanup(engine, data_handle)
+            self._inference(data_split, engine, dataset_cls, self.conf.setdefault('distributed_inference', False))
+        _cleanup(engine, engine.data_handle)
