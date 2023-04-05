@@ -33,6 +33,7 @@ class ETRunner:
         self.optimizer = {}
         self.device = {'gpu': conf.get('gpu', 'cpu')}
 
+        self.mode = Phase.TEST
         self.epoch = 0
         self.batch_index = 0
         self.data_handle = data_handle
@@ -217,6 +218,7 @@ class ETRunner:
                    mode='validation',
                    dataloader=None,
                    save_predictions=False) -> _metrics.ETMeter:
+        self.mode = mode
         for k in self.nn:
             self.nn[k].eval()
 
@@ -376,6 +378,8 @@ class ETRunner:
 
     @_torch.no_grad()
     def inference(self, dataloader):
+        self.mode = Phase.INFERENCE
+
         first_model = list(self.nn.keys())[0]
         self.nn[first_model].eval()
 
@@ -393,6 +397,7 @@ class ETRunner:
     def train(self, train_loader, validation_loader) -> None:
         ep = 0
         for ep in range(1, self.conf['epochs'] + 1):
+            self.mode = Phase.TRAIN
             self.epoch = ep
 
             for k in self.nn:
