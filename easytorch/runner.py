@@ -235,6 +235,7 @@ class ETRunner:
             try:
                 meter = self.new_meter()
                 for i, batch in enumerate(dataloader, 1):
+                    self.batch_index = i
                     it = self.iteration(batch)
 
                     if save_predictions:
@@ -387,6 +388,7 @@ class ETRunner:
                                    f"{self.conf['name']}.csv"
         with open(self.cache['output_csv'], 'w') as fw:
             for i, batch in enumerate(dataloader, 1):
+                self.batch_index = i
                 it = self.iteration(batch)
                 self.save_predictions(dataloader.dataset, it, writer=fw)
                 info(f"{self.conf['name']}, batch {i}/{len(dataloader)} done", self.conf['verbose'])
