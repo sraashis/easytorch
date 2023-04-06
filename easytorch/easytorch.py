@@ -283,7 +283,7 @@ class EasyTorch:
             self._run_training_and_eval(data_split, engine, dataset_cls)
 
             if self.conf['is_master'] and (data_split.get('test') or self.dataloader_args.get('test')):
-                self._run_test(data_split, engine.data_handle, engine, dataset_cls)
+                self._run_test(data_split, engine, dataset_cls)
 
         if self.conf['phase'] == Phase.INFERENCE:
             self._inference(data_split, engine, dataset_cls, self.conf.setdefault('distributed_inference', False))
