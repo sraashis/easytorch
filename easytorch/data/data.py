@@ -211,7 +211,7 @@ class ETDataset(_Dataset):
             self.gather(dataset_objs)
         else:
             for i, file in enumerate(_files, 1):
-                info(f"Loading... {i}/{_files_len}", i % _multi.LOG_FREQ == 0, self.conf['verbose'])
+                info(f"Loading... {i}/{_files_len}", i % _multi.LOG_FREQ == 0 and self.conf['verbose'])
                 self.load_index(file)
         success(f'{self.mode}, {len(self)} indices Loaded.', verbose)
 
