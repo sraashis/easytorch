@@ -240,10 +240,13 @@ class EasyTorch:
             _utils.save_cache(self.conf, engine.cache, name=f"{engine.conf['name']}_test")
         return test_out
 
-    def _inference(self, data_split, engine, dataset_cls, distributed=False):
+    def _inference(self, data_split, engine, dataset_cls):
         infer_dataset = engine.data_handle.get_dataset(Phase.INFERENCE, data_split, dataset_cls)
         dataloader = engine.data_handle.get_data_loader(
-            handle_key=Phase.INFERENCE, shuffle=False, dataset=infer_dataset, distributed=distributed,
+            handle_key=Phase.INFERENCE,
+            shuffle=False,
+            dataset=infer_dataset,
+            distributed=self.conf['use_ddp'] and self.conf.get('distributed_inference'),
             use_unpadded_sampler=True,
         )
         engine.inference(dataloader=dataloader)
@@ -289,5 +292,5 @@ class EasyTorch:
                 self._run_test(data_split, engine, dataset_cls)
 
         if self.conf['phase'] == Phase.INFERENCE:
-            self._inference(data_split, engine, dataset_cls, self.conf.setdefault('distributed_inference', False))
+            self._inference(data_split, engine, dataset_cls)
         _cleanup(engine, engine.data_handle)
