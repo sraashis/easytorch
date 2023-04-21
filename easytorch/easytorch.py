@@ -28,15 +28,15 @@ _DEFAULT_YAML = str(_Path(__file__).resolve().parent) + _sep + "config" + _sep +
 def _ddp_worker(rank, self, runner_cls, dataset_cls, data_handle_cls):
     self.conf['gpu'] = self.conf['gpus'][rank]
     self.conf['verbose'] = rank == MASTER_RANK
-    world_size = self.conf['world_size']
-    if not world_size:
-        world_size = self.conf['num_gpus'] * self.conf['num_nodes']
+    if self.conf.get('world_size') is None:
+        self.conf['world_size'] = self.conf['num_gpus'] * self.conf['num_nodes']
+
     self.conf['world_rank'] = self.conf['node_rank'] * self.conf['num_gpus'] + rank
 
     self.conf['is_master'] = self.conf['world_rank'] == MASTER_RANK
     _dist.init_process_group(backend=self.conf['dist_backend'],
                              init_method=self.conf['init_method'],
-                             world_size=world_size, rank=self.conf['world_rank'])
+                             world_size=self.conf['world_size'], rank=self.conf['world_rank'])
     self._run(runner_cls, dataset_cls, data_handle_cls)
 
 
