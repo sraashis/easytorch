@@ -94,6 +94,9 @@ class EasyTorch:
         self.conf['save_dir'] = self.conf['output_base_dir'] + _sep + self.conf['phase'].upper() + _sep + self.conf[
             "name"]
 
+        """ No multi Loading in other than train mode """
+        self.conf['multi_load'] = self.conf['multi_load'] and self.conf['phase'] == Phase.TRAIN
+
     def _device_check(self):
         self.conf['gpus'] = self.conf['gpus'] if self.conf.get('gpus') else []
         if self.conf['verbose'] and len(self.conf['gpus']) > NUM_GPUS:
