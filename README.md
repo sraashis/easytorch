@@ -164,7 +164,8 @@ class MyDataset(ETDataset):
 ### Run as:
 
 `python script.py -ph train -b 512 -e 10 -gpus 0`
-One can directly pass args as below. 
+
+One can also directly pass arguments as below which overrides all.
 ```python
 from easytorch import EasyTorch
 
