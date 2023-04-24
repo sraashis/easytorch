@@ -92,7 +92,7 @@ from easytorch import ETRunner, Prf1a, ETMeter, AUCROCMetrics
 class MyTrainer(ETRunner):
 
     def _init_nn_model(self):
-        self.nn['model'] = NeuralNetModel(out_size=self.cfg['num_class'])
+        self.nn['model'] = NeuralNetModel(out_size=self.conf['num_class'])
 
     def iteration(self, batch):
         """Handle a single batch"""
