@@ -92,7 +92,7 @@ from easytorch import ETRunner, Prf1a, ETMeter, AUCROCMetrics
 class MyTrainer(ETRunner):
 
     def _init_nn_model(self):
-        self.nn['model'] = NeuralNetModel(out_size=self.conf['num_class'])
+        self.nn['model'] = NeuralNetModel(out_size=self.cfg['num_class'])
 
     def iteration(self, batch):
         """Handle a single batch"""
@@ -161,13 +161,21 @@ class MyDataset(ETDataset):
 ```
 
 #### 3. Entry point (say main.py)
+### Run as:
 
+`python script.py -ph train -b 512 -e 10 -gpus 0`
+One can directly pass args as below. 
 ```python
 from easytorch import EasyTorch
 
-runner = EasyTorch(phase="train", batch_size=4, epochs=21,
-                   num_channel=1, num_class=2,
-                   split_ratio=[0.6, 0.2, 0.2])
+runner = EasyTorch(phase="train", 
+                    batch_size=4, 
+                    epochs=10,
+                   gpus=[0],
+                   num_channel=1, 
+                   num_class=2,
+                   data_source="<some_data>/data_split.json")
+runner.run(MyTrainer, MyDataset)
 ```
 
 ### All the best! Cheers! 🎉
