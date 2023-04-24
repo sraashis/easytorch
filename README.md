@@ -161,13 +161,18 @@ class MyDataset(ETDataset):
 ```
 
 #### 3. Entry point (say main.py)
+### Run as:
 
+`python main.py -ph train -b 512 -e 10 -gpus 0`
+
+One can also directly pass arguments as below which overrides all.
 ```python
 from easytorch import EasyTorch
 
-runner = EasyTorch(phase="train", batch_size=4, epochs=21,
-                   num_channel=1, num_class=2,
-                   split_ratio=[0.6, 0.2, 0.2])
+runner = EasyTorch(phase="train", batch_size=4, epochs=10,
+                   gpus=[0], num_channel=1, 
+                   num_class=2, data_source="<some_data>/data_split.json")
+runner.run(MyTrainer, MyDataset)
 ```
 
 ### All the best! Cheers! 🎉
