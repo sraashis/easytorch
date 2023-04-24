@@ -169,13 +169,9 @@ One can also directly pass arguments as below which overrides all.
 ```python
 from easytorch import EasyTorch
 
-runner = EasyTorch(phase="train", 
-                    batch_size=4, 
-                    epochs=10,
-                   gpus=[0],
-                   num_channel=1, 
-                   num_class=2,
-                   data_source="<some_data>/data_split.json")
+runner = EasyTorch(phase="train", batch_size=4, epochs=10,
+                   gpus=[0], num_channel=1, 
+                   num_class=2, data_source="<some_data>/data_split.json")
 runner.run(MyTrainer, MyDataset)
 ```
 
