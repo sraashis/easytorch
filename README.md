@@ -163,7 +163,7 @@ class MyDataset(ETDataset):
 #### 3. Entry point (say main.py)
 ### Run as:
 
-`python script.py -ph train -b 512 -e 10 -gpus 0`
+`python main.py -ph train -b 512 -e 10 -gpus 0`
 
 One can also directly pass arguments as below which overrides all.
 ```python
