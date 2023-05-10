@@ -377,6 +377,8 @@ class ETRunner:
 
             running_meter.reset()
 
+    def _inference_output_name():
+        return f"{self.conf['save_dir']}{_sep}INFERENCE_{self.conf['RUN-ID']}.csv"
     @_torch.no_grad()
     def inference(self, dataloader):
         self.mode = Phase.INFERENCE
@@ -384,8 +386,7 @@ class ETRunner:
         first_model = list(self.nn.keys())[0]
         self.nn[first_model].eval()
 
-        self.cache['output_csv'] = f"{self.conf['save_dir']}{_sep}CHUNK-{self.conf['world_rank']}." \
-                                   f"{self.conf['name']}.csv"
+        self.cache['output_csv'] = self._inference_output_name()
         with open(self.cache['output_csv'], 'w') as fw:
             for i, batch in enumerate(dataloader, 1):
                 self.batch_index = i
