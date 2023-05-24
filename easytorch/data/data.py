@@ -77,7 +77,6 @@ class ETDataHandle:
         args = {**self.conf}
         args['distributed'] = distributed
         args['use_unpadded_sampler'] = use_unpadded_sampler
-        args.update(self.dataloader_args.get(handle_key, {}))
         args.update(**kw)
 
         if args.get('dataset') is None:
@@ -98,6 +97,7 @@ class ETDataHandle:
 
         for k in loader_args.keys():
             loader_args[k] = args.get(k, loader_args.get(k))
+        loader_args.update(**self.dataloader_args.get(handle_key, {}))
 
         if loader_args['sampler'] is not None:
             """Sampler and shuffle are mutually exclusive"""
