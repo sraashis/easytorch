@@ -4,6 +4,7 @@ from functools import partial as _partial
 from typing import Callable
 
 import numpy as _np
+import random as _random
 import torch as _torch
 from torch.utils.data._utils.collate import default_collate as _default_collate
 
@@ -50,6 +51,7 @@ def batch_size(conf, loader_args, distributed=False):
 def seed_worker(worker_id):
     seed = (int(_torch.initial_seed()) + worker_id) % (2 ** 32 - 1)
     _np.random.seed(seed)
+    _random.seed(seed)
 
 
 def _et_data_job(file, mode, conf, dataset_cls, diskcache):
