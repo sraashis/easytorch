@@ -88,11 +88,12 @@ class EasyTorch:
         self._device_check()
         self._ddp_setup()
         self._make_reproducible()
-        self.conf.update(is_master=self.conf.get('is_master', True), world_rank=0)
-        self.conf['RUN-ID'] = _dtime.now().strftime("ET-%Y%m%d-%H%M%S-") + _uuid.uuid4().hex[:4].upper()
+        self.conf.update(is_master=self.conf.get('is_master', True))
+        self.conf['RUN-ID'] = _dtime.now().strftime("ET-%Y-%m-%d-%H%M%S-") + _uuid.uuid4().hex[:8].upper()
 
-        self.conf['save_dir'] = self.conf['output_base_dir'] + _sep + self.conf['phase'].upper() + _sep + self.conf[
-            "name"]
+        self.conf['save_dir'] = self.conf['output_base_dir'] + _sep + (
+                self.conf['phase'].upper() + _sep + self.conf["name"]
+        )
 
         """ No multi Loading in other than train mode """
         self.conf['multi_load'] = self.conf['multi_load'] and self.conf['phase'] == Phase.TRAIN
@@ -188,7 +189,7 @@ class EasyTorch:
         train_loader = engine.data_handle.get_data_loader(
             handle_key='train',
             shuffle=True,
-            datset=engine.data_handle.get_dataset(Phase.TRAIN, data_split, dataset_cls),
+            dataset=engine.data_handle.get_dataset(Phase.TRAIN, data_split, dataset_cls),
             distributed=self.conf['use_ddp'])
 
         val_dataset = engine.data_handle.get_dataset(Phase.VALIDATION, data_split, dataset_cls)
@@ -230,9 +231,15 @@ class EasyTorch:
                                    map_location=engine.device['gpu'], load_optimizer_state=False)
 
         """ Run and save experiment test scores """
-        test_out = engine.evaluation(dataloader=dataloader, mode=Phase.TEST, save_predictions=True)
-        test_meter = engine.reduce_scores([test_out], distributed=False)
-        engine.cache[LogKey.TEST_METRICS] = [test_meter.get()]
+        engine.cache[
+            'output_csv_TEST'
+        ] = f"{engine.conf['save_dir']}{_sep}TEST_results_{engine.conf['RUN-ID']}.csv"
+        with open(engine.cache[f'output_csv_TEST'], 'w') as rw:
+            test_out = engine.evaluation(dataloader=dataloader, mode=Phase.TEST,
+                                         save_predictions=True, results_writer=rw)
+
+            test_meter = engine.reduce_scores([test_out], distributed=False)
+            engine.cache[LogKey.TEST_METRICS] = [test_meter.get()]
         _utils.save_scores(self.conf['save_dir'], engine.cache, name=engine.conf['name'],
                            file_keys=[LogKey.TEST_METRICS])
 
@@ -242,6 +249,7 @@ class EasyTorch:
 
     def _inference(self, data_split, engine, dataset_cls):
         infer_dataset = engine.data_handle.get_dataset(Phase.INFERENCE, data_split, dataset_cls)
+
         dataloader = engine.data_handle.get_data_loader(
             handle_key=Phase.INFERENCE,
             shuffle=False,
@@ -249,7 +257,12 @@ class EasyTorch:
             distributed=self.conf['use_ddp'] and self.conf.get('distributed_inference'),
             use_unpadded_sampler=True,
         )
-        engine.inference(dataloader=dataloader)
+
+        engine.cache[
+            'output_csv_INFERENCE'
+        ] = f"{engine.conf['save_dir']}{_sep}INFERENCE_results_{engine.conf['RUN-ID']}.csv"
+        with open(engine.cache[f'output_csv_INFERENCE'], 'w') as rw:
+            engine.inference(dataloader=dataloader, results_writer=rw)
         _utils.save_cache(self.conf, engine.cache, name=f"{engine.conf['name']}_inference")
 
     def run(self, runner_cls: typing.Type[ETRunner],

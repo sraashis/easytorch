@@ -217,7 +217,8 @@ class ETRunner:
                    epoch=1,
                    mode='validation',
                    dataloader=None,
-                   save_predictions=False) -> _metrics.ETMeter:
+                   save_predictions=False,
+                   results_writer=None) -> _metrics.ETMeter:
         self.mode = mode
         for k in self.nn:
             self.nn[k].eval()
@@ -239,7 +240,7 @@ class ETRunner:
                     it = self.iteration(batch)
 
                     if save_predictions:
-                        _update_scores(self.save_predictions(dataloader.dataset, it), it, meter)
+                        _update_scores(self.save_predictions(dataloader.dataset, it, results_writer), it, meter)
                     else:
                         _update_scores(None, it, meter)
 
@@ -377,22 +378,18 @@ class ETRunner:
 
             running_meter.reset()
 
-    def _inference_output_name():
-        return f"{self.conf['save_dir']}{_sep}INFERENCE_{self.conf['RUN-ID']}.csv"
     @_torch.no_grad()
-    def inference(self, dataloader):
+    def inference(self, dataloader, results_writer):
         self.mode = Phase.INFERENCE
 
         first_model = list(self.nn.keys())[0]
         self.nn[first_model].eval()
 
-        self.cache['output_csv'] = self._inference_output_name()
-        with open(self.cache['output_csv'], 'w') as fw:
-            for i, batch in enumerate(dataloader, 1):
-                self.batch_index = i
-                it = self.iteration(batch)
-                self.save_predictions(dataloader.dataset, it, writer=fw)
-                info(f"{self.conf['name']}, batch {i}/{len(dataloader)} done", self.conf['verbose'])
+        for i, batch in enumerate(dataloader, 1):
+            self.batch_index = i
+            it = self.iteration(batch)
+            self.save_predictions(dataloader.dataset, it, writer=results_writer)
+            info(f"{self.conf['name']}, batch {i}/{len(dataloader)} done", self.conf['verbose'])
 
         success(f"{self.conf['name']}, Inference results saved in:"
                 f"\n\t{self.cache['output_csv']}", self.conf['verbose'])
