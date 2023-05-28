@@ -162,7 +162,7 @@ class ETDataHandle:
             else:
                 split = _du.create_ratio_split(files, self.conf['split_ratio'])
 
-        _spl = self.conf['save_dir'] + _sep + f"SPLIT_{_Path(self.conf['save_dir']).name}_{self.conf['name']}.json"
+        _spl = self.conf['save_dir'] + _sep + f"SPLIT_{self.conf['name']}.json"
         with open(_spl, 'w') as fw:
             _json.dump(split, fw)
 
