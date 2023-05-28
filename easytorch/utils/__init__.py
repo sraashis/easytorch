@@ -31,7 +31,7 @@ def save_scores(save_dir, cache, name='', file_keys=[]):
             header = header.replace('|', ',')
             if isinstance(header, list):
                 header = ','.join(header)
-            file.write('Scores,' + header + '\n')
+            file.write(header + '\n')
             for line in cache[fk]:
                 if isinstance(line, list):
                     file.write(','.join([str(s) for s in line]) + '\n')
