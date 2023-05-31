@@ -392,7 +392,7 @@ class ETRunner:
             info(f"{self.conf['name']}, batch {i}/{len(dataloader)} done", self.conf['verbose'])
 
         success(f"{self.conf['name']}, Inference results saved in:"
-                f"\n\t{self.cache['output_csv']}", self.conf['verbose'])
+                f"\n\t{results_writer.name}", self.conf['verbose'])
 
     def train(self, train_loader, validation_loader) -> None:
         ep = 0
