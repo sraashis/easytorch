@@ -59,7 +59,7 @@ class MNISTTrainer(ETRunner):
 
     def new_meter(self):
         return ETMeter(
-            cfm=ConfusionMatrix(num_classes=10)
+            cfm=ConfusionMatrix(num_classes=10, device=self.device['gpu'])
         )
 
 
