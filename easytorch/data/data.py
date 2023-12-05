@@ -152,6 +152,10 @@ class ETDataHandle:
             elif p.suffix == '.txt':
                 with open(str(p)) as fw:
                     files = fw.read().splitlines()
+
+            elif p.is_file():
+                files = [self.data_source]
+
             else:
                 raise ValueError(f"Unknown data source: {self.data_source}")
 

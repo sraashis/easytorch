@@ -42,8 +42,8 @@ class MNISTTrainer(ETRunner):
     def new_meter(self):
         return ETMeter(
             num_averages=2,  # Since we are tracing two losses
-            cmf=ConfusionMatrix(num_classes=10),
-            auc=AUCROCMetrics()
+            cmf=ConfusionMatrix(num_classes=10, device=self.device['gpu']),
+            auc=AUCROCMetrics(),
         )
 
 
@@ -53,7 +53,8 @@ val_dataset = datasets.MNIST('../data', train=False,
                              transform=transform)
 
 dataloader_args = {'train': {'dataset': train_dataset},
-                   'validation': {'dataset': val_dataset}}
+                   'validation': {'dataset': val_dataset},
+                   'test': {'dataset': val_dataset}}
 runner = EasyTorch(phase='train', distributed_validation=True,
                    batch_size=512, epochs=21,
                    dataloader_args=dataloader_args,

@@ -19,6 +19,8 @@ def plot_progress(save_dir, cache, name='', plot_keys=[], num_points=31, epoch=N
     r"""
     Custom plot to plot data from the cache by keys.
     """
+    save_to = save_dir + _os.sep + "_plots"
+    _os.makedirs(save_to, exist_ok=True)
     for k in plot_keys:
         D = _np.array(cache.get(k, []))
         if len(D) == 0 or cache.get('log_header') is None:
@@ -57,6 +59,6 @@ def plot_progress(save_dir, cache, name='', plot_keys=[], num_points=31, epoch=N
                 ax.set_xticklabels(xticks_range)
 
             _plt.xlabel('Epochs')
-            _plt.savefig(save_dir + _os.sep + f"{name}_{k}_{plot_id}.png", bbox_inches='tight')
+            _plt.savefig(save_to + _os.sep + f"{name}_{k}_{plot_id}.png", bbox_inches='tight')
             _plt.close('all')
             i = j

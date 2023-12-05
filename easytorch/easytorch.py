@@ -89,8 +89,6 @@ class EasyTorch:
         self._ddp_setup()
         self._make_reproducible()
         self.conf.update(is_master=self.conf.get('is_master', True))
-        self.conf['RUN-ID'] = _dtime.now().strftime("ET-%Y-%m-%d-%H%M%S-") + _uuid.uuid4().hex[:8].upper()
-
         self.conf['save_dir'] = self.conf['output_base_dir'] + _sep + (
                 self.conf['phase'].upper() + _sep + self.conf["name"]
         )
@@ -207,16 +205,14 @@ class EasyTorch:
 
         engine.save_checkpoint(engine.conf['save_dir'] + _sep + engine.cache['latest_checkpoint'])
 
-        train_log = engine.conf['save_dir'] + _sep + ".train_log.npy"
-        val_log = engine.conf['save_dir'] + _sep + ".validation_log.npy"
+        train_log = engine.conf['save_dir'] + _sep + ".train_log.csv"
+        val_log = engine.conf['save_dir'] + _sep + ".validation_log.csv"
 
-        _np.save(train_log, _np.array(engine.cache[LogKey.TRAIN_LOG]))
-        _np.save(val_log, _np.array(engine.cache[LogKey.TRAIN_LOG]))
+        _np.savetxt(train_log, _np.array(engine.cache[LogKey.TRAIN_LOG]), delimiter=',', fmt='%.5f')
+        _np.savetxt(val_log, _np.array(engine.cache[LogKey.VALIDATION_LOG]), delimiter=',', fmt='%.5f')
 
         engine.cache[LogKey.TRAIN_LOG] = train_log
         engine.cache[LogKey.VALIDATION_LOG] = val_log
-        _utils.save_cache(self.conf, engine.cache, name=engine.conf['name'] + "_train")
-        engine.cache['_saved'] = True
 
     def _run_test(self, data_split, engine, dataset_cls, distributed=False) -> dict:
         test_dataset = engine.data_handle.get_dataset(Phase.TEST, data_split, dataset_cls)
@@ -233,18 +229,13 @@ class EasyTorch:
         """ Run and save experiment test scores """
         engine.cache[
             'output_csv_TEST'
-        ] = f"{engine.conf['save_dir']}{_sep}TEST_results_{engine.conf['RUN-ID']}.csv"
+        ] = f"{engine.conf['save_dir']}{_sep}test_results_{engine.conf['RUN-ID']}.csv"
         with open(engine.cache[f'output_csv_TEST'], 'w') as rw:
             test_out = engine.evaluation(dataloader=dataloader, mode=Phase.TEST,
                                          save_predictions=True, results_writer=rw)
 
             test_meter = engine.reduce_scores([test_out], distributed=False)
-            engine.cache[LogKey.TEST_METRICS] = [test_meter.get()]
-        _utils.save_scores(self.conf['save_dir'], engine.cache, name=engine.conf['name'],
-                           file_keys=[LogKey.TEST_METRICS])
-
-        if not engine.cache.get('_saved'):
-            _utils.save_cache(self.conf, engine.cache, name=f"{engine.conf['name']}_test")
+            engine.cache[LogKey.TEST_METRICS] = f"{test_meter}"
         return test_out
 
     def _inference(self, data_split, engine, dataset_cls):
@@ -260,16 +251,16 @@ class EasyTorch:
 
         engine.cache[
             'output_csv_INFERENCE'
-        ] = f"{engine.conf['save_dir']}{_sep}INFERENCE_results_{engine.conf['RUN-ID']}.csv"
+        ] = f"{engine.conf['save_dir']}{_sep}inference_results_{engine.conf['RUN-ID']}.csv"
         with open(engine.cache[f'output_csv_INFERENCE'], 'w') as rw:
             engine.inference(dataloader=dataloader, results_writer=rw)
-        _utils.save_cache(self.conf, engine.cache, name=f"{engine.conf['name']}_inference")
 
     def run(self, runner_cls: typing.Type[ETRunner],
             dataset_cls: typing.Type[ETDataset] = ETDataset,
             data_handle_cls: typing.Type[ETDataHandle] = ETDataHandle):
 
         if self.conf['is_master']:
+            """To avoid problems if the mount is the same location for multiple nodes(usually the case"""
             self._maybe_advance_run()
             _os.makedirs(self.conf['save_dir'], exist_ok=self.conf['force'])
 
@@ -283,6 +274,7 @@ class EasyTorch:
             self._run(runner_cls, dataset_cls, data_handle_cls)
 
     def _run(self, runner_cls, dataset_cls, data_handle_cls):
+        self.conf['RUN-ID'] = f"RUN{self.conf.get('world_rank', 0)}-" + _uuid.uuid4().hex[:8].upper()
 
         engine = runner_cls(
             conf=self.conf,
@@ -291,6 +283,9 @@ class EasyTorch:
                 dataloader_args=self.dataloader_args
             )
         )
+
+        engine.cache['START-TIME'] = _dtime.now().strftime("%Y-%m-%d %H:%M:%S")
+        _utils.save_cache(self.conf, {}, name=f"{self.conf['name']}_{self.conf['phase']}".upper())
 
         self._prepare_nn_engine(engine)
 
@@ -307,3 +302,5 @@ class EasyTorch:
         if self.conf['phase'] == Phase.INFERENCE:
             self._inference(data_split, engine, dataset_cls)
         _cleanup(engine, engine.data_handle)
+        engine.cache['END-TIME'] = _dtime.now().strftime("%Y-%m-%d %H:%M:%S")
+        _utils.save_cache(self.conf, engine.cache, name=f"{engine.conf['name']}_{self.conf['phase']}".upper())

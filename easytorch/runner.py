@@ -245,7 +245,7 @@ class ETRunner:
                         _update_scores(None, it, meter)
 
                     if self.conf['verbose'] and lazy_debug(i, add=epoch):
-                        info(f"  Itr:{i}/{len(dataloader)}, {it['meter']}")
+                        info(f"  Itr:{i}/{len(dataloader)}, {meter}")  # Accumulative score
 
                 if self.conf['verbose']:
                     info(f" {mode}, {meter}")
