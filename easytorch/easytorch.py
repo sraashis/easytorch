@@ -229,7 +229,7 @@ class EasyTorch:
         """ Run and save experiment test scores """
         engine.cache[
             'output_csv_TEST'
-        ] = f"{engine.conf['save_dir']}{_sep}test_results_{engine.conf['RUN-ID']}.csv"
+        ] = f"{engine.conf['save_dir']}{_sep}{engine.conf['RUN-ID']}_test_results.csv"
         with open(engine.cache[f'output_csv_TEST'], 'w') as rw:
             test_out = engine.evaluation(dataloader=dataloader, mode=Phase.TEST,
                                          save_predictions=True, results_writer=rw)
@@ -251,7 +251,7 @@ class EasyTorch:
 
         engine.cache[
             'output_csv_INFERENCE'
-        ] = f"{engine.conf['save_dir']}{_sep}inference_results_{engine.conf['RUN-ID']}.csv"
+        ] = f"{engine.conf['save_dir']}{_sep}{engine.conf['RUN-ID']}_inference_results.csv"
         with open(engine.cache[f'output_csv_INFERENCE'], 'w') as rw:
             engine.inference(dataloader=dataloader, results_writer=rw)
 
@@ -274,7 +274,13 @@ class EasyTorch:
             self._run(runner_cls, dataset_cls, data_handle_cls)
 
     def _run(self, runner_cls, dataset_cls, data_handle_cls):
-        self.conf['RUN-ID'] = f"RUN{self.conf.get('world_rank', 0)}-" + _uuid.uuid4().hex[:8].upper()
+        run_id_parts = [
+            _dtime.now().strftime(f'%Y-%m-%d_%H%M%S'),
+            f"R{self.conf.get('world_rank', 0)}",
+            _uuid.uuid4().hex[:8].upper()
+        ]
+
+        self.conf['RUN-ID'] = "-".join(run_id_parts)
 
         engine = runner_cls(
             conf=self.conf,
@@ -285,7 +291,8 @@ class EasyTorch:
         )
 
         engine.cache['START-TIME'] = _dtime.now().strftime("%Y-%m-%d %H:%M:%S")
-        _utils.save_cache(self.conf, {}, name=f"{self.conf['name']}_{self.conf['phase']}".upper())
+        _utils.save_cache(self.conf, {},
+                          name=f"{engine.conf['RUN-ID']}_{self.conf['name']}_{self.conf['phase']}")
 
         self._prepare_nn_engine(engine)
 
@@ -303,4 +310,5 @@ class EasyTorch:
             self._inference(data_split, engine, dataset_cls)
         _cleanup(engine, engine.data_handle)
         engine.cache['END-TIME'] = _dtime.now().strftime("%Y-%m-%d %H:%M:%S")
-        _utils.save_cache(self.conf, engine.cache, name=f"{engine.conf['name']}_{self.conf['phase']}".upper())
+        _utils.save_cache(self.conf, engine.cache,
+                          name=f"{engine.conf['RUN-ID']}_{self.conf['name']}_{self.conf['phase']}")

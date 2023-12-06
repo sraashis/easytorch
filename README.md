@@ -59,7 +59,8 @@ class MNISTTrainer(ETRunner):
 
     def new_meter(self):
         return ETMeter(
-            cfm=ConfusionMatrix(num_classes=10, device=self.device['gpu'])
+            cfm=ConfusionMatrix(num_classes=10),
+            device=self.device['gpu']
         )
 
 
@@ -105,7 +106,8 @@ class MyTrainer(ETRunner):
         return ETMeter(
             num_averages=1,
             prf1a=Prf1a(),
-            auc=AUCROCMetrics()
+            auc=AUCROCMetrics(),
+            device=self.device['gpu']
         )
 
     def init_cache(self):

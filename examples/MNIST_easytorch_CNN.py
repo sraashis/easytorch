@@ -42,8 +42,9 @@ class MNISTTrainer(ETRunner):
     def new_meter(self):
         return ETMeter(
             num_averages=2,  # Since we are tracing two losses
-            cmf=ConfusionMatrix(num_classes=10, device=self.device['gpu']),
+            cmf=ConfusionMatrix(num_classes=10),
             auc=AUCROCMetrics(),
+            device=self.device['gpu']
         )
 
 

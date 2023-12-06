@@ -167,9 +167,13 @@ class ETAverages(ETMetrics):
 
 
 class ETMeter:
-    def __init__(self, num_averages=1, **kw):
+    def __init__(self, num_averages=1, device='cpu', **kw):
         self.averages = ETAverages(num_averages)
+        self.device = device
         self.metrics = {**kw}
+        for mk in self.metrics:
+            self.metrics[mk].device = self.device
+            self.metrics[mk].reset()
 
     def get(self):
         res = self.averages.get()
